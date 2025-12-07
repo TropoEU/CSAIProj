@@ -10,7 +10,8 @@
     "migrate:down": "node src/scripts/migrate.js down",
     "migrate:status": "node src/scripts/migrate.js status",
     "test": "node tests/models/Client.test.js",
-    "test:models": "node tests/models/Client.test.js"
+    "test:models": "node tests/models/Client.test.js",
+    "test:redis": "node tests/services/redisCache.test.js"
   },
   "keywords": [],
   "author": "",

@@ -73,34 +73,34 @@ Building a multi-tenant AI agent platform that businesses can embed as a chat wi
 
 ### 1.1b Redis Schema Design
 
-- [ ] **Active conversation context** (key: `conversation:{session_id}`, TTL: 1 hour)
+- [x] **Active conversation context** (key: `conversation:{session_id}`, TTL: 1 hour)
   - Cache recent messages for fast access
-- [ ] **Rate limiting** (key: `rate_limit:{client_id}:{minute}`, TTL: 60s)
+- [x] **Rate limiting** (key: `rate_limit:{client_id}:{minute}`, TTL: 60s)
   - Track requests per minute per client
-- [ ] **Response caching** (key: `cache:{hash}`, TTL: 5 minutes)
+- [x] **Response caching** (key: `cache:{hash}`, TTL: 5 minutes)
   - Cache identical questions to save API costs
-- [ ] **Session locks** (key: `lock:conversation:{session_id}`, TTL: 30s)
+- [x] **Session locks** (key: `lock:conversation:{session_id}`, TTL: 30s)
   - Prevent duplicate message processing
 
 ### 1.2 Migration Scripts
 
-- [ ] Create `db/migrations/` directory
-- [ ] Write SQL migration files for all tables
-- [ ] Create migration runner script
+- [x] Create `db/migrations/` directory
+- [x] Write SQL migration files for all tables
+- [x] Create migration runner script
 - [ ] Add seed data for testing
 
 ### 1.3 Database Access Layer
 
-- [ ] Create `backend/src/models/` directory
-- [ ] Implement **Client** model with CRUD operations
-- [ ] Implement **Conversation** model
-- [ ] Implement **Message** model (with token tracking + auto-deletion after 30 days)
-- [ ] Implement **Tool** model (master tool catalog)
-- [ ] Implement **ClientTool** model (junction table - which clients have which tools)
-- [ ] Implement **ClientIntegration** model (connection configs for live data)
-- [ ] Implement **IntegrationEndpoint** model (available data sources)
-- [ ] Implement **ApiUsage** model (billing tracking)
-- [ ] Implement **ToolExecution** model (audit logging)
+- [x] Create `backend/src/models/` directory
+- [x] Implement **Client** model with CRUD operations
+- [x] Implement **Conversation** model
+- [x] Implement **Message** model (with token tracking + auto-deletion after 30 days)
+- [x] Implement **Tool** model (master tool catalog)
+- [x] Implement **ClientTool** model (junction table - which clients have which tools)
+- [x] Implement **ClientIntegration** model (connection configs for live data)
+- [x] Implement **IntegrationEndpoint** model (available data sources)
+- [x] Implement **ApiUsage** model (billing tracking)
+- [x] Implement **ToolExecution** model (audit logging)
 
 ### 1.4 Data Retention Scripts
 
