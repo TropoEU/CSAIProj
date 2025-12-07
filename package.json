@@ -1,0 +1,11 @@
+{
+    "name": "backend",
+    "version": "1.0.0",
+    "scripts": {
+      "backend": "node backend/src/index.js",
+      "dockerup": "docker compose --env-file ./backend/.env -f ./docker/docker-compose.yml up -d",
+      "dockerdown": "docker compose --env-file ./backend/.env -f ./docker/docker-compose.yml stop",
+      "dockerclean": "docker compose --env-file ./backend/.env -f ./docker/docker-compose.yml down"
+    }
+  }
+  
