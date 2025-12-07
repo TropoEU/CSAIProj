@@ -5,7 +5,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/index.js",
+    "migrate": "node src/scripts/migrate.js up",
+    "migrate:down": "node src/scripts/migrate.js down",
+    "migrate:status": "node src/scripts/migrate.js status",
+    "test": "node tests/models/Client.test.js",
+    "test:models": "node tests/models/Client.test.js"
   },
   "keywords": [],
   "author": "",

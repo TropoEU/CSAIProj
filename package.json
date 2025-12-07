@@ -1,11 +1,34 @@
 {
-    "name": "backend",
+    "name": "csaiproj",
     "version": "1.0.0",
     "scripts": {
+      "//": "=== BACKEND SERVER ===",
       "backend": "node backend/src/index.js",
+      "//backend": "Start the Express backend server",
+
+      "//1": "=== DATABASE MIGRATIONS ===",
+      "migrate": "cd backend && node src/scripts/migrate.js up",
+      "//migrate": "Apply all pending database migrations",
+      "migrate:down": "cd backend && node src/scripts/migrate.js down",
+      "//migrate:down": "Rollback the last applied migration",
+      "migrate:status": "cd backend && node src/scripts/migrate.js status",
+      "//migrate:status": "Show which migrations are applied vs pending",
+
+      "//2": "=== TESTING ===",
+      "test": "cd backend && node tests/integration/all-models.test.js",
+      "//test": "Run comprehensive integration tests (all 9 models)",
+      "test:models": "cd backend && node tests/models/Client.test.js",
+      "//test:models": "Run quick Client model test only",
+      "test:all": "cd backend && node tests/integration/all-models.test.js",
+      "//test:all": "Same as 'pnpm test' - runs all model tests",
+
+      "//3": "=== DOCKER ===",
       "dockerup": "docker compose --env-file ./backend/.env -f ./docker/docker-compose.yml up -d",
+      "//dockerup": "Start Docker containers (Postgres, Redis, n8n) in background",
       "dockerdown": "docker compose --env-file ./backend/.env -f ./docker/docker-compose.yml stop",
-      "dockerclean": "docker compose --env-file ./backend/.env -f ./docker/docker-compose.yml down"
+      "//dockerdown": "Stop Docker containers (data persists)",
+      "dockerclean": "docker compose --env-file ./backend/.env -f ./docker/docker-compose.yml down",
+      "//dockerclean": "Stop and remove Docker containers (deletes data!)"
     }
   }
   

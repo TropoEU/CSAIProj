@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(tree:*)",
+      "Bash(docker --version:*)",
+      "Bash(node:*)",
+      "Bash(pnpm:*)",
+      "Bash(npm --version:*)",
+      "Bash(wsl --version)",
+      "Bash(wsl -e bash -c \"pnpm --version\":*)",
+      "Bash(wsl -e bash -c:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
