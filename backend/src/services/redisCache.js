@@ -1,8 +1,9 @@
 import { redisClient } from '../redis.js';
+import crypto from 'crypto';
 
 /**
  * Redis Cache Service
- * 
+ *
  * Implements Redis schema design for:
  * - Active conversation context caching
  * - Rate limiting per client
@@ -35,14 +36,19 @@ export class RedisCache {
      * @returns {Promise<boolean>} Success status
      */
     static async setConversationContext(sessionId, context) {
-        const key = `${this.CONVERSATION_PREFIX}${sessionId}`;
-        const value = JSON.stringify({
-            ...context,
-            last_activity: new Date().toISOString()
-        });
-        
-        await redisClient.setex(key, this.CONVERSATION_TTL, value);
-        return true;
+        try {
+            const key = `${this.CONVERSATION_PREFIX}${sessionId}`;
+            const value = JSON.stringify({
+                ...context,
+                last_activity: new Date().toISOString()
+            });
+
+            await redisClient.setex(key, this.CONVERSATION_TTL, value);
+            return true;
+        } catch (error) {
+            console.error('Set conversation context failed:', error);
+            return false;
+        }
     }
 
     /**
@@ -51,14 +57,19 @@ export class RedisCache {
      * @returns {Promise<Object|null>} Context data or null if not found
      */
     static async getConversationContext(sessionId) {
-        const key = `${this.CONVERSATION_PREFIX}${sessionId}`;
-        const value = await redisClient.get(key);
-        
-        if (!value) {
+        try {
+            const key = `${this.CONVERSATION_PREFIX}${sessionId}`;
+            const value = await redisClient.get(key);
+
+            if (!value) {
+                return null;
+            }
+
+            return JSON.parse(value);
+        } catch (error) {
+            console.error('Get conversation context failed:', error);
             return null;
         }
-        
-        return JSON.parse(value);
     }
 
     /**
@@ -108,38 +119,49 @@ export class RedisCache {
      * @returns {Promise<{allowed: boolean, remaining: number, resetIn: number}>}
      */
     static async checkRateLimit(clientId, maxRequests = 60) {
-        const now = new Date();
-        const minute = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}`;
-        const key = `${this.RATE_LIMIT_PREFIX}${clientId}:${minute}`;
-        
-        const current = await redisClient.get(key);
-        const count = current ? parseInt(current) : 0;
-        
-        if (count >= maxRequests) {
-            const ttl = await redisClient.ttl(key);
+        try {
+            // Use Unix timestamp divided by 60 to get current minute bucket
+            const now = Math.floor(Date.now() / 1000);
+            const currentMinute = Math.floor(now / 60);
+            const key = `${this.RATE_LIMIT_PREFIX}${clientId}:${currentMinute}`;
+
+            const current = await redisClient.get(key);
+            const count = current ? parseInt(current) : 0;
+
+            if (count >= maxRequests) {
+                const ttl = await redisClient.ttl(key);
+                return {
+                    allowed: false,
+                    remaining: 0,
+                    resetIn: ttl > 0 ? ttl : this.RATE_LIMIT_TTL
+                };
+            }
+
+            // Increment counter
+            let newCount;
+            if (count === 0) {
+                // First request in this minute, set with TTL
+                await redisClient.setex(key, this.RATE_LIMIT_TTL, '1');
+                newCount = 1;
+            } else {
+                // Increment existing counter (preserves TTL)
+                newCount = await redisClient.incr(key);
+            }
+
             return {
-                allowed: false,
-                remaining: 0,
-                resetIn: ttl > 0 ? ttl : this.RATE_LIMIT_TTL
+                allowed: true,
+                remaining: maxRequests - newCount,
+                resetIn: await redisClient.ttl(key)
+            };
+        } catch (error) {
+            // On Redis error, allow the request (fail open)
+            console.error('Rate limit check failed:', error);
+            return {
+                allowed: true,
+                remaining: maxRequests,
+                resetIn: this.RATE_LIMIT_TTL
             };
         }
-        
-        // Increment counter
-        let newCount;
-        if (count === 0) {
-            // First request in this minute, set with TTL
-            await redisClient.setex(key, this.RATE_LIMIT_TTL, '1');
-            newCount = 1;
-        } else {
-            // Increment existing counter (preserves TTL)
-            newCount = await redisClient.incr(key);
-        }
-        
-        return {
-            allowed: true,
-            remaining: maxRequests - newCount,
-            resetIn: await redisClient.ttl(key)
-        };
     }
 
     /**
@@ -149,19 +171,28 @@ export class RedisCache {
      * @returns {Promise<{count: number, remaining: number, resetIn: number}>}
      */
     static async getRateLimitStatus(clientId, maxRequests = 60) {
-        const now = new Date();
-        const minute = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}`;
-        const key = `${this.RATE_LIMIT_PREFIX}${clientId}:${minute}`;
-        
-        const current = await redisClient.get(key);
-        const count = current ? parseInt(current) : 0;
-        const ttl = await redisClient.ttl(key);
-        
-        return {
-            count,
-            remaining: Math.max(0, maxRequests - count),
-            resetIn: ttl > 0 ? ttl : 0
-        };
+        try {
+            const now = Math.floor(Date.now() / 1000);
+            const currentMinute = Math.floor(now / 60);
+            const key = `${this.RATE_LIMIT_PREFIX}${clientId}:${currentMinute}`;
+
+            const current = await redisClient.get(key);
+            const count = current ? parseInt(current) : 0;
+            const ttl = await redisClient.ttl(key);
+
+            return {
+                count,
+                remaining: Math.max(0, maxRequests - count),
+                resetIn: ttl > 0 ? ttl : 0
+            };
+        } catch (error) {
+            console.error('Rate limit status check failed:', error);
+            return {
+                count: 0,
+                remaining: maxRequests,
+                resetIn: 0
+            };
+        }
     }
 
     /**
@@ -307,18 +338,39 @@ export class RedisCache {
 
     /**
      * Clear all cache entries for a specific client
+     * Uses SCAN instead of KEYS to avoid blocking Redis
      * @param {string|number} clientId - Client identifier
      * @returns {Promise<number>} Number of keys deleted
      */
     static async clearClientCache(clientId) {
-        const pattern = `${this.CACHE_PREFIX}${clientId}:*`;
-        const keys = await redisClient.keys(pattern);
-        
-        if (keys.length === 0) {
+        try {
+            const pattern = `${this.CACHE_PREFIX}${clientId}:*`;
+            let cursor = '0';
+            let deletedCount = 0;
+
+            do {
+                // SCAN returns [cursor, keys] - non-blocking iteration
+                const result = await redisClient.scan(
+                    cursor,
+                    'MATCH',
+                    pattern,
+                    'COUNT',
+                    100 // Process 100 keys at a time
+                );
+
+                cursor = result[0];
+                const keys = result[1];
+
+                if (keys.length > 0) {
+                    deletedCount += await redisClient.del(...keys);
+                }
+            } while (cursor !== '0');
+
+            return deletedCount;
+        } catch (error) {
+            console.error('Clear client cache failed:', error);
             return 0;
         }
-        
-        return await redisClient.del(...keys);
     }
 
     /**
@@ -339,6 +391,31 @@ export class RedisCache {
             const result = await redisClient.ping();
             return result === 'PONG';
         } catch (error) {
+            return false;
+        }
+    }
+
+    /**
+     * Generate MD5 hash for query (used for response caching)
+     * @param {string} query - Query text to hash
+     * @param {string|number} clientId - Optional client ID to include in hash
+     * @returns {string} MD5 hash
+     */
+    static hashQuery(query, clientId = null) {
+        const input = clientId ? `${clientId}:${query}` : query;
+        return crypto.createHash('md5').update(input.toLowerCase().trim()).digest('hex');
+    }
+
+    /**
+     * Flush all Redis data (USE WITH CAUTION - only for testing/dev)
+     * @returns {Promise<boolean>} Success status
+     */
+    static async flushAll() {
+        try {
+            await redisClient.flushall();
+            return true;
+        } catch (error) {
+            console.error('Flush all failed:', error);
             return false;
         }
     }

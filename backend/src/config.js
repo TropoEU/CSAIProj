@@ -41,13 +41,13 @@ const getHost = (dockerServiceName) => {
   if (!dockerServiceName) {
     return 'localhost';
   }
-  
+
   // If host is a Docker service name and we're running locally, use localhost
   // (Docker service names only work inside Docker network)
   if ((dockerServiceName === 'postgres' || dockerServiceName === 'redis') && !isRunningInDocker()) {
     return 'localhost';
   }
-  
+
   return dockerServiceName;
 };
 
@@ -62,4 +62,17 @@ export const POSTGRES_CONFIG = {
 export const REDIS_CONFIG = {
   host: getHost(process.env.REDIS_HOST),
   port: parseInt(process.env.REDIS_PORT) || 6379,
+};
+
+// Ollama configuration (runs on Windows host, accessible via localhost)
+export const OLLAMA_CONFIG = {
+  url: process.env.OLLAMA_URL || 'http://localhost:11434',
+  model: process.env.OLLAMA_MODEL || 'dolphin-llama3'
+};
+
+// n8n configuration
+export const N8N_CONFIG = {
+  host: process.env.N8N_HOST || 'localhost',
+  port: parseInt(process.env.N8N_PORT) || 5678,
+  webhookUrl: process.env.WEBHOOK_URL || 'http://localhost:5678/'
 };

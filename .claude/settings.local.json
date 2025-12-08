@@ -10,7 +10,14 @@
       "Bash(npm --version:*)",
       "Bash(wsl --version)",
       "Bash(wsl -e bash -c \"pnpm --version\":*)",
-      "Bash(wsl -e bash -c:*)"
+      "Bash(wsl -e bash -c:*)",
+      "Bash(docker compose:*)",
+      "Bash(timeout 10 bash:*)",
+      "Bash(curl:*)",
+      "Bash(npm run check:connections:*)",
+      "Bash(npm run test:llm:*)",
+      "Bash(npm run test:phase2:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []
