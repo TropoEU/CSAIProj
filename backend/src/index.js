@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import axios from "axios";
 import toolRoutes from "./routes/tools.js";
 import chatRoutes from "./routes/chat.js";
@@ -8,6 +9,13 @@ import { db } from "./db.js";
 // Note: dotenv is loaded in config.js, no need to load it here
 
 const app = express();
+
+// Enable CORS for all origins (can be restricted to specific origins in production)
+app.use(cors({
+  origin: true, // Allow all origins for development
+  credentials: true,
+}));
+
 app.use(express.json());
 app.use("/tools", toolRoutes);
 app.use("/chat", chatRoutes);

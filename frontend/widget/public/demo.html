@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSAI Chat Widget - Demo</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      background: white;
+      border-radius: 12px;
+      padding: 40px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      color: #333;
+      font-size: 36px;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: #666;
+      font-size: 18px;
+    }
+
+    .content {
+      background: white;
+      border-radius: 12px;
+      padding: 40px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    h2 {
+      color: #333;
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    p {
+      color: #555;
+      line-height: 1.6;
+      margin-bottom: 15px;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-top: 30px;
+    }
+
+    .feature {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+
+    .feature h3 {
+      color: #333;
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+
+    .feature p {
+      color: #666;
+      font-size: 14px;
+      margin: 0;
+    }
+
+    .controls {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 30px;
+    }
+
+    .controls h3 {
+      color: #333;
+      margin-bottom: 15px;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #5568d3;
+    }
+
+    button.secondary {
+      background: #6c757d;
+    }
+
+    button.secondary:hover {
+      background: #5a6268;
+    }
+
+    button.danger {
+      background: #dc3545;
+    }
+
+    button.danger:hover {
+      background: #c82333;
+    }
+
+    .info-box {
+      background: #e7f3ff;
+      border-left: 4px solid #0066cc;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 4px;
+    }
+
+    .info-box p {
+      margin: 0;
+      color: #004085;
+      font-size: 14px;
+    }
+
+    .info-box code {
+      background: #d4e9ff;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+    }
+
+    footer {
+      text-align: center;
+      color: white;
+      margin-top: 40px;
+      padding: 20px;
+    }
+
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 28px;
+      }
+
+      header, .content {
+        padding: 20px;
+      }
+
+      .button-group {
+        flex-direction: column;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Bob's Pizza Shop</h1>
+      <p class="subtitle">AI-Powered Customer Service Demo</p>
+    </header>
+
+    <div class="content">
+      <h2>Welcome to Our Demo Page</h2>
+      <p>
+        This is a demonstration of the CSAI Chat Widget - an embeddable AI customer service agent
+        that can be added to any website with a simple script tag.
+      </p>
+      <p>
+        Click the chat bubble in the bottom-right corner to start a conversation with our AI assistant.
+        The AI can help you check order status, book appointments, check inventory, and more!
+      </p>
+
+      <div class="features">
+        <div class="feature">
+          <h3>🤖 AI-Powered</h3>
+          <p>Natural language understanding with Claude/Ollama integration</p>
+        </div>
+        <div class="feature">
+          <h3>🔧 Tool Execution</h3>
+          <p>Can perform real actions like checking orders and booking appointments</p>
+        </div>
+        <div class="feature">
+          <h3>💾 Persistent</h3>
+          <p>Conversation history is saved and persists across page reloads</p>
+        </div>
+        <div class="feature">
+          <h3>📱 Responsive</h3>
+          <p>Works seamlessly on desktop and mobile devices</p>
+        </div>
+        <div class="feature">
+          <h3>🎨 Customizable</h3>
+          <p>Colors, position, and branding can be customized</p>
+        </div>
+        <div class="feature">
+          <h3>🔒 Isolated</h3>
+          <p>Uses Shadow DOM to prevent CSS conflicts with your site</p>
+        </div>
+      </div>
+
+      <div class="controls">
+        <h3>Widget Controls</h3>
+        <div class="button-group">
+          <button onclick="window.CSAIWidget?.open()">Open Widget</button>
+          <button onclick="window.CSAIWidget?.close()">Close Widget</button>
+          <button class="danger" onclick="window.CSAIWidget?.clearHistory()">Clear History</button>
+        </div>
+      </div>
+
+      <div class="info-box">
+        <p>
+          <strong>Try asking:</strong><br>
+          • "What's the status of order #12345?"<br>
+          • "I'd like to book an appointment for tomorrow at 2pm"<br>
+          • "Do you have pepperoni pizza in stock?"<br>
+          • "What are your business hours?"
+        </p>
+      </div>
+
+      <div class="info-box" style="margin-top: 15px;">
+        <p>
+          <strong>Integration Code:</strong><br>
+          Add this script tag to any website to embed the widget:<br>
+          <code>&lt;script src="http://localhost:3001/widget.js" data-api-key="bobs_pizza_api_key_123"&gt;&lt;/script&gt;</code>
+        </p>
+      </div>
+    </div>
+
+    <footer>
+      <p>CSAI Chat Widget - Phase 4 Implementation</p>
+      <p>Powered by n8n, Ollama, and Claude</p>
+    </footer>
+  </div>
+
+  <!-- CSAI Chat Widget -->
+  <script type="module" src="/src/index.js"
+          data-api-key="bobs_pizza_api_key_123"
+          data-api-url="http://localhost:3000"
+          data-position="bottom-right"
+          data-primary-color="#667eea"
+          data-title="Bob's Pizza Shop"
+          data-subtitle="How can we help you today?"
+          data-greeting="Welcome to Bob's Pizza! How can I assist you today?">
+  </script>
+</body>
+</html>

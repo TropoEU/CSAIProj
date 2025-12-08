@@ -106,9 +106,10 @@ class ToolManager {
         });
       }
 
-      description += `\nTo use this tool, respond with: USE_TOOL: ${tool.tool_name}\n`;
+      description += `\nTo use this tool, you MUST respond with this EXACT format:\n`;
+      description += `USE_TOOL: ${tool.tool_name}\n`;
       if (Object.keys(params).length > 0) {
-        description += 'PARAMETERS: {json parameters here}\n';
+        description += `PARAMETERS: ${JSON.stringify(params)}\n`;
       }
 
       return description;
@@ -117,11 +118,24 @@ class ToolManager {
     return `
 ## Available Tools
 
-You have access to the following tools to help answer customer queries. When you need to use a tool, format your response exactly as shown:
+You have access to the following tools. When you need real-time data, you MUST use the EXACT format shown below - DO NOT explain what you're doing, just output the format:
 
 ${toolDescriptions}
 
-IMPORTANT: Only use these tools when necessary to fetch real-time data. If you can answer from general knowledge, do so without using tools.
+Example conversation:
+User: "What's the status of order 12345?"
+You: "USE_TOOL: get_order_status
+PARAMETERS: {"orderNumber": "12345"}"
+
+User: "Book an appointment for tomorrow at 2pm"
+You: "USE_TOOL: book_appointment
+PARAMETERS: {"date": "tomorrow", "time": "14:00"}"
+
+CRITICAL RULES:
+1. When you need real-time data, output ONLY the USE_TOOL format above
+2. DO NOT say "I will use the tool" or "Let me check" - just output the format
+3. After receiving tool results, then respond conversationally to the user
+4. If you can answer from general knowledge, do so without tools
 `;
   }
 
@@ -131,20 +145,23 @@ IMPORTANT: Only use these tools when necessary to fetch real-time data. If you c
    * @returns {Array|null} Parsed tool calls or null
    */
   parseToolCallsFromContent(content) {
-    // Check if response contains tool usage pattern
-    if (!content.includes('USE_TOOL:')) {
+    // Check if response contains tool usage pattern (multiple formats)
+    if (!content.includes('USE_TOOL:') && !content.match(/using the tool:/i)) {
       return null;
     }
 
     try {
       const toolCalls = [];
-      const lines = content.split('\n');
 
+      // Pattern 1: Multi-line format
+      // USE_TOOL: tool_name
+      // PARAMETERS: {...}
+      const lines = content.split('\n');
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
 
         if (line.startsWith('USE_TOOL:')) {
-          const toolName = line.replace('USE_TOOL:', '').trim();
+          const toolName = line.replace('USE_TOOL:', '').trim().toLowerCase();
 
           // Look for PARAMETERS on the next line
           let parameters = {};
@@ -163,6 +180,26 @@ IMPORTANT: Only use these tools when necessary to fetch real-time data. If you c
             arguments: parameters
           });
         }
+      }
+
+      // Pattern 2: Single-line Ollama format
+      // "Using the tool: TOOL_NAME - PARAMETERS: {...}"
+      const singleLineRegex = /using the tool:\s*([A-Z_]+)\s*-\s*PARAMETERS:\s*(\{[^}]+\})/gi;
+      let match;
+      while ((match = singleLineRegex.exec(content)) !== null) {
+        const toolName = match[1].toLowerCase();
+        let parameters = {};
+        try {
+          parameters = JSON.parse(match[2]);
+        } catch (e) {
+          console.warn(`Failed to parse parameters for ${toolName}:`, match[2]);
+        }
+
+        toolCalls.push({
+          id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          name: toolName,
+          arguments: parameters
+        });
       }
 
       return toolCalls.length > 0 ? toolCalls : null;

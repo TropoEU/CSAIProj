@@ -25,7 +25,17 @@
       "Bash(npm outdated:*)",
       "Bash(npm update:*)",
       "Bash(npm install:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(mkdir:*)",
+      "Bash(npm start)",
+      "Bash(npm run dev:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill /F /PID 34244)",
+      "Bash(taskkill //F //PID 34244)",
+      "Bash(taskkill:*)",
+      "Bash(ForEach-Object { $_ -match '\\s(\\d+)$')",
+      "Bash(Out-Null)",
+      "Bash(ollama list:*)"
     ],
     "deny": [],
     "ask": []

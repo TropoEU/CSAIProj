@@ -277,23 +277,23 @@ class ConversationService {
       let iterationCount = 0;
       let finalResponse = null;
 
+      // Format tools for LLM (once, before the loop)
+      const formattedTools = toolManager.formatToolsForLLM(clientTools);
+
+      // For Ollama, add tool descriptions to system prompt (only once!)
+      if (llmService.provider === 'ollama' && formattedTools && iterationCount === 0) {
+        messages[0].content += formattedTools;
+      }
+
       // Tool execution loop (handle multi-turn tool calls)
       while (iterationCount < maxToolIterations) {
         iterationCount++;
 
-        // Format tools for LLM
-        const formattedTools = toolManager.formatToolsForLLM(clientTools);
-
-        // For Ollama, add tool descriptions to system prompt
-        if (llmService.provider === 'ollama' && formattedTools) {
-          messages[0].content += formattedTools;
-        }
-
         // Call LLM
         const llmResponse = await llmService.chat(messages, {
           tools: llmService.supportsNativeFunctionCalling() ? formattedTools : null,
-          maxTokens: 4096,
-          temperature: 0.7
+          maxTokens: 2048,
+          temperature: 0.3
         });
 
         totalTokens += llmResponse.tokens.total;

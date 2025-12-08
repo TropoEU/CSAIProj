@@ -9,7 +9,7 @@ This is an AI-powered customer service agent platform for business websites. It 
 The architecture follows a clean separation:
 - **Backend API**: Node.js/Express server that handles AI orchestration and tool execution
 - **n8n Integration**: Workflow automation that connects to external systems (Shopify, CRMs, Gmail, etc.)
-- **Widget** (planned): Embeddable chat interface for client websites
+- **Widget** (✅ Phase 4): Embeddable chat interface for client websites (Vanilla JS + Vite + Shadow DOM)
 - **Docker Stack**: Postgres, Redis, and n8n running in containers
 
 ## Common Development Commands
@@ -30,7 +30,7 @@ npm run dockerclean
 npm start
 ```
 
-**Note**: Commands run in Windows PowerShell, not WSL. Docker runs in WSL2 backend but is accessed via localhost.
+**IMPORTANT**: All commands run in Windows PowerShell, NOT in WSL. Docker runs in WSL2 backend but is accessed via localhost from PowerShell.
 
 ### Database Migrations
 
@@ -182,10 +182,12 @@ The AI conversation engine is fully implemented and operational:
 - Tool instruction templates
 - Greeting and error messages
 
-**Current LLM Provider**: Ollama (localhost:11434) with `dolphin-llama3` model
+**Current LLM Provider**: Ollama (localhost:11434) with `Hermes-2-Pro-Mistral-7B.Q5_K_M.gguf` model
 - For local development and testing
+- Changed from dolphin-llama3 for better tool calling capabilities
 - No API costs
 - Function calling handled via prompt engineering (not native API)
+- Optimized settings: temperature 0.3, max_tokens 2048
 
 ### Phase 3: Tool Execution System (✅ COMPLETE)
 
@@ -227,6 +229,50 @@ The tool execution system is fully operational and enables the AI to perform rea
 7. Feed results back to LLM
 8. Return final AI response with tool data
 
+### Phase 4: Chat Widget (✅ COMPLETE)
+
+The embeddable chat widget is fully implemented and operational:
+
+**Widget Core** (`frontend/widget/`):
+- Vanilla JavaScript (no framework) with Vite build system
+- Shadow DOM for complete CSS/JS isolation from host pages
+- Auto-initialization from script tag with data attributes
+- Mobile responsive (full-screen on mobile, windowed on desktop)
+- Conversation persistence via localStorage
+- Bundle size: ~85KB (uncompressed)
+
+**Widget Components**:
+- `src/widget.js` - Main widget class with Shadow DOM
+- `src/api.js` - API client for backend communication
+- `src/storage.js` - localStorage wrapper for persistence
+- `src/components/bubble.js` - Floating chat button with unread counter
+- `src/components/window.js` - Chat window with header, messages, input
+- `src/components/messages.js` - Message list with typing indicator
+- `src/components/input.js` - Auto-resizing textarea with send button
+- `src/styles.css` - Complete styling with CSS variables for theming
+
+**Critical Bug Fixes**:
+- Fixed CORS issue (added cors middleware to backend)
+- Fixed context pollution bug in `conversationService.js:289` (tool descriptions were being appended on every loop iteration)
+- Switched to Hermes-2-Pro-Mistral-7B for better tool calling
+- Optimized temperature (0.3) and max_tokens (2048) for stability
+
+**Integration Code**:
+```html
+<script src="http://localhost:3001/widget.js"
+        data-api-key="YOUR_API_KEY"
+        data-position="bottom-right"
+        data-primary-color="#667eea"></script>
+```
+
+**Test Results**:
+- Widget loads in <1 second
+- Tool execution working (order status, appointments, inventory)
+- Multi-turn conversations stable (10+ exchanges tested)
+- No CSS conflicts with host pages (Shadow DOM isolation)
+
+**See**: `PHASE_4_COMPLETE.md` and `PHASE_4_SUMMARY.md` for detailed implementation notes
+
 ### What's Not Yet Implemented
 
 **From Phase 1** (Optional - can be added later):
@@ -241,14 +287,18 @@ The tool execution system is fully operational and enables the AI to perform rea
 - Integration Service (`backend/src/services/integrationService.js`) - for pulling live data from client APIs (Shopify, WooCommerce, etc.)
 - Advanced tool features: tool chaining, conditional execution, result caching
 
-**Phases 4-10** (Not Started):
-- Phase 4: Additional API endpoints (sessions, config)
-- Phase 5: Embeddable chat widget (HTML/CSS/JS)
-- Phase 6: Admin dashboard
-- Phase 7: LLM optimization and cost tracking
-- Phase 8: Hebrew/RTL support
-- Phase 9: Advanced features (RAG, analytics, escalation)
-- Phase 10: Production deployment and DevOps
+**From Phase 4** (Optional):
+- Light/dark theme toggle (currently single theme with CSS variables)
+- Version hash for cache busting
+- Testing on WordPress/Wix/Shopify (manual testing required)
+- Streaming support (prepared but not active)
+
+**Phases 5-10** (Not Started):
+- Phase 5: Admin dashboard (React + Tailwind CSS + JWT auth)
+- Phase 6: LLM optimization and provider options
+- Phase 7: Hebrew/RTL support
+- Phase 8: Advanced features (RAG, analytics, escalation)
+- Phase 9: Production deployment and DevOps
 
 ## Important Implementation Patterns
 
@@ -335,16 +385,32 @@ CSAIProj/
 │   │   ├── models/            # Database models (9 tables)
 │   │   ├── routes/            # API route definitions
 │   │   ├── controllers/       # Route handlers
-│   │   ├── services/          # Business logic (n8n, cache)
+│   │   ├── services/          # Business logic (n8n, cache, llm)
+│   │   ├── prompts/           # System prompt templates
+│   │   ├── middleware/        # Auth, rate limiting
 │   │   ├── utils/             # Validation and helpers
 │   │   └── scripts/           # Migration runner
 │   ├── tests/                 # Integration tests
 │   └── package.json           # Backend dependencies
+├── frontend/
+│   └── widget/                # Embeddable chat widget (Phase 4)
+│       ├── src/
+│       │   ├── index.js       # Entry point with auto-init
+│       │   ├── widget.js      # Main widget class (Shadow DOM)
+│       │   ├── api.js         # API client
+│       │   ├── storage.js     # localStorage wrapper
+│       │   ├── styles.css     # Complete styling
+│       │   └── components/    # UI components
+│       ├── public/
+│       │   └── demo.html      # Demo page
+│       ├── vite.config.js     # Build configuration
+│       └── package.json       # Widget dependencies
 ├── db/
 │   └── migrations/            # SQL migration files
 ├── docker/
 │   └── docker-compose.yml     # Container orchestration
-└── package.json               # Root workspace (pnpm)
+├── n8n-workflows/             # Demo n8n workflows
+└── package.json               # Root workspace (npm)
 ```
 
 ## Environment Variables
@@ -392,9 +458,16 @@ The docker-compose.yml now configures n8n to use the `n8n` schema, preventing fu
 
 ## Development Environment
 
-**Platform**: Windows with PowerShell
+**Platform**: Windows with PowerShell (NOT WSL)
 **Package Manager**: npm (not pnpm)
 **Docker**: Runs in WSL2 backend, accessed via `localhost` from PowerShell
-**LLM**: Ollama with `dolphin-llama3` model
+**LLM**: Ollama with `Hermes-2-Pro-Mistral-7B.Q5_K_M.gguf` model (changed from dolphin-llama3 for better tool calling)
 
-All commands should be run in PowerShell, not WSL. The `backend/src/config.js` automatically detects the environment and routes connections appropriately.
+**IMPORTANT**: All commands should be run in Windows PowerShell, NOT in WSL or any Linux terminal. The `backend/src/config.js` automatically detects the environment and routes connections appropriately.
+
+**Current Services Running**:
+- Backend API: http://localhost:3000
+- Widget Dev Server: http://localhost:3001
+- n8n: http://localhost:5678
+- PostgreSQL: localhost:5432
+- Redis: localhost:6379
