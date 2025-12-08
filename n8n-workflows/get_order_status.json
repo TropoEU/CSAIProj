@@ -1,0 +1,68 @@
+{
+  "name": "Get Order Status",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "get_order_status",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "get_order_status"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mock order status lookup\n// In production, this would call your e-commerce API\n\n// Access data from webhook POST body\nconst orderNumber = $json.body?.orderNumber || $json.orderNumber;\n\nif (!orderNumber) {\n  return {\n    success: false,\n    error: 'Order number is required'\n  };\n}\n\n// Mock order database\nconst orders = {\n  '12345': {\n    orderNumber: '12345',\n    status: 'out_for_delivery',\n    statusText: 'Out for Delivery',\n    estimatedDelivery: '30 minutes',\n    items: ['Large Pepperoni Pizza', 'Garlic Bread'],\n    total: '$28.50'\n  },\n  '12346': {\n    orderNumber: '12346',\n    status: 'preparing',\n    statusText: 'Being Prepared',\n    estimatedDelivery: '45 minutes',\n    items: ['Medium Margherita Pizza'],\n    total: '$15.00'\n  },\n  '12347': {\n    orderNumber: '12347',\n    status: 'delivered',\n    statusText: 'Delivered',\n    deliveredAt: '2 hours ago',\n    items: ['Family Combo Deal'],\n    total: '$42.00'\n  }\n};\n\nconst order = orders[orderNumber];\n\nif (!order) {\n  return {\n    success: false,\n    message: `Order #${orderNumber} not found. Please check the order number and try again.`\n  };\n}\n\nreturn {\n  success: true,\n  message: `Order #${order.orderNumber} is currently ${order.statusText}. ${order.estimatedDelivery ? 'Estimated delivery: ' + order.estimatedDelivery : 'Delivered ' + order.deliveredAt}.`,\n  data: order\n};"
+      },
+      "id": "code-1",
+      "name": "Process Order Lookup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "respond-1",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [650, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Order Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Order Lookup": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1",
+  "id": "get_order_status"
+}

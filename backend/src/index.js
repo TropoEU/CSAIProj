@@ -1,6 +1,7 @@
 import express from "express";
 import axios from "axios";
 import toolRoutes from "./routes/tools.js";
+import chatRoutes from "./routes/chat.js";
 import { redisClient } from "./redis.js";
 import { db } from "./db.js";
 
@@ -9,6 +10,7 @@ import { db } from "./db.js";
 const app = express();
 app.use(express.json());
 app.use("/tools", toolRoutes);
+app.use("/chat", chatRoutes);
 
 //health check for services
 app.get('/health', async (req, res) => {

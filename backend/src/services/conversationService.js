@@ -1,7 +1,11 @@
 import { Conversation } from '../models/Conversation.js';
 import { Message } from '../models/Message.js';
+import { ToolExecution } from '../models/ToolExecution.js';
 import { RedisCache } from './redisCache.js';
 import { getEnhancedSystemPrompt } from '../prompts/systemPrompt.js';
+import llmService from './llmService.js';
+import toolManager from './toolManager.js';
+import n8nService from './n8nService.js';
 
 /**
  * Conversation Service
@@ -35,7 +39,7 @@ class ConversationService {
    */
   async getOrCreateConversation(clientId, sessionId, userIdentifier = null) {
     // Try to find existing active conversation
-    let conversation = await Conversation.findBySessionId(sessionId);
+    let conversation = await Conversation.findBySession(sessionId);
 
     // Create new if not found
     if (!conversation) {
@@ -91,7 +95,7 @@ class ConversationService {
     }
 
     // Get from database
-    const conversation = await Conversation.findBySessionId(sessionId);
+    const conversation = await Conversation.findBySession(sessionId);
     if (!conversation) {
       // New conversation - return just system message
       const systemMessage = getEnhancedSystemPrompt(client, tools);
@@ -180,7 +184,7 @@ class ConversationService {
    * @returns {Object} Updated conversation
    */
   async endConversation(sessionId) {
-    const conversation = await Conversation.findBySessionId(sessionId);
+    const conversation = await Conversation.findBySession(sessionId);
     if (!conversation) {
       throw new Error('Conversation not found');
     }
@@ -234,6 +238,211 @@ class ConversationService {
    */
   async searchConversationsByUser(clientId, userIdentifier) {
     return await Conversation.findByUserIdentifier(clientId, userIdentifier);
+  }
+
+  /**
+   * Process a user message with full tool execution flow
+   * @param {Object} client - Client configuration
+   * @param {String} sessionId - Session ID
+   * @param {String} userMessage - User's message
+   * @param {Object} options - Optional parameters
+   * @returns {Object} { response, toolsUsed, tokensUsed, conversationId }
+   */
+  async processMessage(client, sessionId, userMessage, options = {}) {
+    const { userIdentifier = null, maxToolIterations = 3 } = options;
+
+    try {
+      // Get or create conversation
+      const conversation = await this.getOrCreateConversation(
+        client.id,
+        sessionId,
+        userIdentifier
+      );
+
+      // Save user message
+      await this.addMessage(conversation.id, 'user', userMessage);
+
+      // Get enabled tools for this client
+      const clientTools = await toolManager.getClientTools(client.id);
+
+      // Get conversation context
+      let messages = await this.getConversationContext(sessionId, client, clientTools);
+
+      // Add the new user message to context
+      messages.push({ role: 'user', content: userMessage });
+
+      // Track tool usage
+      const toolsUsed = [];
+      let totalTokens = 0;
+      let iterationCount = 0;
+      let finalResponse = null;
+
+      // Tool execution loop (handle multi-turn tool calls)
+      while (iterationCount < maxToolIterations) {
+        iterationCount++;
+
+        // Format tools for LLM
+        const formattedTools = toolManager.formatToolsForLLM(clientTools);
+
+        // For Ollama, add tool descriptions to system prompt
+        if (llmService.provider === 'ollama' && formattedTools) {
+          messages[0].content += formattedTools;
+        }
+
+        // Call LLM
+        const llmResponse = await llmService.chat(messages, {
+          tools: llmService.supportsNativeFunctionCalling() ? formattedTools : null,
+          maxTokens: 4096,
+          temperature: 0.7
+        });
+
+        totalTokens += llmResponse.tokens.total;
+
+        // Check for tool calls (native or parsed from content)
+        let toolCalls = llmResponse.toolCalls;
+
+        // For Ollama, parse tool calls from content
+        if (!toolCalls && llmService.provider === 'ollama') {
+          toolCalls = toolManager.parseToolCallsFromContent(llmResponse.content);
+        }
+
+        // No tool calls - we have the final response
+        if (!toolCalls || toolCalls.length === 0) {
+          finalResponse = llmResponse.content;
+          break;
+        }
+
+        // Execute tool calls
+        console.log(`[Conversation] Executing ${toolCalls.length} tool(s)`);
+
+        // Add assistant message with tool calls to context
+        messages.push({
+          role: 'assistant',
+          content: llmResponse.content || ''
+        });
+
+        for (const toolCall of toolCalls) {
+          const { id, name, arguments: toolArgs } = toolCall;
+
+          console.log(`[Conversation] Executing tool: ${name}`);
+
+          // Find tool definition
+          const tool = await toolManager.getToolByName(client.id, name);
+
+          if (!tool) {
+            console.error(`[Conversation] Tool not found: ${name}`);
+            const errorMessage = `Error: Tool "${name}" is not available`;
+
+            // Add error as tool result
+            messages.push({
+              role: 'tool',
+              content: errorMessage,
+              tool_call_id: id
+            });
+
+            // Log failed execution
+            await ToolExecution.create(
+              conversation.id,
+              name,
+              toolArgs,
+              { error: 'Tool not found' },
+              false,
+              0
+            );
+
+            continue;
+          }
+
+          // Validate tool arguments
+          const validation = toolManager.validateToolArguments(tool, toolArgs);
+          if (!validation.valid) {
+            console.error(`[Conversation] Invalid arguments for ${name}:`, validation.errors);
+            const errorMessage = `Error: Invalid arguments - ${validation.errors.join(', ')}`;
+
+            messages.push({
+              role: 'tool',
+              content: errorMessage,
+              tool_call_id: id
+            });
+
+            await ToolExecution.create(
+              conversation.id,
+              name,
+              toolArgs,
+              { error: validation.errors },
+              false,
+              0
+            );
+
+            continue;
+          }
+
+          // Execute via n8n
+          const startTime = Date.now();
+          const result = await n8nService.executeTool(
+            tool.n8n_webhook_url,
+            toolArgs
+          );
+
+          const executionTime = Date.now() - startTime;
+
+          // Log execution
+          await ToolExecution.create(
+            conversation.id,
+            name,
+            toolArgs,
+            result.data,
+            result.success,
+            result.executionTimeMs
+          );
+
+          // Format result for LLM
+          const formattedResult = n8nService.formatResponseForLLM(result.data);
+
+          // Add tool result to messages
+          messages.push({
+            role: 'tool',
+            content: result.success ? formattedResult : result.error,
+            tool_call_id: id
+          });
+
+          // Track tool usage
+          toolsUsed.push({
+            name,
+            success: result.success,
+            executionTime: result.executionTimeMs
+          });
+
+          console.log(`[Conversation] Tool ${name} ${result.success ? 'succeeded' : 'failed'} (${result.executionTimeMs}ms)`);
+        }
+
+        // Continue loop to get final response with tool results
+      }
+
+      // If we hit max iterations without a final response
+      if (!finalResponse) {
+        finalResponse = 'I apologize, but I encountered an issue processing your request. Please try again or rephrase your question.';
+      }
+
+      // Save assistant response
+      await this.addMessage(conversation.id, 'assistant', finalResponse, totalTokens);
+
+      // Update context in cache
+      messages.push({ role: 'assistant', content: finalResponse });
+      await this.updateConversationContext(sessionId, conversation.id, messages);
+
+      return {
+        response: finalResponse,
+        toolsUsed,
+        tokensUsed: totalTokens,
+        conversationId: conversation.id,
+        iterations: iterationCount
+      };
+
+    } catch (error) {
+      console.error('[Conversation] Error processing message:', error);
+      throw error;
+    }
   }
 }
 

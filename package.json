@@ -23,6 +23,10 @@
       "//test:redis": "Run Redis cache service tests",
       "test:all": "cd backend && node tests/integration/all-models.test.js",
       "//test:all": "Same as 'pnpm test' - runs all model tests",
+      "test:phase2": "cd backend && node tests/integration/phase2-full-test.js",
+      "//test:phase2": "Run Phase 2 integration test (AI conversation flow)",
+      "test:phase3": "cd backend && node tests/integration/phase3-full-test.js",
+      "//test:phase3": "Run Phase 3 integration test (tool execution system)",
 
       "//3": "=== DOCKER ===",
       "dockerup": "docker compose --env-file ./backend/.env -f ./docker/docker-compose.yml up -d",

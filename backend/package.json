@@ -14,6 +14,7 @@
     "test:redis": "node tests/services/redisCache.test.js",
     "test:llm": "node tests/services/llmService.test.js",
     "test:phase2": "node tests/integration/phase2-full-test.js",
+    "test:phase3": "node tests/integration/phase3-full-test.js",
     "check:ollama": "node tests/check-ollama.js",
     "check:connections": "node tests/check-connections.js"
   },
@@ -22,11 +23,11 @@
   "license": "ISC",
   "packageManager": "pnpm@10.24.0",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.32.0",
+    "@anthropic-ai/sdk": "^0.71.2",
     "ajv": "^8.17.1",
-    "axios": "^1.13.2",
-    "dotenv": "^17.2.3",
-    "express": "^5.2.1",
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "express": "^5.0.1",
     "ioredis": "^5.8.2",
     "pg": "^8.16.3"
   }

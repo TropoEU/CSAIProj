@@ -1,0 +1,68 @@
+{
+  "name": "Check Inventory",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "check_inventory",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "check_inventory"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mock inventory check\n// In production, this would query your inventory management system\n\n// Access data from webhook POST body\nconst requestData = $json.body || $json;\nconst { productName, productSku, quantity } = requestData;\n\nif (!productName && !productSku) {\n  return {\n    success: false,\n    message: 'Please provide either product name or SKU'\n  };\n}\n\n// Mock inventory database\nconst inventory = {\n  'pepperoni-pizza': {\n    name: 'Large Pepperoni Pizza',\n    sku: 'PIZZA-001',\n    inStock: true,\n    quantity: 45,\n    price: '$18.99'\n  },\n  'PIZZA-001': {\n    name: 'Large Pepperoni Pizza',\n    sku: 'PIZZA-001',\n    inStock: true,\n    quantity: 45,\n    price: '$18.99'\n  },\n  'margherita-pizza': {\n    name: 'Medium Margherita Pizza',\n    sku: 'PIZZA-002',\n    inStock: true,\n    quantity: 32,\n    price: '$15.00'\n  },\n  'PIZZA-002': {\n    name: 'Medium Margherita Pizza',\n    sku: 'PIZZA-002',\n    inStock: true,\n    quantity: 32,\n    price: '$15.00'\n  },\n  'garlic-bread': {\n    name: 'Garlic Bread',\n    sku: 'SIDE-001',\n    inStock: true,\n    quantity: 120,\n    price: '$4.99'\n  },\n  'SIDE-001': {\n    name: 'Garlic Bread',\n    sku: 'SIDE-001',\n    inStock: true,\n    quantity: 120,\n    price: '$4.99'\n  },\n  'truffle-pizza': {\n    name: 'Truffle Mushroom Pizza',\n    sku: 'PIZZA-SPECIAL-001',\n    inStock: false,\n    quantity: 0,\n    price: '$28.00',\n    nextAvailable: 'Tomorrow'\n  },\n  'PIZZA-SPECIAL-001': {\n    name: 'Truffle Mushroom Pizza',\n    sku: 'PIZZA-SPECIAL-001',\n    inStock: false,\n    quantity: 0,\n    price: '$28.00',\n    nextAvailable: 'Tomorrow'\n  }\n};\n\n// Search by name or SKU\nconst searchKey = (productSku || productName || '').toLowerCase().replace(/\\s+/g, '-');\nconst product = inventory[searchKey];\n\nif (!product) {\n  return {\n    success: false,\n    message: `Product \"${productName || productSku}\" not found in our catalog. Please check the product name or SKU.`\n  };\n}\n\n// Check if requested quantity is available\nconst requestedQty = quantity || 1;\n\nif (!product.inStock) {\n  return {\n    success: true,\n    message: `${product.name} is currently out of stock. ${product.nextAvailable ? 'It will be available ' + product.nextAvailable + '.' : 'Please check back later.'}`,\n    data: {\n      ...product,\n      available: false\n    }\n  };\n}\n\nif (product.quantity < requestedQty) {\n  return {\n    success: true,\n    message: `We only have ${product.quantity} units of ${product.name} in stock. Would you like to order the available quantity?`,\n    data: {\n      ...product,\n      available: true,\n      requestedQuantity: requestedQty,\n      availableQuantity: product.quantity\n    }\n  };\n}\n\nreturn {\n  success: true,\n  message: `${product.name} is in stock! We have ${product.quantity} units available. Price: ${product.price}`,\n  data: {\n    ...product,\n    available: true\n  }\n};"
+      },
+      "id": "code-1",
+      "name": "Check Stock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "respond-1",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [650, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check Stock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Stock": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1",
+  "id": "check_inventory"
+}

@@ -17,7 +17,15 @@
       "Bash(npm run check:connections:*)",
       "Bash(npm run test:llm:*)",
       "Bash(npm run test:phase2:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(Get-Content \"C:\\Users\\Haim\\Documents\\My Projects\\CSAIProj\\n8n-workflows\\setup_tools.sql\")",
+      "Bash(docker exec:*)",
+      "Bash(powershell -File \"C:\\Users\\Haim\\Documents\\My Projects\\CSAIProj\\check-webhooks.ps1\")",
+      "Bash(npm run test:phase3:*)",
+      "Bash(npm outdated:*)",
+      "Bash(npm update:*)",
+      "Bash(npm install:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

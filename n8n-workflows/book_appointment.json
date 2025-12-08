@@ -1,0 +1,68 @@
+{
+  "name": "Book Appointment",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "book_appointment",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "book_appointment"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mock appointment booking\n// In production, this would integrate with calendar API (Google Calendar, Calendly, etc.)\n\n// Access data from webhook POST body\nconst requestData = $json.body || $json;\nconst { date, time, serviceType, customerName, customerEmail, customerPhone } = requestData;\n\n// Validation\nconst errors = [];\nif (!date) errors.push('date');\nif (!time) errors.push('time');\nif (!serviceType) errors.push('serviceType');\nif (!customerName) errors.push('customerName');\nif (!customerEmail && !customerPhone) errors.push('contact info (email or phone)');\n\nif (errors.length > 0) {\n  return {\n    success: false,\n    message: `Missing required fields: ${errors.join(', ')}`\n  };\n}\n\n// Mock availability check\nconst unavailableTimes = ['2025-01-15 10:00', '2025-01-15 14:00'];\nconst requestedSlot = `${date} ${time}`;\n\nif (unavailableTimes.includes(requestedSlot)) {\n  return {\n    success: false,\n    message: `Sorry, the time slot ${time} on ${date} is not available. Please choose another time.`,\n    availableTimes: ['09:00', '11:00', '13:00', '15:00', '16:00']\n  };\n}\n\n// Create appointment\nconst appointmentId = 'APT-' + Math.random().toString(36).substr(2, 9).toUpperCase();\n\nreturn {\n  success: true,\n  message: `Appointment booked successfully! Your appointment for ${serviceType} is scheduled on ${date} at ${time}. Confirmation ID: ${appointmentId}. You will receive a confirmation email shortly.`,\n  data: {\n    appointmentId,\n    date,\n    time,\n    serviceType,\n    customerName,\n    customerEmail,\n    customerPhone,\n    status: 'confirmed'\n  }\n};"
+      },
+      "id": "code-1",
+      "name": "Process Booking",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "respond-1",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [650, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Booking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Booking": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1",
+  "id": "book_appointment"
+}

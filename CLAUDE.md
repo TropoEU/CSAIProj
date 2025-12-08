@@ -62,6 +62,9 @@ npm run test:llm
 # Run Phase 2 full integration test (conversation flow)
 npm run test:phase2
 
+# Run Phase 3 full integration test (tool execution)
+npm run test:phase3
+
 # Run model tests
 npm run test:models
 
@@ -184,15 +187,96 @@ The AI conversation engine is fully implemented and operational:
 - No API costs
 - Function calling handled via prompt engineering (not native API)
 
+### Phase 3: Tool Execution System (✅ COMPLETE)
+
+The tool execution system is fully operational and enables the AI to perform real actions:
+
+**Tool Manager** (`backend/src/services/toolManager.js`):
+- Dynamic tool loading per client from database
+- Format tools for LLM consumption (native function calling for Claude, prompt engineering for Ollama)
+- Tool schema validation
+- Parse tool calls from LLM responses
+- Format tool results for AI consumption
+
+**n8n Integration Service** (`backend/src/services/n8nService.js`):
+- Execute tools via n8n webhooks with timeout handling (30s default)
+- Automatic retry logic with exponential backoff
+- Batch execution (parallel tool calls)
+- Response formatting for LLM
+- Health checks and webhook connectivity testing
+
+**Chat API** (`backend/src/routes/chat.js`, `backend/src/controllers/chatController.js`):
+- `POST /chat/message` - Send message and get AI response with tool execution
+- `GET /chat/history/:sessionId` - Retrieve conversation history
+- `POST /chat/end` - End a conversation session
+- API key authentication via Bearer token
+- Rate limiting (60 requests/minute per client)
+
+**Demo n8n Workflows** (`n8n-workflows/`):
+- `get_order_status` - Check order status by order number
+- `book_appointment` - Book appointments with validation
+- `check_inventory` - Check product availability and stock levels
+
+**Tool Execution Flow**:
+1. User message → Chat API
+2. Load client's enabled tools
+3. Call LLM with tools available
+4. Detect tool calls in response
+5. Execute tools via n8n webhooks
+6. Log executions to `tool_executions` table
+7. Feed results back to LLM
+8. Return final AI response with tool data
+
+### What's Not Yet Implemented
+
+**From Phase 1** (Optional - can be added later):
+- Data retention/cleanup scripts (`backend/src/scripts/cleanup.js`) - auto-delete old messages/tool executions
+- Seed data for testing
+
+**From Phase 2** (Optional):
+- OpenAI provider implementation - currently placeholder only (Ollama and Claude work)
+- Streaming responses (prepared but not active)
+
+**From Phase 3** (Optional):
+- Integration Service (`backend/src/services/integrationService.js`) - for pulling live data from client APIs (Shopify, WooCommerce, etc.)
+- Advanced tool features: tool chaining, conditional execution, result caching
+
+**Phases 4-10** (Not Started):
+- Phase 4: Additional API endpoints (sessions, config)
+- Phase 5: Embeddable chat widget (HTML/CSS/JS)
+- Phase 6: Admin dashboard
+- Phase 7: LLM optimization and cost tracking
+- Phase 8: Hebrew/RTL support
+- Phase 9: Advanced features (RAG, analytics, escalation)
+- Phase 10: Production deployment and DevOps
+
 ## Important Implementation Patterns
 
 ### Adding a New Tool
 
-1. Add tool definition to `tools` table (via SQL or programmatically)
-2. Create route in `backend/src/routes/tools.js`
-3. Implement controller in `backend/src/controllers/toolsController.js`
-4. Create corresponding n8n workflow with webhook trigger
-5. Store webhook URL in `integration_endpoints` table
+1. Create n8n workflow with webhook trigger (`http://localhost:5678/webhook/<tool_name>`)
+2. Add tool definition to `tools` table (name, description, parameters schema)
+3. Enable tool for client in `client_tools` table with webhook URL
+4. Tool Manager automatically loads and formats it for the LLM
+5. No code changes needed - the system dynamically loads tools from database
+
+**Example SQL**:
+```sql
+-- Add tool to catalog
+INSERT INTO tools (tool_name, description, parameters_schema) VALUES (
+  'get_product_info',
+  'Get detailed information about a product',
+  '{"type": "object", "properties": {"productId": {"type": "string", "description": "Product ID"}}, "required": ["productId"]}'
+);
+
+-- Enable tool for client
+INSERT INTO client_tools (client_id, tool_id, enabled, n8n_webhook_url) VALUES (
+  1,
+  (SELECT id FROM tools WHERE tool_name = 'get_product_info'),
+  true,
+  'http://localhost:5678/webhook/get_product_info'
+);
+```
 
 ### Adding a New Model
 
