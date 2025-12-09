@@ -1,5 +1,6 @@
 import conversationService from '../services/conversationService.js';
 import { Client } from '../models/Client.js';
+import { Conversation } from '../models/Conversation.js';  // Add this import
 import { RedisCache } from '../services/redisCache.js';
 
 /**
@@ -80,7 +81,7 @@ export async function sendMessage(req, res) {
 
 /**
  * GET /chat/history/:sessionId
- * Get conversation history for a session
+ * Get conversation history for a session (for display in widget)
  */
 export async function getHistory(req, res) {
   try {
@@ -91,19 +92,39 @@ export async function getHistory(req, res) {
       return res.status(401).json({ error: 'Invalid API key' });
     }
 
-    // Get conversation
-    const conversation = await conversationService.getConversationContext(
-      sessionId,
-      client
-    );
+    // Get conversation by session
+    const conversation = await Conversation.findBySession(sessionId);
 
     if (!conversation) {
-      return res.status(404).json({ error: 'Conversation not found' });
+      // No conversation yet - return empty array (widget will show empty state with greeting)
+      return res.json({
+        sessionId,
+        messages: []
+      });
     }
+
+    // Get messages directly from database (not from getConversationContext)
+    // This excludes system messages which are only for LLM context
+    const messages = await conversationService.getConversationHistory(conversation.id);
+    
+    // Filter out system and tool messages for display
+    const displayMessages = messages
+      .filter(msg => {
+        const isAllowed = msg.role === 'user' || msg.role === 'assistant';
+        if (!isAllowed) {
+          console.log('[getHistory] Filtered out message:', { role: msg.role, id: msg.id });
+        }
+        return isAllowed;
+      })
+      .map(msg => ({
+        role: msg.role,
+        content: msg.content,
+        created_at: msg.timestamp || msg.created_at
+      }));
 
     return res.json({
       sessionId,
-      messages: conversation
+      messages: displayMessages
     });
 
   } catch (error) {

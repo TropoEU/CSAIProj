@@ -35,7 +35,12 @@
       "Bash(taskkill:*)",
       "Bash(ForEach-Object { $_ -match '\\s(\\d+)$')",
       "Bash(Out-Null)",
-      "Bash(ollama list:*)"
+      "Bash(ollama list:*)",
+      "Bash(npm run migrate:*)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)",
+      "Bash(docker ps:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsInJvbGUiOiJzdXBlcl9hZG1pbiIsImlhdCI6MTc2NTI5MDQ0MiwiZXhwIjoxNzY1Mzc2ODQyfQ.IH0Gsmxx3CFjge-JnVLCZZqAXpdsFvjwujCp-tBOMW4\")"
     ],
     "deny": [],
     "ask": []

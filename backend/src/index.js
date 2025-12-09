@@ -3,6 +3,7 @@ import cors from "cors";
 import axios from "axios";
 import toolRoutes from "./routes/tools.js";
 import chatRoutes from "./routes/chat.js";
+import adminRoutes from "./routes/admin.js";
 import { redisClient } from "./redis.js";
 import { db } from "./db.js";
 
@@ -19,6 +20,7 @@ app.use(cors({
 app.use(express.json());
 app.use("/tools", toolRoutes);
 app.use("/chat", chatRoutes);
+app.use("/admin", adminRoutes);
 
 //health check for services
 app.get('/health', async (req, res) => {

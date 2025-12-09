@@ -143,15 +143,26 @@ export class ChatWidget {
       // First try to load from localStorage
       const cachedMessages = this.storage.getMessages();
       if (cachedMessages && cachedMessages.length > 0) {
-        this.window.loadMessages(cachedMessages);
-        return;
+        // Filter out system messages from cache (safety check)
+        const filteredMessages = cachedMessages.filter(msg => 
+          msg.role === 'user' || msg.role === 'assistant'
+        );
+        if (filteredMessages.length > 0) {
+          this.window.loadMessages(filteredMessages);
+          return;
+        }
       }
 
       // If no cached messages, try to fetch from API
       const messages = await this.api.getHistory(this.sessionId);
       if (messages && messages.length > 0) {
+        // Filter out system and tool messages (safety check)
+        const filteredMessages = messages.filter(msg => 
+          msg.role === 'user' || msg.role === 'assistant'
+        );
+        
         // Convert API format to widget format
-        const formattedMessages = messages.map(msg => ({
+        const formattedMessages = filteredMessages.map(msg => ({
           role: msg.role,
           content: msg.content,
           timestamp: new Date(msg.created_at),
@@ -159,6 +170,9 @@ export class ChatWidget {
 
         this.window.loadMessages(formattedMessages);
         this.storage.saveMessages(formattedMessages);
+      } else {
+        // No messages from API - show empty state with greeting
+        this.window.loadMessages([]);
       }
     } catch (error) {
       console.error('ChatWidget: Failed to load history', error);

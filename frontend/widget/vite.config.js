@@ -5,6 +5,9 @@ export default defineConfig({
   server: {
     port: 3001,
     cors: true,
+    open: true,  // Add this to auto-open browser
+    // Or explicitly specify Chrome:
+    // open: '/public/demo.html',  // Opens the demo page
   },
   build: {
     lib: {

@@ -3,8 +3,16 @@
     "version": "1.0.0",
     "scripts": {
       "//": "=== BACKEND SERVER ===",
+      "start": "node backend/src/index.js",
+      "//start": "Start the Express backend server (alias for backend)",
       "backend": "node backend/src/index.js",
       "//backend": "Start the Express backend server",
+
+      "//0": "=== FRONTEND ===",
+      "widget": "cd frontend/widget && npm run dev",
+      "//widget": "Start the chat widget dev server (port 3001)",
+      "admin": "cd frontend/admin && npm run dev",
+      "//admin": "Start the admin dashboard dev server (port 3002)",
 
       "//1": "=== DATABASE MIGRATIONS ===",
       "migrate": "cd backend && node src/scripts/migrate.js up",
@@ -34,7 +42,15 @@
       "dockerdown": "docker compose --env-file ./backend/.env -f ./docker/docker-compose.yml stop",
       "//dockerdown": "Stop Docker containers (data persists)",
       "dockerclean": "docker compose --env-file ./backend/.env -f ./docker/docker-compose.yml down",
-      "//dockerclean": "Stop and remove Docker containers (deletes data!)"
+      "//dockerclean": "Stop and remove Docker containers (deletes data!)",
+
+      "//4": "=== CONNECTIVITY ===",
+      "check:connections": "cd backend && node tests/check-connections.js",
+      "//check:connections": "Check connectivity to all services (Redis, Postgres, n8n)",
+      "check:ollama": "cd backend && node tests/check-ollama.js",
+      "//check:ollama": "Check Ollama connectivity",
+      "test:llm": "cd backend && node tests/services/llmService.test.js",
+      "//test:llm": "Run LLM service tests"
     }
   }
   

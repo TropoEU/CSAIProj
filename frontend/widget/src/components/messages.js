@@ -140,9 +140,15 @@ export class MessageList {
    */
   loadMessages(messages) {
     this.clear();
-    this.messages = messages;
+    
+    // Filter out system and tool messages (safety check - should never happen)
+    const filteredMessages = messages.filter(msg => 
+      msg.role === 'user' || msg.role === 'assistant'
+    );
+    
+    this.messages = filteredMessages;
 
-    messages.forEach(message => {
+    filteredMessages.forEach(message => {
       const messageEl = this.createMessageElement(message);
       this.element.appendChild(messageEl);
     });
