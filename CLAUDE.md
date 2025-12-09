@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This is an AI-powered customer service agent platform for business websites. It provides a plug-and-play widget that can be embedded in any website (Wix, Shopify, WordPress, custom HTML) to handle customer queries, execute actions, and integrate with business systems through n8n workflows.
 
 The architecture follows a clean separation:
+
 - **Backend API**: Node.js/Express server that handles AI orchestration and tool execution
 - **n8n Integration**: Workflow automation that connects to external systems (Shopify, CRMs, Gmail, etc.)
 - **Widget** (✅ Phase 4): Embeddable chat interface for client websites (Vanilla JS + Vite + Shadow DOM)
@@ -90,16 +91,19 @@ This architecture allows each client to have customized workflows without writin
 The system uses 9 core tables:
 
 **Multi-Tenant Structure:**
+
 - `clients`: Business clients using the platform (identified by API key)
 - `client_tools`: Which tools each client has enabled
 - `client_integrations`: External system connections per client
 - `integration_endpoints`: n8n webhook URLs for each client's integrations
 
 **Conversation Tracking:**
+
 - `conversations`: Chat sessions between end-users and the AI
 - `messages`: Individual messages in conversations
 
 **Tool System:**
+
 - `tools`: Master catalog of available tools (e.g., "get_order_status", "book_appointment")
 - `tool_executions`: Audit log of all tool calls
 - `api_usage`: Track LLM API consumption per client
@@ -111,10 +115,12 @@ All models use a static class pattern (see `backend/src/models/Client.js` as ref
 The system intelligently handles both local and Docker environments:
 
 **Local Development:**
+
 - Backend runs on host machine
 - Connects to Docker services via `localhost:5432` (Postgres) and `localhost:6379` (Redis)
 
 **Docker Deployment:**
+
 - All services run inside Docker network
 - Backend uses service names (`postgres`, `redis`) for internal networking
 
@@ -125,12 +131,14 @@ This is handled automatically by `backend/src/config.js` which detects the runti
 Redis implements four critical functions for the platform:
 
 **1. Active Conversation Context** (`conversation:{sessionId}` - TTL: 1 hour)
+
 - Caches recent messages for fast retrieval during active conversations
 - Automatically includes `last_activity` timestamp
 - Use `RedisCache.setConversationContext()`, `getConversationContext()`, `updateConversationContext()`
 - TTL extends on each update to keep active conversations cached
 
 **2. Rate Limiting** (`rate_limit:{clientId}:{minute}` - TTL: 60 seconds)
+
 - Per-client, per-minute request counting
 - Uses Unix timestamp-based minute buckets for efficiency
 - `RedisCache.checkRateLimit(clientId, maxRequests)` - returns `{allowed, remaining, resetIn}`
@@ -138,6 +146,7 @@ Redis implements four critical functions for the platform:
 - Default: 60 requests/minute per client
 
 **3. Response Caching** (`cache:{hash}` or `cache:{clientId}:{hash}` - TTL: 5 minutes)
+
 - Cache identical questions to save LLM API costs
 - Use `RedisCache.hashQuery(query, clientId)` to generate consistent hashes
 - `RedisCache.cacheResponse(hash, response, clientId, ttl)` - stores response
@@ -145,6 +154,7 @@ Redis implements four critical functions for the platform:
 - Supports both global caching (all clients) and client-specific caching
 
 **4. Session Locks** (`lock:conversation:{sessionId}` - TTL: 30 seconds)
+
 - Prevents duplicate message processing from concurrent requests
 - `RedisCache.acquireLock(sessionId)` - returns true if lock acquired
 - `RedisCache.releaseLock(sessionId)` - releases lock
@@ -152,6 +162,7 @@ Redis implements four critical functions for the platform:
 - Uses Redis SET with NX (only set if not exists) for atomic operations
 
 **Important Implementation Notes:**
+
 - All methods include error handling and fail gracefully
 - `clearClientCache()` uses SCAN (not KEYS) to avoid blocking Redis in production
 - Rate limiting uses simple Unix timestamp division for timezone-safe minute buckets
@@ -162,6 +173,7 @@ Redis implements four critical functions for the platform:
 The AI conversation engine is fully implemented and operational:
 
 **LLM Service** (`backend/src/services/llmService.js`):
+
 - Multi-provider architecture (Ollama for dev, Claude/OpenAI for prod)
 - Automatic environment detection and configuration
 - Token counting and cost tracking
@@ -170,6 +182,7 @@ The AI conversation engine is fully implemented and operational:
 - Error handling with retry logic
 
 **Conversation Service** (`backend/src/services/conversationService.js`):
+
 - Conversation and message management
 - Context window management (20 messages max)
 - Redis caching integration
@@ -177,12 +190,14 @@ The AI conversation engine is fully implemented and operational:
 - Session management
 
 **System Prompts** (`backend/src/prompts/systemPrompt.js`):
+
 - Base and enhanced prompt templates
 - Client-specific customization
 - Tool instruction templates
 - Greeting and error messages
 
 **Current LLM Provider**: Ollama (localhost:11434) with `Hermes-2-Pro-Mistral-7B.Q5_K_M.gguf` model
+
 - For local development and testing
 - Changed from dolphin-llama3 for better tool calling capabilities
 - No API costs
@@ -194,6 +209,7 @@ The AI conversation engine is fully implemented and operational:
 The tool execution system is fully operational and enables the AI to perform real actions:
 
 **Tool Manager** (`backend/src/services/toolManager.js`):
+
 - Dynamic tool loading per client from database
 - Format tools for LLM consumption (native function calling for Claude, prompt engineering for Ollama)
 - Tool schema validation
@@ -201,6 +217,7 @@ The tool execution system is fully operational and enables the AI to perform rea
 - Format tool results for AI consumption
 
 **n8n Integration Service** (`backend/src/services/n8nService.js`):
+
 - Execute tools via n8n webhooks with timeout handling (30s default)
 - Automatic retry logic with exponential backoff
 - Batch execution (parallel tool calls)
@@ -208,6 +225,7 @@ The tool execution system is fully operational and enables the AI to perform rea
 - Health checks and webhook connectivity testing
 
 **Chat API** (`backend/src/routes/chat.js`, `backend/src/controllers/chatController.js`):
+
 - `POST /chat/message` - Send message and get AI response with tool execution
 - `GET /chat/history/:sessionId` - Retrieve conversation history
 - `POST /chat/end` - End a conversation session
@@ -215,11 +233,13 @@ The tool execution system is fully operational and enables the AI to perform rea
 - Rate limiting (60 requests/minute per client)
 
 **Demo n8n Workflows** (`n8n-workflows/`):
+
 - `get_order_status` - Check order status by order number
 - `book_appointment` - Book appointments with validation
 - `check_inventory` - Check product availability and stock levels
 
 **Tool Execution Flow**:
+
 1. User message → Chat API
 2. Load client's enabled tools
 3. Call LLM with tools available
@@ -234,6 +254,7 @@ The tool execution system is fully operational and enables the AI to perform rea
 The embeddable chat widget is fully implemented and operational:
 
 **Widget Core** (`frontend/widget/`):
+
 - Vanilla JavaScript (no framework) with Vite build system
 - Shadow DOM for complete CSS/JS isolation from host pages
 - Auto-initialization from script tag with data attributes
@@ -242,6 +263,7 @@ The embeddable chat widget is fully implemented and operational:
 - Bundle size: ~85KB (uncompressed)
 
 **Widget Components**:
+
 - `src/widget.js` - Main widget class with Shadow DOM
 - `src/api.js` - API client for backend communication
 - `src/storage.js` - localStorage wrapper for persistence
@@ -252,20 +274,25 @@ The embeddable chat widget is fully implemented and operational:
 - `src/styles.css` - Complete styling with CSS variables for theming
 
 **Critical Bug Fixes**:
+
 - Fixed CORS issue (added cors middleware to backend)
 - Fixed context pollution bug in `conversationService.js:289` (tool descriptions were being appended on every loop iteration)
 - Switched to Hermes-2-Pro-Mistral-7B for better tool calling
 - Optimized temperature (0.3) and max_tokens (2048) for stability
 
 **Integration Code**:
+
 ```html
-<script src="http://localhost:3001/widget.js"
-        data-api-key="YOUR_API_KEY"
-        data-position="bottom-right"
-        data-primary-color="#667eea"></script>
+<script
+  src="http://localhost:3001/widget.js"
+  data-api-key="YOUR_API_KEY"
+  data-position="bottom-right"
+  data-primary-color="#667eea"
+></script>
 ```
 
 **Test Results**:
+
 - Widget loads in <1 second
 - Tool execution working (order status, appointments, inventory)
 - Multi-turn conversations stable (10+ exchanges tested)
@@ -276,24 +303,29 @@ The embeddable chat widget is fully implemented and operational:
 ### What's Not Yet Implemented
 
 **From Phase 1** (Optional - can be added later):
+
 - Data retention/cleanup scripts (`backend/src/scripts/cleanup.js`) - auto-delete old messages/tool executions
 - Seed data for testing
 
 **From Phase 2** (Optional):
+
 - OpenAI provider implementation - currently placeholder only (Ollama and Claude work)
 - Streaming responses (prepared but not active)
 
 **From Phase 3** (Optional):
+
 - Integration Service (`backend/src/services/integrationService.js`) - for pulling live data from client APIs (Shopify, WooCommerce, etc.)
 - Advanced tool features: tool chaining, conditional execution, result caching
 
 **From Phase 4** (Optional):
+
 - Light/dark theme toggle (currently single theme with CSS variables)
 - Version hash for cache busting
 - Testing on WordPress/Wix/Shopify (manual testing required)
 - Streaming support (prepared but not active)
 
 **Phase 5** (✅ Complete - December 9, 2025):
+
 - Admin Dashboard running on http://localhost:3002
 - React 18 + Vite + Tailwind CSS
 - JWT authentication with bcrypt password hashing
@@ -306,6 +338,7 @@ The embeddable chat widget is fully implemented and operational:
 - Login credentials: `admin` / `admin123`
 
 **Phases 6-9** (Not Started):
+
 - Phase 6: LLM optimization and provider options
 - Phase 7: Hebrew/RTL support
 - Phase 8: Advanced features (RAG, analytics, escalation)
@@ -322,6 +355,7 @@ The embeddable chat widget is fully implemented and operational:
 5. No code changes needed - the system dynamically loads tools from database
 
 **Example SQL**:
+
 ```sql
 -- Add tool to catalog
 INSERT INTO tools (tool_name, description, parameters_schema) VALUES (
@@ -342,6 +376,7 @@ INSERT INTO client_tools (client_id, tool_id, enabled, n8n_webhook_url) VALUES (
 ### Adding a New Model
 
 Follow the pattern established in `backend/src/models/Client.js`:
+
 - Use static methods for all operations
 - Use parameterized queries to prevent SQL injection
 - Return `result.rows[0]` for single records, `result.rows` for collections
@@ -353,6 +388,7 @@ Follow the pattern established in `backend/src/models/Client.js`:
 Create migration files in `db/migrations/` with timestamp prefix format: `YYYYMMDDHHMMSS_description.sql`
 
 Structure:
+
 ```sql
 -- UP
 CREATE TABLE ...;
@@ -368,15 +404,18 @@ The DOWN section should be commented out to prevent accidental execution.
 ## Docker Services
 
 **Postgres** (`localhost:5432`):
+
 - Database for all application data
 - Health checks enabled
 - **Important**: Application tables are in the `public` schema, n8n tables are in the `n8n` schema
 
 **Redis** (`localhost:6379`):
+
 - Caching and session management
 - Health checks enabled
 
 **n8n** (`localhost:5678`):
+
 - Workflow automation engine
 - Stores workflows in Postgres using the `n8n` schema (isolated from application tables)
 - Exposes webhooks for tool execution
@@ -440,6 +479,7 @@ CSAIProj/
 ## Environment Variables
 
 Located in `backend/.env`. Key variables:
+
 - `POSTGRES_*`: Database connection settings
 - `REDIS_*`: Redis connection settings
 - `N8N_*`: n8n service configuration
@@ -451,6 +491,7 @@ When adding new environment variables, update both `.env` and document them in t
 ## Health Checks
 
 The backend exposes a `/health` endpoint that checks:
+
 - Redis connectivity (`PING` command)
 - PostgreSQL connectivity (`SELECT 1` query)
 - n8n service availability (`GET /healthz`)
@@ -465,20 +506,28 @@ Use this endpoint to verify all services are running correctly after startup.
 
 **Cause**: n8n and the application both use a table called `migrations`, but with different schemas.
 
-**Fix**:
-1. Stop all containers: `pnpm dockerdown`
-2. Connect to Postgres and run `fix-n8n.sql` to clean up conflicting tables:
-   ```bash
-   docker exec -i docker-postgres-1 psql -U postgres -d csaidb < fix-n8n.sql
-   ```
-   Or manually via psql:
-   ```bash
-   docker exec -it docker-postgres-1 psql -U postgres -d csaidb
-   \i /path/to/fix-n8n.sql
-   ```
-3. Restart containers: `pnpm dockerup`
+**Status**: ✅ **RESOLVED** - This issue is prevented by the current setup:
 
-The docker-compose.yml now configures n8n to use the `n8n` schema, preventing future conflicts.
+- `docker-compose.yml` configures n8n to use the `n8n` schema via `DB_POSTGRESDB_SCHEMA: n8n`
+- `docker/init-n8n-schema.sql` automatically creates the `n8n` schema on fresh database initialization
+- Fresh container setups will automatically have the correct schema configuration
+
+**If you encounter this on an existing setup** (e.g., upgrading from an older version):
+
+1. Stop all containers: `npm run dockerdown`
+2. Connect to Postgres and manually create the schema:
+   ```bash
+   docker exec -it docker-postgres-1 psql -U ${POSTGRES_USER} -d ${POSTGRES_DB}
+   ```
+   Then run:
+   ```sql
+   CREATE SCHEMA IF NOT EXISTS n8n;
+   GRANT ALL PRIVILEGES ON SCHEMA n8n TO ${POSTGRES_USER};
+   ```
+3. Ensure `docker-compose.yml` has `DB_POSTGRESDB_SCHEMA: n8n` in the n8n service environment
+4. Restart containers: `npm run dockerup`
+
+**Note**: The `fix-n8n.sh` and `fix-n8n.sql` scripts are no longer needed with the current setup.
 
 ## Development Environment
 
@@ -490,6 +539,7 @@ The docker-compose.yml now configures n8n to use the `n8n` schema, preventing fu
 **IMPORTANT**: All commands should be run in Windows PowerShell, NOT in WSL or any Linux terminal. The `backend/src/config.js` automatically detects the environment and routes connections appropriately.
 
 **Current Services Running**:
+
 - Backend API: http://localhost:3000
 - Widget Dev Server: http://localhost:3001
 - n8n: http://localhost:5678

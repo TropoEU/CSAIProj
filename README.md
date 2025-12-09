@@ -1,185 +1,540 @@
-# CSAIProj
+# CSAI - AI Customer Service Agent Platform
 
-AI Customer service agent
-✅ Your Final Product: “AI Agent for Business Websites”
+<div align="center">
 
-A plug-and-play widget that:
+**A plug-and-play AI customer service widget for business websites**
 
-✔ Talks to customers naturally
-✔ Looks like a normal chat widget
-✔ Understands the business (products, policies, inventory, bookings)
-✔ Takes real actions (refund, check order, update CRM, book appointment)
-✔ Works on ANY platform: Wix, Shopify, WordPress, custom HTML
-✔ Requires ZERO developers on the client side
-✔ You manage everything from your backend
+[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue.svg)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-7-red.svg)](https://redis.io/)
+[![n8n](https://img.shields.io/badge/n8n-Latest-orange.svg)](https://n8n.io/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Exactly like having a live human agent — but automatic.
+[Features](#-features) • [Quick Start](#-quick-start) • [Architecture](#-architecture) • [Documentation](#-documentation)
 
-🧠 Core Abilities You Should Provide
+</div>
 
-What your AI should actually be able to do:
+---
 
-1. Answer questions about products / services
+## 🎯 What is CSAI?
 
-“Do you ship to Eilat?”
-“Do you have this in stock?”
-“Can your technician come on Friday?”
-“Which laptop is better for gaming?”
+CSAI is a **multi-tenant AI customer service platform** that provides businesses with an intelligent chat widget for their websites. The AI agent can:
 
-2. Check orders / bookings
+- 💬 **Answer questions** about products, services, and policies
+- 🔍 **Check orders, bookings, and inventory** in real-time
+- ⚡ **Perform actions** like refunds, bookings, CRM updates, and more
+- 🌍 **Support multiple languages** (English, Hebrew, and more)
+- 🔌 **Integrate with any system** via n8n workflows (Shopify, Gmail, Google Sheets, CRMs, etc.)
 
-“Where is my order?”
-“Did my appointment go through?”
-“Can I change the time?”
+**Works on ANY platform**: Wix, Shopify, WordPress, or custom HTML — **zero developer involvement required on the client side**.
 
-3. Perform actions (agentic)
+---
 
-Create new order
+## ✨ Features
 
-Update booking
+### Core Capabilities
 
-Issue refund
+- 🤖 **Intelligent AI Agent** - Powered by OpenAI GPT-4, Claude, or private models (Ollama) for natural conversations
+- 🛠️ **Tool Execution System** - Execute real actions via n8n webhooks
+- 🎨 **Customizable Widget** - White-label chat widget with branding options
+- 📊 **Admin Dashboard** - Complete management interface for clients, tools, and integrations
+- 🔐 **Multi-tenant Architecture** - Isolated data and configurations per client
+- 📈 **Analytics & Monitoring** - Track conversations, tool usage, and API consumption
+- 🔄 **Real-time Integrations** - Connect to Shopify, Gmail, CRMs, databases, and more
+- 🌐 **Multi-language Support** - Hebrew and English support out of the box
+- 🔒 **Private Model Support** - Use Ollama for local/private LLM deployments
 
-Send invoice
+### Technical Features
 
-Add lead to CRM
+- 🐳 **Dockerized Services** - PostgreSQL, Redis, and n8n in containers
+- 🗄️ **PostgreSQL Database** - Robust schema with migrations
+- ⚡ **Redis Caching** - Conversation context, rate limiting, and response caching
+- 🔌 **n8n Workflows** - Visual workflow automation for integrations
+- 🧪 **Comprehensive Testing** - Unit and integration tests
+- 📝 **Database Migrations** - Version-controlled schema changes
 
-Update Google Sheet
+---
 
-Send email with PDF
+## 🚀 Quick Start
 
-Check stock
+### Prerequisites
 
-Create support ticket
+- **Node.js** 18+ and npm/pnpm
+- **Docker** and Docker Compose
+- **Ollama** (optional, for local/private LLM testing) - running on `localhost:11434`
+- **OpenAI API Key** or **Anthropic API Key** (for cloud LLM services)
+- **OpenAI API Key** or **Anthropic API Key** (for cloud LLM services)
 
-Modify reservation
+### Installation
 
-Add customer to mailing list
+1. **Clone the repository**
 
-Trigger custom automation
+   ```bash
+   git clone https://github.com/yourusername/CSAIProj.git
+   cd CSAIProj
+   ```
 
-4. Understand Hebrew + English
+2. **Install dependencies**
 
-Huge advantage in Israel: many companies don’t have Hebrew-friendly AI.
+   ```bash
+   # Root dependencies (if any)
+   npm install
 
-🧩 The Secret: How To Build This As One Developer
+   # Backend dependencies
+   cd backend
+   npm install
 
-(And not die writing integrations)
+   # Frontend dependencies
+   cd ../frontend/widget
+   npm install
 
-You don’t connect directly to “their backend.”
-You don’t fight their messy systems.
-You don’t write 100 different integrations.
+   cd ../admin
+   npm install
+   ```
+
+3. **Configure environment variables**
+
+   ```bash
+   # Copy and edit the backend .env file
+   cp backend/.env.example backend/.env
+   # Edit backend/.env with your configuration
+   ```
+
+4. **Start Docker services**
+
+   ```bash
+   npm run dockerup
+   ```
+
+5. **Run database migrations**
+
+   ```bash
+   npm run migrate
+   ```
+
+6. **Start the backend server**
+
+   ```bash
+   npm start
+   # or
+   npm run backend
+   ```
+
+7. **Start the frontend (optional)**
+
+   ```bash
+   # Widget dev server (port 3001)
+   npm run widget
+
+   # Admin dashboard (port 3002)
+   npm run admin
+   ```
+
+### Verify Installation
+
+Check that all services are running:
+
+```bash
+# Check service connectivity
+npm run check:connections
+
+# Check health endpoint
+curl http://localhost:3000/health
+```
+
+Expected output:
+
+```
+✅ PostgreSQL: OK
+✅ Redis: OK
+✅ n8n: OK
+```
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    CLIENT WEBSITE                            │
+│  <script src="https://yourdomain.com/widget.js"></script>    │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│              YOUR AI WIDGET (Chat Bubble)                    │
+│         Vanilla JS + Vite + Shadow DOM                       │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│              YOUR BACKEND (Node.js/Express)                  │
+│  • Conversation Management                                   │
+│  • LLM Integration (OpenAI/Claude/Ollama)                   │
+│  • Tool Execution                                            │
+│  • Rate Limiting & Caching                                   │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    LLM SERVICE                                │
+│  • OpenAI GPT-4 / Claude 3.5 Sonnet (Cloud)                │
+│  • Ollama (Local/Private Models)                            │
+│  • Configurable per client                                   │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│              TOOL MANAGER → n8n WORKFLOWS                     │
+│  • Webhook Execution                                         │
+│  • Per-client Workflows                                      │
+│  • Integration with External Systems                         │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│              EXTERNAL SYSTEMS                                │
+│  Shopify • Gmail • Google Sheets • CRMs • Databases         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Why This Architecture?
+
+- ✅ **No custom API code per client** - n8n handles integrations
+- ✅ **Works with any platform** - Wix, Shopify, WordPress, custom HTML
+- ✅ **Clean separation** - Backend stays small and maintainable
+- ✅ **Fast onboarding** - New clients in ~1 hour
+- ✅ **Scalable** - Multi-tenant architecture with isolated data
+- ✅ **Flexible LLM options** - Support for cloud (OpenAI/Claude) and private models (Ollama)
+
+---
+
+## 📁 Project Structure
+
+```
+CSAIProj/
+├── backend/                 # Node.js/Express backend
+│   ├── src/
+│   │   ├── controllers/    # Route handlers
+│   │   ├── models/         # Database models (9 tables)
+│   │   ├── routes/         # API routes (chat, tools, admin)
+│   │   ├── services/       # Business logic (LLM, n8n, cache)
+│   │   ├── middleware/     # Auth, rate limiting
+│   │   ├── prompts/        # System prompt templates
+│   │   └── scripts/        # Migration runner
+│   ├── tests/              # Unit and integration tests
+│   └── package.json
+├── frontend/
+│   ├── widget/             # Embeddable chat widget
+│   │   ├── src/
+│   │   │   ├── widget.js   # Main widget class
+│   │   │   ├── api.js      # API client
+│   │   │   └── components/ # UI components
+│   │   └── vite.config.js
+│   └── admin/              # Admin dashboard (React)
+│       ├── src/
+│       │   ├── pages/      # Dashboard pages
+│       │   ├── components/ # Reusable components
+│       │   └── services/   # API client
+│       └── vite.config.js
+├── db/
+│   └── migrations/         # SQL migration files
+├── docker/
+│   ├── docker-compose.yml  # Container orchestration
+│   └── init-n8n-schema.sql # n8n schema initialization
+├── n8n-workflows/          # Demo n8n workflows
+└── package.json            # Root package.json with scripts
+```
+
+---
+
+## 🛠️ Development
+
+### Available Scripts
+
+#### Backend Server
+
+```bash
+npm start              # Start the Express backend server
+npm run backend        # Alias for 'start'
+```
+
+#### Frontend Development
+
+```bash
+npm run widget         # Start widget dev server (port 3001)
+npm run admin          # Start admin dashboard (port 3002)
+```
+
+#### Database Migrations
+
+```bash
+npm run migrate        # Apply all pending migrations
+npm run migrate:down   # Rollback the last migration
+npm run migrate:status # Show migration status
+```
+
+#### Docker Management
+
+```bash
+npm run dockerup       # Start containers (Postgres, Redis, n8n)
+npm run dockerdown     # Stop containers (data persists)
+npm run dockerclean    # Stop and remove containers (deletes data!)
+```
+
+#### Testing
+
+```bash
+npm test               # Run all integration tests
+npm run test:models    # Run model tests
+npm run test:redis     # Run Redis cache tests
+npm run test:llm       # Run LLM service tests
+npm run test:phase2    # Run Phase 2 integration test
+npm run test:phase3    # Run Phase 3 integration test
+```
+
+#### Connectivity Checks
+
+```bash
+npm run check:connections  # Check all service connections
+npm run check:ollama      # Check Ollama connectivity
+```
+
+### Environment Variables
+
+Key environment variables (see `backend/.env`):
+
+```env
+# Database
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_USER=aiuser
+POSTGRES_PASSWORD=your_password
+POSTGRES_DB=aiclient
+
+# Redis
+REDIS_HOST=redis
+REDIS_PORT=6379
+
+# n8n
+N8N_HOST=localhost
+N8N_PORT=5678
+N8N_BASIC_AUTH_USER=admin
+N8N_BASIC_AUTH_PASSWORD=your_password
+WEBHOOK_URL=http://localhost:5678
+
+# LLM Configuration
+# Option 1: OpenAI (Cloud)
+OPENAI_API_KEY=your_openai_key
+
+# Option 2: Anthropic Claude (Cloud)
+ANTHROPIC_API_KEY=your_anthropic_key
+
+# Option 3: Ollama (Local/Private Models)
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2
+# Use Ollama for local testing and private model deployments
+
+# API
+PORT=3000
+NODE_ENV=development
+```
+
+### Database Schema
+
+The platform uses PostgreSQL with the following core tables:
+
+- **clients** - Multi-tenant client configuration
+- **conversations** - Chat session tracking
+- **messages** - Individual messages (30-day retention)
+- **tools** - Master tool catalog
+- **client_tools** - Client-to-tool mappings with webhook URLs
+- **client_integrations** - Integration configurations
+- **tool_executions** - Execution history and logging
+- **api_usage** - Token usage and analytics
+- **admins** - Admin user accounts
+
+See `db/migrations/` for the complete schema.
+
+---
+
+## 📚 Documentation
+
+- **[CLAUDE.md](CLAUDE.md)** - Comprehensive development guide and project documentation
+- **[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)** - Detailed implementation phases and roadmap
+- **[n8n-workflows/README.md](n8n-workflows/README.md)** - n8n workflow setup and configuration
+
+### API Endpoints
+
+#### Chat API
+
+- `POST /chat/message` - Send a message to the AI agent
+- `GET /chat/history/:sessionId` - Get conversation history
+
+#### Admin API
+
+- `GET /admin/clients` - List all clients
+- `POST /admin/clients` - Create a new client
+- `GET /admin/tools` - List all tools
+- `POST /admin/tools` - Create a new tool
+- `GET /admin/stats/tools` - Get tool usage statistics
+- `POST /admin/test-chat` - Test chat functionality
+
+#### Health Check
+
+- `GET /health` - Check service health (PostgreSQL, Redis, n8n)
+
+See `backend/src/routes/` for complete API documentation.
+
+---
+
+## 🎨 Widget Integration
+
+### Basic Integration
+
+Add this script tag to any HTML page:
+
+```html
+<script
+  src="http://localhost:3001/widget.js"
+  data-api-key="your_client_api_key"
+  data-api-url="http://localhost:3000"
+  data-position="bottom-right"
+  data-primary-color="#667eea"
+  data-title="Chat Support"
+  data-subtitle="We typically reply instantly"
+  data-greeting="Hi! How can I help you today?"
+></script>
+```
+
+### Configuration Options
+
+| Attribute            | Required | Default                         | Description                  |
+| -------------------- | -------- | ------------------------------- | ---------------------------- |
+| `data-api-key`       | ✅ Yes   | -                               | Client API key from database |
+| `data-api-url`       | No       | `http://localhost:3000`         | Backend API URL              |
+| `data-position`      | No       | `bottom-right`                  | Widget position              |
+| `data-primary-color` | No       | `#0066cc`                       | Primary theme color (hex)    |
+| `data-title`         | No       | `Chat Support`                  | Header title                 |
+| `data-subtitle`      | No       | `We typically reply instantly`  | Header subtitle              |
+| `data-greeting`      | No       | `Hi! How can I help you today?` | Empty state greeting         |
+
+### JavaScript API
+
+The widget instance is exposed globally:
+
+```javascript
+// Open the widget
+window.CSAIWidget.open();
+
+// Close the widget
+window.CSAIWidget.close();
+
+// Clear conversation history
+window.CSAIWidget.clearHistory();
+```
+
+---
+
+## 🔧 n8n Integration
 
-Instead:
+n8n workflows handle all external system integrations. Each client can have custom workflows for:
 
-⭐ The Architecture That Lets You Deliver This Alone
-CLIENT WEBSITE
-|
-| <script src="https://yourdomain.com/widget.js"></script>
-|
-YOUR AI WIDGET (chat bubble)
-|
-v
-YOUR BACKEND (Node.js)
-|
-v
-LLM (OpenAI/Anthropic)
-|
-v
-"INTENT/TOOL OUTPUT"
-|
-v
-n8n WORKFLOWS (per client)
-|
-v
-ANY ACTION (Shopify, Gmail, Google Sheets, CRM, DB)
+- **Shopify** - Order status, inventory checks, refunds
+- **Gmail** - Send emails, create tickets
+- **Google Sheets** - Update spreadsheets, track data
+- **CRMs** - Add leads, update contacts
+- **Databases** - Query and update data
+- **Custom APIs** - Any REST API integration
 
-You choose which parts the AI is allowed to do:
-Each “tool” triggers a webhook → runs an n8n workflow → performs real action.
+### Setting Up n8n Workflows
 
-🎯 Why This Architecture Is Genius
+1. Import workflows from `n8n-workflows/` directory
+2. Configure webhook URLs in the admin dashboard
+3. Map tools to workflows in `client_tools` table
+4. Test workflows using the admin dashboard
 
-AI can “take actions” LIKE A HUMAN
+See [n8n-workflows/README.md](n8n-workflows/README.md) for detailed setup instructions.
 
-You don’t need custom API code for each client
+---
 
-n8n handles the messy integrations
+## 🧪 Testing
 
-Works with Wix/Shopify/WordPress without them touching code
+### Running Tests
 
-Your backend stays clean and small
+```bash
+# Run all tests
+npm test
 
-You can onboard a new client in 1 hour
+# Run specific test suites
+npm run test:models
+npm run test:redis
+npm run test:llm
+npm run test:phase2
+npm run test:phase3
+```
 
-This is exactly how companies like Intercom, X.ai, and Heyday built their first versions.
+### Test Coverage
 
-🔨 Technologies You Should Use (this stack is optimized for one smart dev)
-Backend
+- ✅ Database models (9 tables)
+- ✅ Redis cache service
+- ✅ LLM service integration
+- ✅ Tool execution system
+- ✅ Conversation flow (Phase 2)
+- ✅ Full integration tests (Phase 3)
 
-Node.js (Express or Fastify)
+---
 
-Postgres or Supabase
+## 🚢 Deployment
 
-Redis (optional for caching conversation state)
+### Backend Deployment
 
-AI
+The backend can be deployed to:
 
-OpenAI GPT-4o or GPT-4.1
+- **Vercel** - Serverless functions
+- **Railway** - Full-stack hosting
+- **DigitalOcean** - App Platform
+- **AWS/GCP/Azure** - Traditional VMs or containers
 
-Claude 3.5 Sonnet (for reasoning and structured tool calls)
+### Database Hosting
 
-Automations
+- **Supabase** - Managed PostgreSQL
+- **Railway** - Managed PostgreSQL
+- **AWS RDS** - Production-grade database
 
-n8n (self-hosted)
+### Redis Hosting
 
-Webhooks → custom actions (Shopify, emails, spreadsheets, CRMs)
+- **Upstash** - Serverless Redis
+- **Redis Cloud** - Managed Redis
+- **Self-hosted** - Docker container
 
-Widget
+### n8n Hosting
 
-Vanilla JS or React ES module bundle
+- **Railway** - Easy deployment
+- **Contabo VM** - Self-hosted
+- **n8n Cloud** - Managed service
 
-Works on Wix & Shopify via HTML embed
+### Widget CDN
 
-Deployment
+Build the widget and host on:
 
-Cloudflare Workers or Vercel for backend API
+- **Cloudflare Pages**
+- **Vercel**
+- **Netlify**
+- **AWS S3 + CloudFront**
 
-Railway or Contabo VM for n8n
+---
 
-Supabase for DB + storage
+## 📧 Support
 
-Optional
+For questions, issues, or feature requests, please open an issue on GitHub.
 
-Pinecone/Qdrant for product search
+---
 
-Clerk/Auth0 for multi-client admin
+<div align="center">
 
-🔧 What You Must Build (the minimal product)
+**Made with ❤️ for businesses who want AI-powered customer service**
 
-1. AI engine
+[⬆ Back to Top](#csai---ai-customer-service-agent-platform)
 
-Handles messages, context, tool calls.
-
-2. Tool manager
-
-Executes actions → calls n8n → returns result.
-
-3. Admin dashboard
-
-For you:
-
-Add client
-
-Configure workflows
-
-Test actions
-
-Upload business data
-
-Set rules
-
-4. Widget
-
-Chat bubble for any site.
-
-for testing and development i have ollama installed and running on localhost:11434
+</div>
