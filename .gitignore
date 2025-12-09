@@ -141,3 +141,5 @@ vite.config.ts.timestamp-*
 # Cursor IDE
 .cursorignore
 
+# Claude local settings
+.claude
