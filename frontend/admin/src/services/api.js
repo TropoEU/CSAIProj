@@ -88,4 +88,17 @@ export const testChat = {
     api.post('/admin/test-chat', { clientId, message, sessionId }),
 };
 
+// Billing endpoints
+export const billing = {
+  getInvoices: (params) => api.get('/admin/billing/invoices', { params }),
+  getInvoiceById: (id) => api.get(`/admin/billing/invoices/${id}`),
+  getClientInvoices: (clientId, params) => api.get(`/admin/clients/${clientId}/invoices`, { params }),
+  generateInvoice: (data) => api.post('/admin/billing/generate', data),
+  markAsPaid: (id, data) => api.post(`/admin/billing/invoices/${id}/mark-paid`, data),
+  cancelInvoice: (id, data) => api.post(`/admin/billing/invoices/${id}/cancel`, data),
+  chargeInvoice: (id) => api.post(`/admin/billing/invoices/${id}/charge`),
+  getRevenue: (params) => api.get('/admin/billing/revenue', { params }),
+  getOutstanding: () => api.get('/admin/billing/outstanding'),
+};
+
 export default api;

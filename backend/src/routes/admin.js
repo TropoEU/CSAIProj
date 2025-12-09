@@ -7,10 +7,13 @@ import { Conversation } from '../models/Conversation.js';
 import { Message } from '../models/Message.js';
 import { ToolExecution } from '../models/ToolExecution.js';
 import { ClientIntegration } from '../models/ClientIntegration.js';
+import { Invoice } from '../models/Invoice.js';
 import { authenticateAdmin, generateToken } from '../middleware/adminAuth.js';
 import conversationService from '../services/conversationService.js';
 import toolManager from '../services/toolManager.js';
 import n8nService from '../services/n8nService.js';
+import { BillingService } from '../services/billingService.js';
+import { UsageTracker } from '../services/usageTracker.js';
 import { db } from '../db.js';
 
 const router = express.Router();
@@ -208,6 +211,103 @@ router.post('/clients/:id/api-key', async (req, res) => {
   } catch (error) {
     console.error('[Admin] Regenerate API key error:', error);
     res.status(500).json({ error: 'Failed to regenerate API key' });
+  }
+});
+
+/**
+ * POST /admin/clients/:id/upgrade-plan
+ * Upgrade/downgrade client plan with prorating
+ */
+router.post('/clients/:id/upgrade-plan', async (req, res) => {
+  try {
+    const { newPlan } = req.body;
+
+    if (!newPlan) {
+      return res.status(400).json({ error: 'New plan type is required' });
+    }
+
+    const client = await Client.findById(req.params.id);
+    if (!client) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    const oldPlan = client.plan_type;
+
+    if (oldPlan === newPlan) {
+      return res.status(400).json({ error: 'Client is already on this plan' });
+    }
+
+    // Calculate prorating
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const daysRemaining = daysInMonth - now.getDate() + 1;
+    const prorateRatio = daysRemaining / daysInMonth;
+
+    // Get pricing for both plans
+    const oldPricing = BillingService.getPricingConfig(oldPlan);
+    const newPricing = BillingService.getPricingConfig(newPlan);
+
+    // Calculate prorated amounts
+    const unusedOldPlanAmount = oldPricing.baseCost * prorateRatio;
+    const proratedNewPlanAmount = newPricing.baseCost * prorateRatio;
+    const proratedDifference = proratedNewPlanAmount - unusedOldPlanAmount;
+
+    // Update client plan
+    const updatedClient = await Client.update(req.params.id, { plan_type: newPlan });
+
+    // Create prorated invoice/credit if there's a significant difference
+    let prorateNote = '';
+    if (Math.abs(proratedDifference) > 0.01) {
+      if (proratedDifference > 0) {
+        // Upgrade: Client owes prorated amount
+        prorateNote = `Prorated charge of $${proratedDifference.toFixed(2)} for ${daysRemaining} days at new rate.`;
+
+        // Create a prorated invoice
+        const billingPeriod = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+        try {
+          await Invoice.create({
+            clientId: client.id,
+            billingPeriod,
+            planType: newPlan,
+            baseCost: proratedDifference,
+            usageCost: 0,
+            totalCost: proratedDifference,
+            status: 'pending',
+            dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days
+            notes: `Prorated charge for plan upgrade from ${oldPlan} to ${newPlan} on ${now.toISOString().split('T')[0]}`
+          });
+        } catch (err) {
+          console.error('[Admin] Failed to create prorated invoice:', err);
+          // Continue even if invoice creation fails
+        }
+      } else {
+        // Downgrade: Client gets credit
+        prorateNote = `Credit of $${Math.abs(proratedDifference).toFixed(2)} applied for unused ${oldPlan} plan time.`;
+
+        // In a real system, you would apply this credit to the next invoice
+        // For now, we just note it
+      }
+    }
+
+    res.json({
+      client: updatedClient,
+      message: `Plan changed from ${oldPlan} to ${newPlan}`,
+      effectiveDate: now.toISOString(),
+      prorating: {
+        daysRemaining,
+        daysInMonth,
+        prorateRatio: Math.round(prorateRatio * 100) / 100,
+        unusedOldPlanAmount: Math.round(unusedOldPlanAmount * 100) / 100,
+        proratedNewPlanAmount: Math.round(proratedNewPlanAmount * 100) / 100,
+        difference: Math.round(proratedDifference * 100) / 100,
+        note: prorateNote || 'No prorated charges apply (plans have same base cost or change at month start).'
+      }
+    });
+  } catch (error) {
+    console.error('[Admin] Upgrade plan error:', error);
+    res.status(500).json({ error: 'Failed to upgrade plan' });
   }
 });
 
@@ -819,6 +919,394 @@ router.get('/stats/conversations', async (req, res) => {
   } catch (error) {
     console.error('[Admin] Get conversation stats error:', error);
     res.status(500).json({ error: 'Failed to get conversation stats' });
+  }
+});
+
+// =====================================================
+// BILLING ROUTES
+// =====================================================
+
+/**
+ * GET /admin/billing/invoices
+ * Get all invoices with optional filters
+ */
+router.get('/billing/invoices', async (req, res) => {
+  try {
+    const { status, clientId, billingPeriod, limit = 100, offset = 0 } = req.query;
+
+    const filters = {};
+    if (status && status !== 'all') filters.status = status;
+    if (clientId && clientId !== 'all') filters.clientId = parseInt(clientId);
+    if (billingPeriod) filters.billingPeriod = billingPeriod;
+
+    const invoices = await Invoice.findAll(filters, parseInt(limit), parseInt(offset));
+    res.json(invoices);
+  } catch (error) {
+    console.error('[Admin] Get invoices error:', error);
+    res.status(500).json({ error: 'Failed to get invoices' });
+  }
+});
+
+/**
+ * GET /admin/billing/invoices/:id
+ * Get invoice details by ID
+ */
+router.get('/billing/invoices/:id', async (req, res) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id);
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    // Get client details
+    const client = await Client.findById(invoice.client_id);
+    invoice.client_name = client?.name;
+    invoice.client_domain = client?.domain;
+
+    res.json(invoice);
+  } catch (error) {
+    console.error('[Admin] Get invoice error:', error);
+    res.status(500).json({ error: 'Failed to get invoice' });
+  }
+});
+
+/**
+ * GET /admin/clients/:id/invoices
+ * Get all invoices for a specific client
+ */
+router.get('/clients/:id/invoices', async (req, res) => {
+  try {
+    const { limit = 100, offset = 0 } = req.query;
+    const invoices = await Invoice.findByClientId(req.params.id, parseInt(limit), parseInt(offset));
+    res.json(invoices);
+  } catch (error) {
+    console.error('[Admin] Get client invoices error:', error);
+    res.status(500).json({ error: 'Failed to get client invoices' });
+  }
+});
+
+/**
+ * POST /admin/billing/generate
+ * Generate invoice(s) for a billing period
+ */
+router.post('/billing/generate', async (req, res) => {
+  try {
+    const { clientId, billingPeriod, force = false } = req.body;
+
+    if (!billingPeriod) {
+      return res.status(400).json({ error: 'Billing period is required (YYYY-MM format)' });
+    }
+
+    // Validate billing period format
+    if (!/^\d{4}-\d{2}$/.test(billingPeriod)) {
+      return res.status(400).json({ error: 'Invalid billing period format. Use YYYY-MM' });
+    }
+
+    if (clientId) {
+      // Generate invoice for single client
+      const result = await BillingService.generateInvoice(clientId, billingPeriod, force);
+      res.status(201).json(result);
+    } else {
+      // Generate invoices for all clients
+      const results = await BillingService.generateInvoicesForAllClients(billingPeriod);
+      res.status(201).json({
+        message: 'Invoice generation completed',
+        results
+      });
+    }
+  } catch (error) {
+    console.error('[Admin] Generate invoice error:', error);
+    res.status(500).json({ error: 'Failed to generate invoice', message: error.message });
+  }
+});
+
+/**
+ * POST /admin/billing/invoices/:id/mark-paid
+ * Mark invoice as paid manually
+ */
+router.post('/billing/invoices/:id/mark-paid', async (req, res) => {
+  try {
+    const { paymentMethod, notes } = req.body;
+
+    const invoice = await BillingService.markInvoiceAsPaidManually(req.params.id, {
+      paymentMethod: paymentMethod || 'manual',
+      notes: notes || 'Marked as paid manually via admin dashboard'
+    });
+
+    res.json(invoice);
+  } catch (error) {
+    console.error('[Admin] Mark invoice as paid error:', error);
+    res.status(500).json({ error: 'Failed to mark invoice as paid', message: error.message });
+  }
+});
+
+/**
+ * POST /admin/billing/invoices/:id/cancel
+ * Cancel an invoice
+ */
+router.post('/billing/invoices/:id/cancel', async (req, res) => {
+  try {
+    const { notes } = req.body;
+    const invoice = await Invoice.cancel(req.params.id, notes);
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    res.json(invoice);
+  } catch (error) {
+    console.error('[Admin] Cancel invoice error:', error);
+    res.status(500).json({ error: 'Failed to cancel invoice', message: error.message });
+  }
+});
+
+/**
+ * POST /admin/billing/invoices/:id/charge
+ * Charge invoice via payment provider (placeholder for future integration)
+ */
+router.post('/billing/invoices/:id/charge', async (req, res) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id);
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    if (invoice.status === 'paid') {
+      return res.status(400).json({ error: 'Invoice is already paid' });
+    }
+
+    // Create payment intent
+    const paymentIntent = await BillingService.createPaymentIntent(
+      invoice.id,
+      invoice.total_cost,
+      'USD'
+    );
+
+    res.json({
+      message: 'Payment intent created (placeholder)',
+      paymentIntent,
+      note: 'Payment provider integration not yet implemented. Use mark-paid for manual payments.'
+    });
+  } catch (error) {
+    console.error('[Admin] Charge invoice error:', error);
+    res.status(500).json({ error: 'Failed to charge invoice', message: error.message });
+  }
+});
+
+/**
+ * POST /admin/billing/webhook
+ * Handle webhook from payment providers (placeholder for future integration)
+ */
+router.post('/billing/webhook', async (req, res) => {
+  try {
+    const { provider = 'stripe' } = req.query;
+    const result = await BillingService.handleWebhook(provider, req.body);
+    res.json(result);
+  } catch (error) {
+    console.error('[Admin] Billing webhook error:', error);
+    res.status(500).json({ error: 'Webhook processing failed', message: error.message });
+  }
+});
+
+/**
+ * GET /admin/billing/revenue
+ * Get revenue analytics and summary
+ */
+router.get('/billing/revenue', async (req, res) => {
+  try {
+    const { startDate, endDate, status, months = 12 } = req.query;
+
+    const filters = {};
+    if (startDate) filters.startDate = startDate;
+    if (endDate) filters.endDate = endDate;
+    if (status && status !== 'all') filters.status = status;
+
+    const [
+      summary,
+      monthlyRevenue,
+      revenueByPlan,
+      outstanding
+    ] = await Promise.all([
+      BillingService.getRevenueSummary(filters),
+      BillingService.getMonthlyRevenue(parseInt(months)),
+      BillingService.getRevenueByPlan(),
+      BillingService.getOutstandingPayments()
+    ]);
+
+    res.json({
+      summary,
+      monthlyRevenue,
+      revenueByPlan,
+      outstanding
+    });
+  } catch (error) {
+    console.error('[Admin] Get revenue analytics error:', error);
+    res.status(500).json({ error: 'Failed to get revenue analytics' });
+  }
+});
+
+/**
+ * GET /admin/billing/outstanding
+ * Get outstanding invoices (pending or overdue)
+ */
+router.get('/billing/outstanding', async (req, res) => {
+  try {
+    const outstanding = await BillingService.getOutstandingPayments();
+    res.json(outstanding);
+  } catch (error) {
+    console.error('[Admin] Get outstanding invoices error:', error);
+    res.status(500).json({ error: 'Failed to get outstanding invoices' });
+  }
+});
+
+// =====================================================
+// USAGE REPORTING ROUTES
+// =====================================================
+
+/**
+ * GET /admin/clients/:id/usage
+ * Get current usage for a client
+ */
+router.get('/clients/:id/usage', async (req, res) => {
+  try {
+    const { period = 'month' } = req.query;
+    const summary = await UsageTracker.getUsageSummary(req.params.id, period);
+    res.json(summary);
+  } catch (error) {
+    console.error('[Admin] Get client usage error:', error);
+    res.status(500).json({ error: 'Failed to get client usage' });
+  }
+});
+
+/**
+ * GET /admin/clients/:id/usage/history
+ * Get usage history for a client
+ */
+router.get('/clients/:id/usage/history', async (req, res) => {
+  try {
+    const { metric = 'messages', months = 12 } = req.query;
+    const history = await UsageTracker.getUsageHistory(
+      req.params.id,
+      metric,
+      parseInt(months)
+    );
+    res.json(history);
+  } catch (error) {
+    console.error('[Admin] Get usage history error:', error);
+    res.status(500).json({ error: 'Failed to get usage history' });
+  }
+});
+
+/**
+ * GET /admin/clients/:id/usage/daily
+ * Get daily usage breakdown for current month
+ */
+router.get('/clients/:id/usage/daily', async (req, res) => {
+  try {
+    const daily = await UsageTracker.getDailyUsage(req.params.id);
+    res.json(daily);
+  } catch (error) {
+    console.error('[Admin] Get daily usage error:', error);
+    res.status(500).json({ error: 'Failed to get daily usage' });
+  }
+});
+
+/**
+ * GET /admin/clients/:id/usage/tools
+ * Get tool usage breakdown
+ */
+router.get('/clients/:id/usage/tools', async (req, res) => {
+  try {
+    const { period = 'month' } = req.query;
+    const tools = await UsageTracker.getToolUsageBreakdown(req.params.id, period);
+    res.json(tools);
+  } catch (error) {
+    console.error('[Admin] Get tool usage error:', error);
+    res.status(500).json({ error: 'Failed to get tool usage' });
+  }
+});
+
+/**
+ * GET /admin/clients/:id/usage/compare
+ * Compare usage between periods
+ */
+router.get('/clients/:id/usage/compare', async (req, res) => {
+  try {
+    const { metric = 'messages', period1 = 'month', period2 = 'last_month' } = req.query;
+    const comparison = await UsageTracker.compareUsage(
+      req.params.id,
+      metric,
+      period1,
+      period2
+    );
+    res.json(comparison);
+  } catch (error) {
+    console.error('[Admin] Compare usage error:', error);
+    res.status(500).json({ error: 'Failed to compare usage' });
+  }
+});
+
+/**
+ * GET /admin/clients/:id/usage/alerts
+ * Get usage alerts for a client
+ */
+router.get('/clients/:id/usage/alerts', async (req, res) => {
+  try {
+    const client = await Client.findById(req.params.id);
+    if (!client) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    // Get plan limits (placeholder - should come from plan config)
+    const limits = {
+      messagesPerMonth: 10000,
+      tokensPerMonth: 1000000,
+      costLimitUSD: 100,
+    };
+
+    const alerts = await UsageTracker.getUsageAlerts(req.params.id, limits, 0.8);
+    res.json(alerts);
+  } catch (error) {
+    console.error('[Admin] Get usage alerts error:', error);
+    res.status(500).json({ error: 'Failed to get usage alerts' });
+  }
+});
+
+/**
+ * GET /admin/clients/:id/usage/export
+ * Export usage data as CSV
+ */
+router.get('/clients/:id/usage/export', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: 'Start date and end date are required' });
+    }
+
+    const csv = await UsageTracker.exportUsageCSV(req.params.id, startDate, endDate);
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=usage-${req.params.id}-${startDate}-${endDate}.csv`);
+    res.send(csv);
+  } catch (error) {
+    console.error('[Admin] Export usage error:', error);
+    res.status(500).json({ error: 'Failed to export usage' });
+  }
+});
+
+/**
+ * GET /admin/usage/summary
+ * Get usage summary for all clients
+ */
+router.get('/usage/summary', async (req, res) => {
+  try {
+    const { metric = 'cost', limit = 10, period = 'month' } = req.query;
+    const topClients = await UsageTracker.getTopClients(metric, parseInt(limit), period);
+    res.json(topClients);
+  } catch (error) {
+    console.error('[Admin] Get usage summary error:', error);
+    res.status(500).json({ error: 'Failed to get usage summary' });
   }
 });
 

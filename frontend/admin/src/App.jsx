@@ -10,6 +10,7 @@ import Conversations from './pages/Conversations';
 import ConversationDetail from './pages/ConversationDetail';
 import Integrations from './pages/Integrations';
 import TestChat from './pages/TestChat';
+import Billing from './pages/Billing';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -47,6 +48,7 @@ function App() {
                 <Route path="/conversations/:id" element={<ConversationDetail />} />
                 <Route path="/integrations" element={<Integrations />} />
                 <Route path="/test-chat" element={<TestChat />} />
+                <Route path="/billing" element={<Billing />} />
               </Routes>
             </Layout>
           </ProtectedRoute>

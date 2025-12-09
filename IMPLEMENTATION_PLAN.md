@@ -519,32 +519,159 @@ Building a multi-tenant AI agent platform that businesses can embed as a chat wi
 
 ---
 
-## Phase 6: LLM Optimization & Provider Options (Week 8 - POST-MVP)
+## Phase 6: Billing Infrastructure & Plan Management Foundation (Week 8 - POST-MVP)
 
-**Goal**: Optimize costs and add Claude as alternative provider
+**Goal**: Build infrastructure for billing and plan management (business rules to be defined later)
 
-**Note**: ChatGPT/GPT-4o is already integrated in Phase 2. This phase is about optimization and adding Claude as an option.
+**Note**: This phase creates the **infrastructure** for billing and plans. Specific plan limits, pricing, and business rules will be configured later based on your business model decisions. Payment provider integration (Stripe/PayPal) will be added via abstraction layer when ready.
 
-### 6.1 Claude Integration (Optional Alternative)
+### 6.1 Plan Configuration Infrastructure
 
-- [ ] Add Claude 3.5 Sonnet integration (Anthropic API)
-- [ ] Allow per-client LLM selection (OpenAI vs Claude)
-- [ ] Compare cost and quality between providers
+- [ ] **Plan limits configuration system** (create `backend/src/config/planLimits.js`)
+  - Flexible configuration structure (JSON/JS object)
+  - Support for multiple plan types (free/starter/pro/custom)
+  - Configurable limits per plan:
+    - Conversations per month
+    - Messages per month
+    - Tokens per month
+    - Tools enabled limit
+    - Integrations limit
+    - LLM provider access
+    - Custom features/flags
+  - **Note**: Actual limit values will be defined later based on business model
+- [ ] **Plan enforcement middleware** (`backend/src/middleware/planLimits.js`)
+  - Generic middleware that checks any configurable limit
+  - Flexible limit checking (can add new limit types without code changes)
+  - Return user-friendly error messages
+  - Support for "soft limits" (warn) vs "hard limits" (block)
+- [ ] **Usage tracking service** (enhance existing `ApiUsage` model)
+  - Real-time usage calculation per client
+  - Monthly usage reset logic
+  - Usage aggregation from `api_usage` table
+  - Generic usage tracking (can track any metric)
 
-### 6.2 Cost Optimization
+### 6.2 Usage Reporting & Analytics
 
-- [ ] Advanced prompt compression techniques
-- [ ] Optimize context window usage (smart truncation)
-- [ ] Fallback to GPT-3.5 for simple queries (cheaper)
-- [ ] A/B testing for model selection
+- [ ] **Client Usage Reports** (admin dashboard)
+  - Monthly usage summary (conversations, messages, tokens, tool calls)
+  - Usage trends over time (charts)
+  - Current month vs previous month comparison
+  - Usage breakdown by tool
+  - Cost breakdown per client
+- [ ] **Usage API endpoints** (`/admin/clients/:id/usage`)
+  - `GET /admin/clients/:id/usage` - Current month usage
+  - `GET /admin/clients/:id/usage/history` - Historical usage (last 12 months)
+  - `GET /admin/clients/:id/usage/export` - Export usage as CSV
+- [ ] **Usage alerts** (backend service)
+  - Email/webhook when client reaches 80% of limit
+  - Email/webhook when client exceeds limit
+  - Daily usage summary emails (optional)
 
-### 6.3 Usage Limits & Alerts
+### 6.3 Billing Infrastructure
 
-- [ ] Set usage limits per client plan (free/starter/pro)
-- [ ] Alert system when client approaches limit
-- [ ] Auto-throttle or upgrade prompts
+- [ ] **Billing table** (database migration)
+  - `id`, `client_id`, `billing_period` (YYYY-MM), `plan_type`, `base_cost`, `usage_cost`, `total_cost`, `status` (pending/paid/overdue), `created_at`, `paid_at`
+  - `payment_provider` (stripe/paypal/manual/null) - for future integration
+  - `payment_provider_id` (external payment ID) - for future integration
+  - `payment_method` (credit_card/bank_transfer/manual) - for future integration
+- [ ] **Billing service** (`backend/src/services/billingService.js`)
+  - Calculate monthly bills from `api_usage` table
+  - Flexible pricing calculation (base + usage-based, configurable)
+  - Generate invoices (PDF or JSON)
+  - Track payment status
+  - **Billing provider abstraction** (interface for Stripe/PayPal/etc.)
+    - `createPaymentIntent()` - placeholder for payment provider
+    - `processPayment()` - placeholder for payment provider
+    - `refundPayment()` - placeholder for payment provider
+    - `getPaymentStatus()` - placeholder for payment provider
+- [ ] **Billing API endpoints** (`/admin/billing/*`)
+  - `GET /admin/billing/invoices` - List all invoices
+  - `GET /admin/billing/invoices/:id` - Get invoice details
+  - `POST /admin/billing/invoices/:id/mark-paid` - Mark invoice as paid (manual)
+  - `POST /admin/billing/invoices/:id/charge` - Charge invoice via payment provider (future)
+  - `GET /admin/clients/:id/invoices` - Get client's invoices
+  - `POST /admin/billing/webhook` - Webhook endpoint for payment providers (future)
+- [ ] **Billing dashboard** (admin panel)
+  - View all invoices with filters
+  - Mark invoices as paid (manual)
+  - Generate invoice PDFs
+  - View revenue analytics
+  - **Payment provider integration UI** (placeholder - to be connected later)
 
-**Deliverable**: Optimized costs and multiple provider options
+### 6.4 Plan Management Infrastructure
+
+- [ ] **Plan upgrade/downgrade system** (admin dashboard)
+  - Change client plan with immediate effect
+  - Prorate billing for mid-month changes (configurable)
+  - Handle plan downgrade (warn if usage exceeds new limits)
+  - Plan change history tracking
+- [ ] **Plan configuration UI** (admin dashboard)
+  - Configure plan limits and features (no hardcoding)
+  - Define pricing per plan
+  - Enable/disable features per plan
+  - **Note**: Business rules (what each plan includes) defined here, not in code
+- [ ] **Plan enforcement in chat API**
+  - Generic limit checking (uses plan configuration)
+  - Return appropriate error messages
+  - Suggest plan upgrade when limits exceeded (configurable message)
+
+### 6.5 LLM Provider Selection & Optimization
+
+- [x] Claude 3.5 Sonnet integration (already complete in Phase 2)
+- [ ] **Per-client LLM provider selection** (admin dashboard)
+  - Allow admins to set preferred LLM per client
+  - Override plan defaults if needed
+- [ ] **Cost optimization strategies**
+  - Advanced prompt compression techniques
+  - Optimize context window usage (smart truncation)
+  - Fallback to GPT-3.5 for simple queries (cheaper)
+  - A/B testing for model selection
+- [ ] **Provider cost tracking**
+  - Track costs per provider per client
+  - Compare provider costs in analytics
+  - Recommend cheaper provider when appropriate
+
+### 6.6 Admin Dashboard Enhancements
+
+- [ ] **Client Detail Page - Usage Tab**
+  - Current month usage with progress bars
+  - Usage history chart (last 6 months)
+  - Plan limits visualization
+  - Quick upgrade button
+- [ ] **Billing Page** (new)
+  - List all invoices
+  - Revenue analytics
+  - Outstanding payments
+  - Payment history
+- [ ] **Usage Reports Page** (new)
+  - All clients usage overview
+  - Filter by plan type
+  - Export reports
+  - Usage trends
+
+**Deliverable**: Infrastructure for billing and plan management (business rules configurable, not hardcoded)
+
+**Infrastructure Created**:
+
+- ✅ Flexible plan configuration system (define limits later)
+- ✅ Plan enforcement middleware (works with any limits)
+- ✅ Billing system with payment provider abstraction (connect Stripe/PayPal later)
+- ✅ Usage tracking and reporting (ready for any metrics)
+- ✅ Invoice generation and management
+- ✅ Plan management UI (configure plans without code changes)
+
+**What's NOT Included (To Be Decided Later)**:
+
+- ❌ Specific plan limits (free/starter/pro features) - configure in admin UI
+- ❌ Pricing structure - configure in billing service
+- ❌ Payment provider integration - use abstraction layer to add later
+- ❌ Business rules (what each plan includes) - define in configuration
+
+**Future Integration Points**:
+
+- Payment providers: Stripe, PayPal, etc. (via abstraction layer)
+- Subscription management: Recurring billing, trials, etc.
+- Self-service portal: Clients upgrade/downgrade themselves (optional)
 
 ---
 
@@ -743,19 +870,32 @@ _Note: You can start onboarding paying customers now. Additional phases can be a
 
 ## Next Immediate Steps
 
-**Phase 6: LLM Optimization (Recommended Next)**
+**Phase 6: Billing Infrastructure & Plan Management Foundation (Recommended Next)**
 
-Now that the MVP is complete with admin dashboard, the next logical step is to optimize LLM usage for production:
+Now that the MVP is complete with admin dashboard, the next logical step is to build the infrastructure for monetization:
 
 **Phase 6 Goals:**
 
-1. Production LLM setup (switch from Ollama to Claude/OpenAI for live clients)
-2. Cost optimization and monitoring
-3. Usage limits and billing integration
-4. Provider comparison and A/B testing
-5. Fallback strategies for reliability
+1. **Billing Infrastructure** - Invoice generation, payment tracking, provider abstraction layer
+2. **Plan Configuration System** - Flexible system to define plans/limits without code changes
+3. **Usage Reporting** - Comprehensive usage analytics per client
+4. **Plan Management** - Upgrade/downgrade functionality with infrastructure for prorating
+5. **LLM Optimization** - Cost optimization, provider selection, fallback strategies
 
-**Estimated time: 15-20 hours of work**
+**Why This Phase is Critical:**
+
+- Currently `plan_type` is just a cosmetic field - no infrastructure to enforce limits
+- No way to bill clients or track revenue
+- No infrastructure for payment provider integration (Stripe/PayPal)
+- Can't monetize the platform without this foundation
+
+**Important**: This phase builds **infrastructure**, not business rules. You'll configure:
+
+- Plan limits and features (in admin UI or config file)
+- Pricing structure (in billing service config)
+- Payment provider connection (via abstraction layer)
+
+**Estimated time: 30-40 hours of work** (infrastructure-focused, business rules added later)
 
 **Alternative Option: Phase 9 (Production Deployment)**
 
