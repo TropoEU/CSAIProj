@@ -30,6 +30,8 @@ export default function ClientDetail() {
   const [error, setError] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isToolModalOpen, setIsToolModalOpen] = useState(false);
+  const [isEditToolModalOpen, setIsEditToolModalOpen] = useState(false);
+  const [editingTool, setEditingTool] = useState(null);
   const [isRegeneratingKey, setIsRegeneratingKey] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
 
@@ -41,6 +43,7 @@ export default function ClientDetail() {
   } = useForm();
 
   const toolForm = useForm();
+  const editToolForm = useForm();
 
   useEffect(() => {
     fetchClientData();
@@ -121,15 +124,37 @@ export default function ClientDetail() {
     }
   };
 
-  const handleDisableTool = async (toolId) => {
-    if (!confirm('Are you sure you want to disable this tool?')) {
+  const handleEditTool = (tool) => {
+    setEditingTool(tool);
+    editToolForm.reset({
+      webhookUrl: tool.n8n_webhook_url || '',
+    });
+    setIsEditToolModalOpen(true);
+  };
+
+  const handleUpdateTool = async (data) => {
+    try {
+      await toolsApi.updateForClient(id, editingTool.tool_id, {
+        webhookUrl: data.webhookUrl,
+      });
+      setIsEditToolModalOpen(false);
+      setEditingTool(null);
+      editToolForm.reset();
+      fetchClientData();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to update tool');
+    }
+  };
+
+  const handleRemoveTool = async (toolId) => {
+    if (!confirm('Are you sure you want to remove this tool from this client?')) {
       return;
     }
     try {
       await toolsApi.disableForClient(id, toolId);
       fetchClientData();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to disable tool');
+      setError(err.response?.data?.error || 'Failed to remove tool');
     }
   };
 
@@ -325,14 +350,23 @@ export default function ClientDetail() {
                       {tool.n8n_webhook_url || '-'}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => handleDisableTool(tool.id)}
-                      >
-                        Disable
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditTool(tool)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleRemoveTool(tool.id)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

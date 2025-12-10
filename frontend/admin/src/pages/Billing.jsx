@@ -26,6 +26,7 @@ export default function Billing() {
   const [error, setError] = useState(null);
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [isMarkPaidModalOpen, setIsMarkPaidModalOpen] = useState(false);
+  const [isInvoiceDetailModalOpen, setIsInvoiceDetailModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [clientList, setClientList] = useState([]);
@@ -344,6 +345,15 @@ export default function Billing() {
                     <TableCell>{formatDate(invoice.due_date)}</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedInvoice(invoice);
+                            setIsInvoiceDetailModalOpen(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-800 text-sm"
+                        >
+                          View
+                        </button>
                         {invoice.status === 'pending' && (
                           <>
                             <button
@@ -518,6 +528,159 @@ export default function Billing() {
               </Button>
             </div>
           </form>
+        )}
+      </Modal>
+
+      {/* Invoice Detail Modal */}
+      <Modal
+        isOpen={isInvoiceDetailModalOpen}
+        onClose={() => {
+          setIsInvoiceDetailModalOpen(false);
+          setSelectedInvoice(null);
+        }}
+        title="Invoice Details"
+      >
+        {selectedInvoice && (
+          <div className="space-y-4">
+            {/* Invoice Header */}
+            <div className="border-b pb-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Invoice #{selectedInvoice.id}
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Period: {selectedInvoice.billing_period}
+                  </p>
+                </div>
+                <div className="text-right">
+                  {getStatusBadge(selectedInvoice.status)}
+                  <p className="text-sm text-gray-600 mt-1">
+                    Plan: <span className="capitalize font-medium">{selectedInvoice.plan_type}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Client Information */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">Client Information</h4>
+              <div className="space-y-1 text-sm">
+                <p className="text-gray-600">
+                  Name: <span className="text-gray-900 font-medium">{selectedInvoice.client_name}</span>
+                </p>
+                <p className="text-gray-600">
+                  Client ID: <span className="text-gray-900">{selectedInvoice.client_id}</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Cost Breakdown */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 mb-3">Cost Breakdown</h4>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Base Cost ({selectedInvoice.plan_type}):</span>
+                  <span className="text-gray-900 font-medium">
+                    {formatCurrency(selectedInvoice.base_cost || 0)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Usage Cost:</span>
+                  <span className="text-gray-900 font-medium">
+                    {formatCurrency(selectedInvoice.usage_cost || 0)}
+                  </span>
+                </div>
+                <div className="border-t pt-2 flex justify-between">
+                  <span className="text-gray-900 font-semibold">Total Amount:</span>
+                  <span className="text-gray-900 font-bold text-lg">
+                    {formatCurrency(selectedInvoice.total_cost)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">Created:</p>
+                <p className="text-sm text-gray-900 font-medium">
+                  {formatDate(selectedInvoice.created_at)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Due Date:</p>
+                <p className="text-sm text-gray-900 font-medium">
+                  {formatDate(selectedInvoice.due_date)}
+                </p>
+              </div>
+              {selectedInvoice.paid_at && (
+                <>
+                  <div>
+                    <p className="text-sm text-gray-600">Paid At:</p>
+                    <p className="text-sm text-gray-900 font-medium">
+                      {formatDate(selectedInvoice.paid_at)}
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Payment Information */}
+            {selectedInvoice.payment_provider && (
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                <h4 className="text-sm font-semibold text-green-900 mb-2">Payment Information</h4>
+                <div className="space-y-1 text-sm">
+                  <p className="text-green-800">
+                    Provider: <span className="font-medium">{selectedInvoice.payment_provider}</span>
+                  </p>
+                  {selectedInvoice.payment_method && (
+                    <p className="text-green-800">
+                      Method: <span className="font-medium">{selectedInvoice.payment_method}</span>
+                    </p>
+                  )}
+                  {selectedInvoice.payment_provider_id && (
+                    <p className="text-green-800">
+                      Transaction ID: <span className="font-mono text-xs">{selectedInvoice.payment_provider_id}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Notes */}
+            {selectedInvoice.notes && (
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900 mb-2">Notes</h4>
+                <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+                  {selectedInvoice.notes}
+                </p>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setIsInvoiceDetailModalOpen(false);
+                  setSelectedInvoice(null);
+                }}
+              >
+                Close
+              </Button>
+              {selectedInvoice.status === 'pending' && (
+                <Button
+                  onClick={() => {
+                    setIsInvoiceDetailModalOpen(false);
+                    openMarkPaidModal(selectedInvoice);
+                  }}
+                >
+                  Mark as Paid
+                </Button>
+              )}
+            </div>
+          </div>
         )}
       </Modal>
     </div>

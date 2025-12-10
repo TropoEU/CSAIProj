@@ -25,10 +25,11 @@ export default function UsageReports() {
 
   const fetchClients = async () => {
     try {
-      const data = await clientsApi.getAll();
-      setClients(data);
-      if (data.length > 0) {
-        setSelectedClient(data[0].id);
+      const response = await clientsApi.getAll();
+      const clientData = response.data || [];
+      setClients(clientData);
+      if (clientData.length > 0) {
+        setSelectedClient(clientData[0].id);
       }
     } catch (err) {
       setError('Failed to load clients');

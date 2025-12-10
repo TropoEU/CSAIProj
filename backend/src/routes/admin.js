@@ -389,6 +389,49 @@ router.post('/tools', async (req, res) => {
 });
 
 /**
+ * PUT /admin/tools/:id
+ * Update a tool
+ */
+router.put('/tools/:id', async (req, res) => {
+  try {
+    const { toolName, description, parametersSchema } = req.body;
+    const updates = {};
+
+    if (toolName) updates.tool_name = toolName;
+    if (description) updates.description = description;
+    if (parametersSchema) updates.parameters_schema = parametersSchema;
+
+    const tool = await Tool.update(req.params.id, updates);
+    res.json(tool);
+  } catch (error) {
+    console.error('[Admin] Update tool error:', error);
+    res.status(500).json({ error: 'Failed to update tool' });
+  }
+});
+
+/**
+ * DELETE /admin/tools/:id
+ * Delete a tool (only if not in use by any clients)
+ */
+router.delete('/tools/:id', async (req, res) => {
+  try {
+    // Check if tool is in use
+    const clientsUsingTool = await ClientTool.getClientsUsingTool(req.params.id);
+    if (clientsUsingTool.length > 0) {
+      return res.status(400).json({
+        error: `Cannot delete tool: currently in use by ${clientsUsingTool.length} client(s)`
+      });
+    }
+
+    await Tool.delete(req.params.id);
+    res.json({ message: 'Tool deleted' });
+  } catch (error) {
+    console.error('[Admin] Delete tool error:', error);
+    res.status(500).json({ error: 'Failed to delete tool' });
+  }
+});
+
+/**
  * GET /admin/clients/:clientId/tools
  * Get tools enabled for a client
  */
@@ -451,15 +494,15 @@ router.put('/clients/:clientId/tools/:id', async (req, res) => {
 
 /**
  * DELETE /admin/clients/:clientId/tools/:id
- * Disable a tool for a client
+ * Disable/remove a tool from a client (by client_tools junction table ID)
  */
 router.delete('/clients/:clientId/tools/:id', async (req, res) => {
   try {
-    await ClientTool.delete(req.params.clientId, req.params.id);
-    res.json({ message: 'Tool disabled' });
+    await ClientTool.deleteById(req.params.id);
+    res.json({ message: 'Tool removed from client' });
   } catch (error) {
-    console.error('[Admin] Disable tool error:', error);
-    res.status(500).json({ error: 'Failed to disable tool' });
+    console.error('[Admin] Remove client tool error:', error);
+    res.status(500).json({ error: 'Failed to remove tool' });
   }
 });
 

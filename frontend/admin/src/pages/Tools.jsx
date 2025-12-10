@@ -26,7 +26,9 @@ export default function Tools() {
   const [statsError, setStatsError] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedTool, setSelectedTool] = useState(null);
+  const [editingTool, setEditingTool] = useState(null);
   const [testResult, setTestResult] = useState(null);
   const [isTesting, setIsTesting] = useState(false);
 
@@ -38,6 +40,7 @@ export default function Tools() {
   } = useForm();
 
   const testForm = useForm();
+  const editForm = useForm();
 
   useEffect(() => {
     fetchData();
@@ -119,6 +122,49 @@ export default function Tools() {
     setIsTestModalOpen(true);
   };
 
+  const handleEdit = (tool) => {
+    setEditingTool(tool);
+    editForm.reset({
+      toolName: tool.tool_name,
+      description: tool.description,
+      parametersSchema: JSON.stringify(tool.parameters_schema || {}, null, 2),
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdate = async (data) => {
+    try {
+      const parametersSchema = data.parametersSchema ? JSON.parse(data.parametersSchema) : {};
+      await toolsApi.update(editingTool.id, {
+        toolName: data.toolName,
+        description: data.description,
+        parametersSchema,
+      });
+      setIsEditModalOpen(false);
+      setEditingTool(null);
+      editForm.reset();
+      fetchData();
+    } catch (err) {
+      if (err instanceof SyntaxError) {
+        setError('Invalid JSON in parameters schema');
+      } else {
+        setError(err.response?.data?.error || 'Failed to update tool');
+      }
+    }
+  };
+
+  const handleDelete = async (toolId, toolName) => {
+    if (!confirm(`Delete tool "${toolName}"? This cannot be undone.`)) {
+      return;
+    }
+    try {
+      await toolsApi.delete(toolId);
+      fetchData();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to delete tool');
+    }
+  };
+
   const getToolUsageCount = (toolName) => {
     const stat = toolStats.find((s) => s.tool_name === toolName);
     return stat?.count || 0;
@@ -189,21 +235,46 @@ export default function Tools() {
                       {tool.description}
                     </TableCell>
                     <TableCell>
-                      <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                        {Object.keys(tool.parameters_schema?.properties || {}).length} params
-                      </code>
+                      {tool.parameters_schema?.properties ? (
+                        <div className="flex flex-wrap gap-1">
+                          {Object.keys(tool.parameters_schema.properties).map(param => (
+                            <code key={param} className="text-xs bg-gray-100 px-2 py-1 rounded">
+                              {param}
+                            </code>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">No parameters</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant="info">{getToolUsageCount(tool.tool_name)}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openTestModal(tool)}
-                      >
-                        Test
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openTestModal(tool)}
+                        >
+                          Test
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(tool)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDelete(tool.id, tool.tool_name)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -352,6 +423,80 @@ export default function Tools() {
             </Button>
             <Button type="submit" loading={isTesting}>
               Run Test
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Tool Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingTool(null);
+          editForm.reset();
+        }}
+        title={`Edit Tool: ${editingTool?.tool_name || ''}`}
+        size="lg"
+      >
+        <form onSubmit={editForm.handleSubmit(handleUpdate)} className="space-y-4">
+          <Input
+            label="Tool Name"
+            {...editForm.register('toolName', {
+              required: 'Tool name is required',
+              pattern: {
+                value: /^[a-z_]+$/,
+                message: 'Only lowercase letters and underscores allowed',
+              },
+            })}
+            error={editForm.formState.errors.toolName?.message}
+            placeholder="e.g., get_order_status"
+          />
+
+          <div>
+            <label className="label">Description</label>
+            <textarea
+              {...editForm.register('description', { required: 'Description is required' })}
+              className="input min-h-[80px]"
+              placeholder="Describe what this tool does..."
+            />
+            {editForm.formState.errors.description && (
+              <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.description.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="label">Parameters Schema (JSON)</label>
+            <textarea
+              {...editForm.register('parametersSchema')}
+              className="input font-mono text-sm min-h-[120px]"
+              placeholder={`{
+  "type": "object",
+  "properties": {
+    "orderId": {
+      "type": "string",
+      "description": "The order ID to look up"
+    }
+  },
+  "required": ["orderId"]
+}`}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 mt-6">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setIsEditModalOpen(false);
+                setEditingTool(null);
+                editForm.reset();
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" loading={editForm.formState.isSubmitting}>
+              Save Changes
             </Button>
           </div>
         </form>

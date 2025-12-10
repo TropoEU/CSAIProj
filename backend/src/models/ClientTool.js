@@ -110,12 +110,23 @@ export class ClientTool {
     }
 
     /**
-     * Remove tool from client
+     * Remove tool from client by tool_id
      */
     static async delete(clientId, toolId) {
         const result = await db.query(
             'DELETE FROM client_tools WHERE client_id = $1 AND tool_id = $2 RETURNING *',
             [clientId, toolId]
+        );
+        return result.rows[0];
+    }
+
+    /**
+     * Remove tool from client by client_tools junction table ID
+     */
+    static async deleteById(id) {
+        const result = await db.query(
+            'DELETE FROM client_tools WHERE id = $1 RETURNING *',
+            [id]
         );
         return result.rows[0];
     }

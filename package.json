@@ -35,8 +35,12 @@
       "//test:phase2": "Run Phase 2 integration test (AI conversation flow)",
       "test:phase3": "cd backend && node tests/integration/phase3-full-test.js",
       "//test:phase3": "Run Phase 3 integration test (tool execution system)",
+      "test:phase6": "cd backend && node tests/integration/phase6-full-test.js",
+      "//test:phase6": "Run Phase 6 integration test (billing, usage tracking, analytics)",
       "mockdata": "cd backend && node src/scripts/generateMockData.js",
       "//mockdata": "Generate mock data for Phase 6 testing (clients, usage, invoices)",
+      "mock:integrations": "cd backend && node add-mock-integrations.js",
+      "//mock:integrations": "Add mock integrations (Shopify, WooCommerce, etc.) to existing clients",
 
       "//3": "=== DOCKER ===",
       "dockerup": "docker compose --env-file ./backend/.env -f ./docker/docker-compose.yml up -d",

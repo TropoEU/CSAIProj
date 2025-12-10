@@ -61,7 +61,7 @@ export class Tool {
      * Update tool
      */
     static async update(id, updates) {
-        const allowedFields = ['description', 'parameters_schema', 'category'];
+        const allowedFields = ['tool_name', 'description', 'parameters_schema', 'category'];
         const fields = [];
         const values = [];
         let paramIndex = 1;

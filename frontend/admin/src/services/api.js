@@ -51,6 +51,10 @@ export const clients = {
 // Tool endpoints
 export const tools = {
   getAll: () => api.get('/admin/tools'),
+  getById: (id) => api.get(`/admin/tools/${id}`),
+  create: (data) => api.post('/admin/tools', data),
+  update: (id, data) => api.put(`/admin/tools/${id}`, data),
+  delete: (id) => api.delete(`/admin/tools/${id}`),
   getByClient: (clientId) => api.get(`/admin/clients/${clientId}/tools`),
   enableForClient: (clientId, data) => api.post(`/admin/clients/${clientId}/tools`, data),
   updateForClient: (clientId, toolId, data) => api.put(`/admin/clients/${clientId}/tools/${toolId}`, data),
@@ -99,6 +103,36 @@ export const billing = {
   chargeInvoice: (id) => api.post(`/admin/billing/invoices/${id}/charge`),
   getRevenue: (params) => api.get('/admin/billing/revenue', { params }),
   getOutstanding: () => api.get('/admin/billing/outstanding'),
+};
+
+// Usage endpoints
+export const usage = {
+  getSummary: async (clientId, period = 'month') => {
+    const response = await api.get(`/admin/clients/${clientId}/usage`, { params: { period } });
+    return response.data;
+  },
+  getHistory: async (clientId, metric = 'messages', months = 12) => {
+    const response = await api.get(`/admin/clients/${clientId}/usage/history`, {
+      params: { metric, months },
+    });
+    return response.data;
+  },
+  exportCSV: async (clientId, startDate, endDate) => {
+    const response = await api.get(`/admin/clients/${clientId}/usage/export`, {
+      params: { startDate, endDate },
+    });
+    return response.data;
+  },
+  getTopClients: async (metric = 'cost', limit = 10, period = 'month') => {
+    const response = await api.get('/admin/usage/top-clients', {
+      params: { metric, limit, period },
+    });
+    return response.data;
+  },
+  getAllSummary: async (period = 'month') => {
+    const response = await api.get('/admin/usage/summary', { params: { period } });
+    return response.data;
+  },
 };
 
 export default api;
