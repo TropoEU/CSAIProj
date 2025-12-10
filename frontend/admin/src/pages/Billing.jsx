@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { billing, clients } from '../services/api';
+import { InvoicePDF } from '../components/InvoicePDF';
+import { pdf } from '@react-pdf/renderer';
 import {
   Card,
   CardBody,
@@ -24,6 +26,7 @@ export default function Billing() {
   const [revenue, setRevenue] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [isMarkPaidModalOpen, setIsMarkPaidModalOpen] = useState(false);
   const [isInvoiceDetailModalOpen, setIsInvoiceDetailModalOpen] = useState(false);
@@ -56,7 +59,7 @@ export default function Billing() {
 
       const params = {};
       if (statusFilter !== 'all') params.status = statusFilter;
-      if (clientFilter !== 'all') params.clientId = clientFilter;
+      if (clientFilter !== 'all') params.clientId = parseInt(clientFilter);
 
       const [invoicesRes, revenueRes, clientsRes] = await Promise.all([
         billing.getInvoices(params),
@@ -113,9 +116,12 @@ export default function Billing() {
     if (!confirm('Are you sure you want to cancel this invoice?')) return;
 
     try {
+      setError(null);
       await billing.cancelInvoice(invoiceId, {
         notes: 'Cancelled via admin dashboard',
       });
+      setSuccessMessage('Invoice cancelled successfully');
+      setTimeout(() => setSuccessMessage(null), 3000);
       fetchData();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to cancel invoice');
@@ -177,6 +183,12 @@ export default function Billing() {
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
           {error}
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">
+          {successMessage}
         </div>
       )}
 
@@ -264,28 +276,31 @@ export default function Billing() {
           <div className="mb-6 flex gap-4">
             <div className="flex-1">
               <Select
+                label="Filter by Client"
                 value={clientFilter}
                 onChange={(e) => setClientFilter(e.target.value)}
-              >
-                <option value="all">All Clients</option>
-                {clientList.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.name}
-                  </option>
-                ))}
-              </Select>
+                options={[
+                  { value: 'all', label: 'All Clients' },
+                  ...clientList.map((client) => ({
+                    value: client.id.toString(),
+                    label: client.name,
+                  })),
+                ]}
+              />
             </div>
             <div className="flex-1">
               <Select
+                label="Filter by Status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="paid">Paid</option>
-                <option value="overdue">Overdue</option>
-                <option value="cancelled">Cancelled</option>
-              </Select>
+                options={[
+                  { value: 'all', label: 'All Status' },
+                  { value: 'pending', label: 'Pending' },
+                  { value: 'paid', label: 'Paid' },
+                  { value: 'overdue', label: 'Overdue' },
+                  { value: 'cancelled', label: 'Cancelled' },
+                ]}
+              />
             </div>
           </div>
 
@@ -660,6 +675,30 @@ export default function Billing() {
 
             {/* Actions */}
             <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button
+                variant="secondary"
+                onClick={async () => {
+                  try {
+                    const blob = await pdf(<InvoicePDF invoice={selectedInvoice} />).toBlob();
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `Invoice-${selectedInvoice.id}-${selectedInvoice.billing_period}.pdf`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                  } catch (err) {
+                    console.error('Failed to generate PDF:', err);
+                    setError('Failed to generate PDF. Please try again.');
+                  }
+                }}
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export PDF
+              </Button>
               <Button
                 variant="secondary"
                 onClick={() => {

@@ -24,6 +24,8 @@ export default function Clients() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [newClientApiKey, setNewClientApiKey] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -51,13 +53,20 @@ export default function Clients() {
 
   const onSubmit = async (data) => {
     try {
-      await clients.create(data);
+      const response = await clients.create(data);
       setIsModalOpen(false);
       reset();
+      // Show API key modal with the newly created client's API key
+      setNewClientApiKey(response.data.api_key);
+      setIsApiKeyModalOpen(true);
       fetchClients();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create client');
     }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
   };
 
   const filteredClients = clientList.filter((client) => {
@@ -204,6 +213,13 @@ export default function Clients() {
           />
 
           <Input
+            label="Email"
+            type="email"
+            {...register('email')}
+            placeholder="e.g., contact@bobspizza.com"
+          />
+
+          <Input
             label="Domain"
             {...register('domain')}
             placeholder="e.g., bobspizza.com"
@@ -216,6 +232,44 @@ export default function Clients() {
               { value: 'free', label: 'Free' },
               { value: 'starter', label: 'Starter' },
               { value: 'pro', label: 'Pro' },
+              { value: 'enterprise', label: 'Enterprise' },
+            ]}
+          />
+
+          <Select
+            label="LLM Provider"
+            {...register('llmProvider')}
+            options={[
+              { value: 'ollama', label: 'Ollama (Local)' },
+              { value: 'claude', label: 'Claude (Anthropic)' },
+              { value: 'openai', label: 'OpenAI (ChatGPT)' },
+            ]}
+          />
+
+          <Input
+            label="Model Name (optional)"
+            {...register('modelName')}
+            placeholder="e.g., claude-3-5-sonnet-20241022"
+          />
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              System Prompt (optional)
+            </label>
+            <textarea
+              {...register('systemPrompt')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              rows="3"
+              placeholder="Custom instructions for this client's AI assistant..."
+            />
+          </div>
+
+          <Select
+            label="Status"
+            {...register('status')}
+            options={[
+              { value: 'active', label: 'Active' },
+              { value: 'inactive', label: 'Inactive' },
             ]}
           />
 
@@ -235,6 +289,67 @@ export default function Clients() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* API Key Display Modal */}
+      <Modal
+        isOpen={isApiKeyModalOpen}
+        onClose={() => {
+          setIsApiKeyModalOpen(false);
+          setNewClientApiKey('');
+        }}
+        title="Client Created Successfully!"
+      >
+        <div className="space-y-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <p className="text-green-800 font-medium mb-2">
+              🎉 Client has been created successfully!
+            </p>
+            <p className="text-green-700 text-sm">
+              Please save the API key below. You won't be able to see it again.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              API Key
+            </label>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 px-3 py-3 bg-gray-100 rounded-lg text-sm font-mono overflow-x-auto">
+                {newClientApiKey}
+              </code>
+              <Button
+                size="sm"
+                onClick={() => {
+                  copyToClipboard(newClientApiKey);
+                  alert('API key copied to clipboard!');
+                }}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </Button>
+            </div>
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p className="text-yellow-800 text-sm font-medium mb-1">⚠️ Important:</p>
+            <p className="text-yellow-700 text-sm">
+              Store this API key securely. You'll need it to embed the chat widget on the client's website.
+            </p>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              onClick={() => {
+                setIsApiKeyModalOpen(false);
+                setNewClientApiKey('');
+              }}
+            >
+              Done
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

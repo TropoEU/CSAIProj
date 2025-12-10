@@ -34,6 +34,12 @@ export default function ClientDetail() {
   const [editingTool, setEditingTool] = useState(null);
   const [isRegeneratingKey, setIsRegeneratingKey] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [isTestToolModalOpen, setIsTestToolModalOpen] = useState(false);
+  const [testingTool, setTestingTool] = useState(null);
+  const [testResult, setTestResult] = useState(null);
+  const [isTestingTool, setIsTestingTool] = useState(false);
+
+  const testToolForm = useForm();
 
   const {
     register,
@@ -160,6 +166,41 @@ export default function ClientDetail() {
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
+  };
+
+  const handleToggleToolEnabled = async (toolId, currentEnabledStatus) => {
+    try {
+      await toolsApi.updateForClient(id, toolId, {
+        enabled: !currentEnabledStatus,
+      });
+      fetchClientData();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to toggle tool');
+    }
+  };
+
+  const handleTestTool = (tool) => {
+    setTestingTool(tool);
+    setTestResult(null);
+    testToolForm.reset();
+    setIsTestToolModalOpen(true);
+  };
+
+  const onTestTool = async (data) => {
+    setIsTestingTool(true);
+    setTestResult(null);
+    try {
+      // Send test request to backend with parameters
+      const response = await toolsApi.testTool(id, testingTool.tool_id, data);
+      setTestResult({ success: true, message: 'Tool test successful!', data: response.data });
+    } catch (err) {
+      setTestResult({
+        success: false,
+        message: err.response?.data?.error || 'Tool test failed',
+      });
+    } finally {
+      setIsTestingTool(false);
+    }
   };
 
   if (loading) {
@@ -333,6 +374,7 @@ export default function ClientDetail() {
                 <TableHeader>Tool Name</TableHeader>
                 <TableHeader>Description</TableHeader>
                 <TableHeader>Webhook URL</TableHeader>
+                <TableHeader>Status</TableHeader>
                 <TableHeader>Actions</TableHeader>
               </TableRow>
             </TableHead>
@@ -350,7 +392,26 @@ export default function ClientDetail() {
                       {tool.n8n_webhook_url || '-'}
                     </TableCell>
                     <TableCell>
+                      <Badge variant={tool.enabled ? 'success' : 'default'}>
+                        {tool.enabled ? 'Enabled' : 'Disabled'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleToggleToolEnabled(tool.tool_id, tool.enabled)}
+                        >
+                          {tool.enabled ? 'Disable' : 'Enable'}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleTestTool(tool)}
+                        >
+                          Test
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -372,7 +433,7 @@ export default function ClientDetail() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-gray-500 py-8">
+                  <TableCell colSpan={5} className="text-center text-gray-500 py-8">
                     No tools enabled for this client
                   </TableCell>
                 </TableRow>
@@ -395,6 +456,12 @@ export default function ClientDetail() {
             error={errors.name?.message}
           />
 
+          <Input
+            label="Email"
+            type="email"
+            {...register('email')}
+          />
+
           <Input label="Domain" {...register('domain')} />
 
           <Select
@@ -404,8 +471,37 @@ export default function ClientDetail() {
               { value: 'free', label: 'Free' },
               { value: 'starter', label: 'Starter' },
               { value: 'pro', label: 'Pro' },
+              { value: 'enterprise', label: 'Enterprise' },
             ]}
           />
+
+          <Select
+            label="LLM Provider"
+            {...register('llm_provider')}
+            options={[
+              { value: 'ollama', label: 'Ollama (Local)' },
+              { value: 'claude', label: 'Claude (Anthropic)' },
+              { value: 'openai', label: 'OpenAI (ChatGPT)' },
+            ]}
+          />
+
+          <Input
+            label="Model Name"
+            {...register('model_name')}
+            placeholder="e.g., claude-3-5-sonnet-20241022"
+          />
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              System Prompt
+            </label>
+            <textarea
+              {...register('system_prompt')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              rows="3"
+              placeholder="Custom instructions for this client's AI assistant..."
+            />
+          </div>
 
           <div className="flex justify-end gap-3 mt-6">
             <Button type="button" variant="secondary" onClick={() => setIsEditModalOpen(false)}>
@@ -464,6 +560,137 @@ export default function ClientDetail() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Edit Tool Modal */}
+      <Modal
+        isOpen={isEditToolModalOpen}
+        onClose={() => {
+          setIsEditToolModalOpen(false);
+          setEditingTool(null);
+          editToolForm.reset();
+        }}
+        title="Edit Tool Configuration"
+      >
+        {editingTool && (
+          <form onSubmit={editToolForm.handleSubmit(handleUpdateTool)} className="space-y-4">
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <p className="text-sm font-medium text-gray-900">{editingTool.tool_name}</p>
+              <p className="text-xs text-gray-600 mt-1">{editingTool.description}</p>
+            </div>
+
+            <Input
+              label="Webhook URL"
+              {...editToolForm.register('webhookUrl', { required: 'Webhook URL is required' })}
+              error={editToolForm.formState.errors.webhookUrl?.message}
+              placeholder="http://localhost:5678/webhook/tool_name"
+            />
+
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setIsEditToolModalOpen(false);
+                  setEditingTool(null);
+                  editToolForm.reset();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" loading={editToolForm.formState.isSubmitting}>
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Test Tool Modal */}
+      <Modal
+        isOpen={isTestToolModalOpen}
+        onClose={() => {
+          setIsTestToolModalOpen(false);
+          setTestingTool(null);
+          setTestResult(null);
+          testToolForm.reset();
+        }}
+        title="Test Tool"
+      >
+        {testingTool && (
+          <div className="space-y-4">
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <p className="text-sm font-medium text-gray-900">{testingTool.tool_name}</p>
+              <p className="text-xs text-gray-600 mt-1">{testingTool.description}</p>
+              <p className="text-xs text-gray-500 mt-1 font-mono">{testingTool.n8n_webhook_url}</p>
+            </div>
+
+            {testResult && (
+              <div
+                className={`p-4 rounded-lg ${
+                  testResult.success
+                    ? 'bg-green-50 border border-green-200'
+                    : 'bg-red-50 border border-red-200'
+                }`}
+              >
+                <p
+                  className={`text-sm font-medium ${
+                    testResult.success ? 'text-green-800' : 'text-red-800'
+                  }`}
+                >
+                  {testResult.success ? '✓ Test Successful' : '✗ Test Failed'}
+                </p>
+                <p
+                  className={`text-sm mt-1 ${
+                    testResult.success ? 'text-green-700' : 'text-red-700'
+                  }`}
+                >
+                  {testResult.message}
+                </p>
+                {testResult.data && (
+                  <pre className="mt-2 text-xs bg-white p-2 rounded overflow-x-auto">
+                    {JSON.stringify(testResult.data, null, 2)}
+                  </pre>
+                )}
+              </div>
+            )}
+
+            <form onSubmit={testToolForm.handleSubmit(onTestTool)} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Test Parameters (JSON)
+                </label>
+                <textarea
+                  {...testToolForm.register('parameters')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent font-mono text-sm"
+                  rows="6"
+                  placeholder='{"orderNumber": "12345"}'
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Enter test parameters in JSON format based on the tool's parameter schema
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setIsTestToolModalOpen(false);
+                    setTestingTool(null);
+                    setTestResult(null);
+                    testToolForm.reset();
+                  }}
+                >
+                  Close
+                </Button>
+                <Button type="submit" loading={isTestingTool}>
+                  Run Test
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
       </Modal>
     </div>
   );

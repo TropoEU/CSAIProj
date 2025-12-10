@@ -37,11 +37,12 @@ CSAI is a **multi-tenant AI customer service platform** that provides businesses
 - 🤖 **Intelligent AI Agent** - Powered by OpenAI GPT-4, Claude, or private models (Ollama) for natural conversations
 - 🛠️ **Tool Execution System** - Execute real actions via n8n webhooks
 - 🎨 **Customizable Widget** - White-label chat widget with branding options
-- 📊 **Admin Dashboard** - Complete management interface for clients, tools, and integrations
+- 📊 **Admin Dashboard** - Complete management interface for clients, tools, integrations, and billing
+- 💰 **Billing Infrastructure** - Invoice generation, usage tracking, and plan management
 - 🔐 **Multi-tenant Architecture** - Isolated data and configurations per client
-- 📈 **Analytics & Monitoring** - Track conversations, tool usage, and API consumption
+- 📈 **Analytics & Monitoring** - Track conversations, tool usage, API consumption, and revenue
 - 🔄 **Real-time Integrations** - Connect to Shopify, Gmail, CRMs, databases, and more
-- 🌐 **Multi-language Support** - Hebrew and English support out of the box
+- 🌐 **Multi-language Support** - Hebrew and English support out of the box (Hebrew in progress)
 - 🔒 **Private Model Support** - Use Ollama for local/private LLM deployments
 
 ### Technical Features
@@ -120,7 +121,17 @@ CSAI is a **multi-tenant AI customer service platform** that provides businesses
    npm run backend
    ```
 
-7. **Start the frontend (optional)**
+7. **Generate mock data (optional)**
+
+   ```bash
+   # Generate test clients, invoices, and usage data
+   npm run mockdata
+
+   # Add mock integrations (Shopify, WooCommerce, etc.)
+   npm run mock:integrations
+   ```
+
+8. **Start the frontend (optional)**
 
    ```bash
    # Widget dev server (port 3001)
@@ -129,6 +140,12 @@ CSAI is a **multi-tenant AI customer service platform** that provides businesses
    # Admin dashboard (port 3002)
    npm run admin
    ```
+
+9. **Access the Admin Dashboard**
+
+   - URL: http://localhost:3002
+   - Username: `admin`
+   - Password: `admin123`
 
 ### Verify Installation
 
@@ -289,8 +306,16 @@ npm test               # Run all integration tests
 npm run test:models    # Run model tests
 npm run test:redis     # Run Redis cache tests
 npm run test:llm       # Run LLM service tests
-npm run test:phase2    # Run Phase 2 integration test
-npm run test:phase3    # Run Phase 3 integration test
+npm run test:phase2    # Run Phase 2 integration test (conversation flow)
+npm run test:phase3    # Run Phase 3 integration test (tool execution)
+npm run test:phase6    # Run Phase 6 integration test (billing & analytics)
+```
+
+#### Mock Data Generation
+
+```bash
+npm run mockdata           # Generate mock clients, usage, and invoices
+npm run mock:integrations  # Add mock integrations to clients
 ```
 
 #### Connectivity Checks

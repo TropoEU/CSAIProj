@@ -141,13 +141,31 @@ router.get('/clients/:id', async (req, res) => {
  */
 router.post('/clients', async (req, res) => {
   try {
-    const { name, domain, planType = 'free' } = req.body;
+    const {
+      name,
+      domain,
+      planType = 'free',
+      email,
+      llmProvider = 'ollama',
+      modelName,
+      systemPrompt,
+      status = 'active',
+    } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'Name is required' });
     }
 
-    const client = await Client.create(name, domain, planType);
+    const client = await Client.create(
+      name,
+      domain,
+      planType,
+      email,
+      llmProvider,
+      modelName,
+      systemPrompt,
+      status
+    );
     res.status(201).json(client);
   } catch (error) {
     console.error('[Admin] Create client error:', error);
@@ -161,13 +179,17 @@ router.post('/clients', async (req, res) => {
  */
 router.put('/clients/:id', async (req, res) => {
   try {
-    const { name, domain, plan_type, status } = req.body;
+    const { name, domain, plan_type, status, email, llm_provider, model_name, system_prompt } = req.body;
     const updates = {};
 
     if (name !== undefined) updates.name = name;
     if (domain !== undefined) updates.domain = domain;
     if (plan_type !== undefined) updates.plan_type = plan_type;
     if (status !== undefined) updates.status = status;
+    if (email !== undefined) updates.email = email;
+    if (llm_provider !== undefined) updates.llm_provider = llm_provider;
+    if (model_name !== undefined) updates.model_name = model_name;
+    if (system_prompt !== undefined) updates.system_prompt = system_prompt;
 
     const client = await Client.update(req.params.id, updates);
     if (!client) {
@@ -493,6 +515,59 @@ router.put('/clients/:clientId/tools/:id', async (req, res) => {
 });
 
 /**
+ * POST /admin/clients/:clientId/tools/:id/test
+ * Test a client's tool configuration by calling its webhook
+ * NOTE: This must come BEFORE the DELETE route to avoid route matching issues
+ */
+router.post('/clients/:clientId/tools/:id/test', async (req, res) => {
+  try {
+    const { clientId, id: toolId } = req.params; // Rename id to toolId for clarity
+    let { parameters } = req.body;
+
+    // Get the client tool configuration
+    const clientTool = await ClientTool.find(clientId, toolId);
+    if (!clientTool) {
+      return res.status(404).json({ error: 'Tool not found for this client' });
+    }
+
+    if (!clientTool.n8n_webhook_url) {
+      return res.status(400).json({ error: 'Tool has no webhook URL configured' });
+    }
+
+    // Parse parameters if it's a string
+    if (typeof parameters === 'string') {
+      try {
+        parameters = JSON.parse(parameters);
+      } catch (err) {
+        return res.status(400).json({ error: 'Invalid JSON parameters' });
+      }
+    }
+
+    // Execute the tool via n8n webhook
+    const result = await n8nService.executeTool(
+      clientTool.n8n_webhook_url,
+      parameters || {},
+      clientId
+    );
+
+    res.json({
+      success: true,
+      message: 'Tool test successful',
+      tool: clientTool.tool_name,
+      webhook: clientTool.n8n_webhook_url,
+      result: result,
+    });
+  } catch (error) {
+    console.error('[Admin] Test client tool error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Tool test failed',
+      message: error.message,
+    });
+  }
+});
+
+/**
  * DELETE /admin/clients/:clientId/tools/:id
  * Disable/remove a tool from a client (by client_tools junction table ID)
  */
@@ -744,6 +819,25 @@ router.put('/integrations/:id', async (req, res) => {
   } catch (error) {
     console.error('[Admin] Update integration error:', error);
     res.status(500).json({ error: 'Failed to update integration' });
+  }
+});
+
+/**
+ * POST /admin/integrations/:id/toggle
+ * Toggle integration enabled status
+ */
+router.post('/integrations/:id/toggle', async (req, res) => {
+  try {
+    const integration = await ClientIntegration.findById(req.params.id);
+    if (!integration) {
+      return res.status(404).json({ error: 'Integration not found' });
+    }
+
+    const updated = await ClientIntegration.setEnabled(req.params.id, !integration.enabled);
+    res.json(updated);
+  } catch (error) {
+    console.error('[Admin] Toggle integration error:', error);
+    res.status(500).json({ error: 'Failed to toggle integration' });
   }
 });
 

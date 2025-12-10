@@ -3,10 +3,11 @@ import crypto from 'crypto';
 
 export class Client {
     /**
-     * Generate a unique API key for a client
+     * Generate a unique API key for a client with csai_ prefix
      */
     static generateApiKey() {
-        return crypto.randomBytes(32).toString('hex');
+        const randomHex = crypto.randomBytes(32).toString('hex');
+        return `csai_${randomHex}`;
     }
 
     /**
@@ -14,14 +15,19 @@ export class Client {
      * @param {string} name - Client business name
      * @param {string} domain - Client website domain
      * @param {string} planType - Plan type (free, starter, pro)
+     * @param {string} email - Client email
+     * @param {string} llmProvider - LLM provider (ollama, claude, openai)
+     * @param {string} modelName - Model name
+     * @param {string} systemPrompt - Custom system prompt
+     * @param {string} status - Client status (active, inactive)
      */
-    static async create(name, domain, planType = 'free') {
+    static async create(name, domain, planType = 'free', email = null, llmProvider = 'ollama', modelName = null, systemPrompt = null, status = 'active') {
         const apiKey = this.generateApiKey();
         const result = await db.query(
-            `INSERT INTO clients (name, domain, api_key, plan_type, status)
-             VALUES ($1, $2, $3, $4, 'active')
+            `INSERT INTO clients (name, domain, api_key, plan_type, email, llm_provider, model_name, system_prompt, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              RETURNING *`,
-            [name, domain, apiKey, planType]
+            [name, domain, apiKey, planType, email, llmProvider, modelName, systemPrompt, status]
         );
         return result.rows[0];
     }
@@ -63,7 +69,7 @@ export class Client {
      * Update client
      */
     static async update(id, updates) {
-        const allowedFields = ['name', 'domain', 'plan_type', 'status'];
+        const allowedFields = ['name', 'domain', 'plan_type', 'status', 'email', 'llm_provider', 'model_name', 'system_prompt'];
         const fields = [];
         const values = [];
         let paramIndex = 1;

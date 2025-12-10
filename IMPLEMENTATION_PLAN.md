@@ -772,6 +772,134 @@ Building a multi-tenant AI agent platform that businesses can embed as a chat wi
 - ✅ Integrations page testable with mock data
 - ✅ All dropdowns showing valid data only
 
+### 6.8 Admin Panel UI/UX Fixes - Round 2 ✅
+
+**Date**: December 10, 2025
+
+**User-Reported Bugs Fixed** (4 bugs):
+
+- [x] **Client Detail - Tool Actions Not Working**
+  - Root cause: Backend route expected `tool_id` but received junction table `id`
+  - Fixed: Created new `ClientTool.deleteById(id)` method
+  - Fixed: Added Edit Tool modal with webhook URL configuration
+  - Fixed: Replaced "Disable" button with "Edit" and "Remove" actions
+  - Updated route to use `ClientTool.deleteById()` for proper deletion
+
+- [x] **Tools Page - Missing Management Features**
+  - Root cause: No CRUD operations for global tools
+  - Fixed: Added PUT and DELETE routes for global tools
+  - Fixed: Added Edit Tool modal with parameter schema editor
+  - Fixed: Added Delete button with usage validation
+  - Fixed: Changed parameter display from count to actual parameter names
+  - Updated: Tool.update() to allow tool_name changes
+  - Protection: Prevent deletion if tool is in use by any client
+
+- [x] **Billing Page - No User Feedback on Cancel**
+  - Root cause: Missing success state and UI notification
+  - Fixed: Added success message state with auto-dismiss (3 seconds)
+  - Fixed: Added green notification banner for cancel success
+  - Improved: Better error handling and user feedback
+
+- [x] **Integrations Page - Missing Activate/Deactivate**
+  - Root cause: No toggle functionality implemented
+  - Fixed: Added toggle handler using `ClientIntegration.setEnabled()`
+  - Fixed: Added Activate/Deactivate button with color coding
+  - Fixed: Added POST `/admin/integrations/:id/toggle` route
+  - UI: Green for activate, orange for deactivate with hover states
+
+**Backend Changes**:
+- Models: `ClientTool.deleteById()`, `Tool.update()` enhancement
+- Routes: 4 new/updated endpoints in `admin.js`
+  - `DELETE /admin/clients/:clientId/tools/:id` (updated)
+  - `PUT /admin/tools/:id` (new)
+  - `DELETE /admin/tools/:id` (new)
+  - `POST /admin/integrations/:id/toggle` (new)
+
+**Frontend Changes**:
+- `api.js`: Added `tools.getById()`, `tools.create()`, `tools.update()`, `tools.delete()`, `integrations.toggle()`
+- `ClientDetail.jsx`: Edit Tool modal, Remove button, handlers
+- `Tools.jsx`: Edit modal, Delete button, parameter display improvements
+- `Billing.jsx`: Success feedback notifications
+- `Integrations.jsx`: Toggle button with status-based styling
+
+**Documentation**:
+- [x] `BUG_FIXES.md` - Renamed from `PHASE_6_BUG_FIXES_ROUND_2.md`, comprehensive documentation
+
+**Admin Dashboard Status**: ✅ All known bugs resolved, production-ready
+
+### 6.9 Documentation Cleanup & Client Onboarding Guide ✅
+
+**Date**: December 10, 2025
+
+**Documentation Cleanup**:
+
+- [x] **Deleted 7 outdated files**:
+  - `ADDITIONAL_BUG_FIXES.md` - Redundant partial documentation
+  - `PHASE_4_SUMMARY.md` - Superseded by CLAUDE.md
+  - `PHASE_5_KICKOFF.md` - Outdated kickoff document
+  - `PHASE_5_COMPLETE_SUMMARY.md` - Redundant summary
+  - `PHASE_6_KICKOFF.md` - Outdated kickoff document
+  - `PHASE_6_COMPLETE_SUMMARY.md` - Redundant summary
+  - `BUG_FIXES_SUMMARY.md` - Superseded by BUG_FIXES.md
+
+- [x] **Renamed for clarity**:
+  - `PHASE_6_BUG_FIXES_ROUND_2.md` → `BUG_FIXES.md`
+
+- [x] **Updated README.md** with latest features:
+  - Added billing infrastructure to features list
+  - Added analytics & monitoring to features list
+  - Added mock data generation commands
+  - Added admin dashboard access information
+  - Updated test commands to include Phase 6 tests
+  - Updated Quick Start section with all current capabilities
+
+- [x] **Verified still relevant**:
+  - `n8n-workflows/TROUBLESHOOTING.md` - Still relevant and accurate
+
+**Client Onboarding Guide Created**:
+
+- [x] **`CLIENT_ONBOARDING_GUIDE.md`** - Comprehensive step-by-step guide
+  - **Phase 1**: Create client account (admin dashboard walkthrough)
+  - **Phase 2**: Configure tools (enable tools, set webhook URLs)
+  - **Phase 3**: Set up integrations (API keys, test connections)
+  - **Phase 4**: Configure n8n workflows (import, configure, activate)
+  - **Phase 5**: Test chat functionality (verify tools, test conversations)
+  - **Phase 6**: Generate widget embed code (customization options)
+  - **Phase 7**: Client website integration (deployment, verification)
+  - **Phase 8**: Set up billing (invoice generation, payment tracking)
+  - **Phase 9**: Ongoing monitoring (usage, conversations, health checks)
+
+**Missing Features Identified** (15 features analyzed):
+
+**Critical Missing Features**:
+1. **Embed code generator** (HIGH impact) - Currently manual HTML construction
+2. **Widget customization UI** (HIGH impact) - Must edit script tag manually
+3. **Webhook URL validation** (MEDIUM impact) - No testing before save
+4. **n8n workflow management** (MEDIUM impact) - Must use separate interface
+
+**High-Priority Missing Features**:
+5. Integration credential testing (before save)
+6. System prompt templates library
+7. Bulk tool management
+8. Widget installation verification
+
+**Nice-to-Have Features**:
+9. Client portal (self-service)
+10. Automated billing (scheduled invoices)
+11. Usage alerts (email notifications)
+12. Conversation tagging
+13. Widget preview
+14. Tool parameter customization per client
+15. OAuth integration flows
+
+**Estimated Onboarding Time**:
+- Current: 45 minutes (simple) to 6 hours (complex)
+- With improvements: 15 minutes to 2 hours (60-70% reduction)
+
+**Documentation Status**: ✅ Clean, organized, production-ready
+
+**Phase 6 Overall Status**: ✅ **COMPLETE** - All infrastructure built, tested, and documented
+
 ---
 
 ## Phase 7: Hebrew Support (POST-MVP - Add After Launch)

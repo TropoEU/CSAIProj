@@ -60,6 +60,7 @@ export const tools = {
   updateForClient: (clientId, toolId, data) => api.put(`/admin/clients/${clientId}/tools/${toolId}`, data),
   disableForClient: (clientId, toolId) => api.delete(`/admin/clients/${clientId}/tools/${toolId}`),
   test: (toolId, params) => api.post(`/admin/tools/${toolId}/test`, params),
+  testTool: (clientId, toolId, params) => api.post(`/admin/clients/${clientId}/tools/${toolId}/test`, params),
 };
 
 // Conversation endpoints
@@ -76,6 +77,7 @@ export const integrations = {
   create: (clientId, data) => api.post(`/admin/clients/${clientId}/integrations`, data),
   update: (id, data) => api.put(`/admin/integrations/${id}`, data),
   delete: (id) => api.delete(`/admin/integrations/${id}`),
+  toggle: (id) => api.post(`/admin/integrations/${id}/toggle`),
   test: (id) => api.post(`/admin/integrations/${id}/test`),
 };
 

@@ -57,25 +57,29 @@ export class Invoice {
         let paramIndex = 1;
 
         if (filters.status) {
-            conditions.push(`status = $${paramIndex}`);
+            conditions.push(`i.status = $${paramIndex}`);
             values.push(filters.status);
             paramIndex++;
         }
 
         if (filters.clientId) {
-            conditions.push(`client_id = $${paramIndex}`);
+            conditions.push(`i.client_id = $${paramIndex}`);
             values.push(filters.clientId);
             paramIndex++;
         }
 
         if (filters.billingPeriod) {
-            conditions.push(`billing_period = $${paramIndex}`);
+            conditions.push(`i.billing_period = $${paramIndex}`);
             values.push(filters.billingPeriod);
             paramIndex++;
         }
 
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+        
+        // Add limit and offset to values array
         values.push(limit, offset);
+        const limitParamIndex = paramIndex;
+        const offsetParamIndex = paramIndex + 1;
 
         const query = `
             SELECT i.*, c.name as client_name, c.domain as client_domain
@@ -83,7 +87,7 @@ export class Invoice {
             LEFT JOIN clients c ON i.client_id = c.id
             ${whereClause}
             ORDER BY i.created_at DESC
-            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+            LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
         `;
 
         const result = await db.query(query, values);

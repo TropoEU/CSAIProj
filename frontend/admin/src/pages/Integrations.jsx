@@ -74,6 +74,7 @@ export default function Integrations() {
 
   const fetchIntegrations = async (clientId) => {
     setLoading(true);
+    setTestResult(null); // Clear test result when fetching to show actual status
     try {
       const response = await integrations.getByClient(clientId);
       setIntegrationList(response.data);
@@ -106,8 +107,11 @@ export default function Integrations() {
     setValue('name', integration.name);
     setValue('apiKey', ''); // Don't show existing API key
     setValue('apiSecret', '');
-    setValue('webhookUrl', integration.webhook_url);
-    setValue('config', JSON.stringify(integration.config || {}, null, 2));
+    setValue('webhookUrl', integration.connection_config?.webhook_url || '');
+
+    // Extract extra config (everything except name, api_key, api_secret, webhook_url)
+    const { name, api_key, api_secret, webhook_url, ...extraConfig } = integration.connection_config || {};
+    setValue('config', JSON.stringify(extraConfig, null, 2));
     setIsModalOpen(true);
   };
 
@@ -120,6 +124,16 @@ export default function Integrations() {
       fetchIntegrations(selectedClient);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to delete integration');
+    }
+  };
+
+  const handleToggle = async (id) => {
+    try {
+      await integrations.toggle(id);
+      setTestResult(null); // Clear test result to show actual status after toggle
+      fetchIntegrations(selectedClient);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to toggle integration');
     }
   };
 
@@ -259,6 +273,14 @@ export default function Integrations() {
                               onClick={() => handleEdit(integration)}
                             >
                               Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={integration.status === 'active' ? 'text-orange-600 hover:text-orange-700 hover:bg-orange-50' : 'text-green-600 hover:text-green-700 hover:bg-green-50'}
+                              onClick={() => handleToggle(integration.id)}
+                            >
+                              {integration.status === 'active' ? 'Deactivate' : 'Activate'}
                             </Button>
                             <Button
                               variant="ghost"
