@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { usage, clients as clientsApi } from '../services/api';
 
 export default function UsageReports() {
+  const [searchParams] = useSearchParams();
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
   const [period, setPeriod] = useState('month');
@@ -18,7 +20,7 @@ export default function UsageReports() {
 
   // Fetch usage data when client or period changes
   useEffect(() => {
-    if (selectedClient) {
+    if (selectedClient !== null) {
       fetchUsageData();
     }
   }, [selectedClient, period]);
@@ -28,8 +30,14 @@ export default function UsageReports() {
       const response = await clientsApi.getAll();
       const clientData = response.data || [];
       setClients(clientData);
-      if (clientData.length > 0) {
-        setSelectedClient(clientData[0].id);
+
+      // Check if client ID is in query params
+      const clientIdFromQuery = searchParams.get('client');
+      if (clientIdFromQuery && clientData.some(c => c.id === parseInt(clientIdFromQuery))) {
+        setSelectedClient(parseInt(clientIdFromQuery));
+      } else {
+        // Default to "all" for platform-wide view
+        setSelectedClient('all');
       }
     } catch (err) {
       setError('Failed to load clients');
@@ -38,19 +46,28 @@ export default function UsageReports() {
   };
 
   const fetchUsageData = async () => {
-    if (!selectedClient) return;
+    if (selectedClient === null) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const [summaryData, historyData] = await Promise.all([
-        usage.getSummary(selectedClient, period),
-        usage.getHistory(selectedClient, 'messages', 12),
-      ]);
-
-      setSummary(summaryData);
-      setHistory(historyData);
+      if (selectedClient === 'all') {
+        // Fetch aggregated data for all clients
+        const [summaryData, historyData] = await Promise.all([
+          usage.getAllClientsSummary(period),
+          usage.getAllClientsHistory('messages', 12),
+        ]);
+        setSummary(summaryData);
+        setHistory(historyData);
+      } else {
+        const [summaryData, historyData] = await Promise.all([
+          usage.getSummary(selectedClient, period),
+          usage.getHistory(selectedClient, 'messages', 12),
+        ]);
+        setSummary(summaryData);
+        setHistory(historyData);
+      }
     } catch (err) {
       setError('Failed to load usage data');
       console.error('Error fetching usage:', err);
@@ -99,6 +116,14 @@ export default function UsageReports() {
   };
 
   const getSelectedClientInfo = () => {
+    if (selectedClient === 'all') {
+      return {
+        name: 'All Clients',
+        plan_type: 'Platform-Wide',
+        domain: `${clients.length} clients`,
+        status: 'active'
+      };
+    }
     return clients.find((c) => c.id === selectedClient);
   };
 
@@ -125,9 +150,13 @@ export default function UsageReports() {
             </label>
             <select
               value={selectedClient || ''}
-              onChange={(e) => setSelectedClient(parseInt(e.target.value))}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSelectedClient(val === 'all' ? 'all' : parseInt(val));
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
+              <option value="all">All Clients (Platform-Wide)</option>
               {clients.map((client) => (
                 <option key={client.id} value={client.id}>
                   {client.name} ({client.plan_type})
@@ -146,6 +175,7 @@ export default function UsageReports() {
               onChange={(e) => setPeriod(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
+              <option value="all">All Time</option>
               <option value="day">Today</option>
               <option value="week">This Week</option>
               <option value="month">This Month</option>
@@ -160,7 +190,16 @@ export default function UsageReports() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <span className="text-gray-600">Client:</span>
-                <span className="ml-2 font-semibold">{getSelectedClientInfo().name}</span>
+                {selectedClient === 'all' ? (
+                  <span className="ml-2 font-semibold">{getSelectedClientInfo().name}</span>
+                ) : (
+                  <Link
+                    to={`/clients/${getSelectedClientInfo().id}`}
+                    className="ml-2 font-semibold text-indigo-600 hover:text-indigo-800 hover:underline"
+                  >
+                    {getSelectedClientInfo().name}
+                  </Link>
+                )}
               </div>
               <div>
                 <span className="text-gray-600">Plan:</span>

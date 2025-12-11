@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { integrations, clients } from '../services/api';
 import {
@@ -30,6 +31,7 @@ const INTEGRATION_TYPES = [
 ];
 
 export default function Integrations() {
+  const [searchParams] = useSearchParams();
   const [clientList, setClientList] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
   const [integrationList, setIntegrationList] = useState([]);
@@ -62,7 +64,12 @@ export default function Integrations() {
     try {
       const response = await clients.getAll();
       setClientList(response.data);
-      if (response.data.length > 0) {
+
+      // Check if client ID is in query params
+      const clientIdFromQuery = searchParams.get('client');
+      if (clientIdFromQuery && response.data.some(c => c.id === parseInt(clientIdFromQuery))) {
+        setSelectedClient(parseInt(clientIdFromQuery));
+      } else if (response.data.length > 0) {
         setSelectedClient(response.data[0].id);
       }
     } catch (err) {

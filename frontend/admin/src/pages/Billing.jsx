@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { billing, clients } from '../services/api';
 import { InvoicePDF } from '../components/InvoicePDF';
@@ -22,6 +22,7 @@ import {
 } from '../components/common';
 
 export default function Billing() {
+  const [searchParams] = useSearchParams();
   const [invoices, setInvoices] = useState([]);
   const [revenue, setRevenue] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -34,6 +35,14 @@ export default function Billing() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [clientList, setClientList] = useState([]);
   const [clientFilter, setClientFilter] = useState('all');
+
+  // Check for client filter in query params
+  useEffect(() => {
+    const clientIdFromQuery = searchParams.get('client');
+    if (clientIdFromQuery) {
+      setClientFilter(clientIdFromQuery);
+    }
+  }, [searchParams]);
 
   const {
     register: registerGenerate,

@@ -179,7 +179,7 @@ router.post('/clients', async (req, res) => {
  */
 router.put('/clients/:id', async (req, res) => {
   try {
-    const { name, domain, plan_type, status, email, llm_provider, model_name, system_prompt } = req.body;
+    const { name, domain, plan_type, status, email, llm_provider, model_name, system_prompt, widget_config } = req.body;
     const updates = {};
 
     if (name !== undefined) updates.name = name;
@@ -190,15 +190,18 @@ router.put('/clients/:id', async (req, res) => {
     if (llm_provider !== undefined) updates.llm_provider = llm_provider;
     if (model_name !== undefined) updates.model_name = model_name;
     if (system_prompt !== undefined) updates.system_prompt = system_prompt;
+    if (widget_config !== undefined) updates.widget_config = widget_config;
 
     const client = await Client.update(req.params.id, updates);
     if (!client) {
       return res.status(404).json({ error: 'Client not found' });
     }
+
     res.json(client);
   } catch (error) {
     console.error('[Admin] Update client error:', error);
-    res.status(500).json({ error: 'Failed to update client' });
+    console.error('[Admin] Error stack:', error.stack);
+    res.status(500).json({ error: 'Failed to update client', message: error.message });
   }
 });
 

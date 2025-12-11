@@ -135,6 +135,16 @@ export const usage = {
     const response = await api.get('/admin/usage/summary', { params: { period } });
     return response.data;
   },
+  getAllClientsSummary: async (period = 'month') => {
+    const response = await api.get('/admin/usage/summary', { params: { period } });
+    return response.data;
+  },
+  getAllClientsHistory: async (metric = 'messages', months = 12) => {
+    const response = await api.get('/admin/usage/history', {
+      params: { metric, months },
+    });
+    return response.data;
+  },
 };
 
 export default api;

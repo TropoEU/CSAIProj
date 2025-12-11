@@ -144,8 +144,13 @@ export default function Clients() {
               {filteredClients.length > 0 ? (
                 filteredClients.map((client) => (
                   <TableRow key={client.id}>
-                    <TableCell className="font-medium text-gray-900">
-                      {client.name}
+                    <TableCell className="font-medium">
+                      <Link
+                        to={`/clients/${client.id}`}
+                        className="text-gray-900 hover:text-indigo-600 hover:underline"
+                      >
+                        {client.name}
+                      </Link>
                     </TableCell>
                     <TableCell className="text-gray-500">
                       {client.domain || '-'}

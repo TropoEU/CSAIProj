@@ -20,15 +20,22 @@ export class Client {
      * @param {string} modelName - Model name
      * @param {string} systemPrompt - Custom system prompt
      * @param {string} status - Client status (active, inactive)
+     * @param {object} widgetConfig - Widget customization settings
      */
-    static async create(name, domain, planType = 'free', email = null, llmProvider = 'ollama', modelName = null, systemPrompt = null, status = 'active') {
+    static async create(name, domain, planType = 'free', email = null, llmProvider = 'ollama', modelName = null, systemPrompt = null, status = 'active', widgetConfig = null) {
         const apiKey = this.generateApiKey();
-        const result = await db.query(
-            `INSERT INTO clients (name, domain, api_key, plan_type, email, llm_provider, model_name, system_prompt, status)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-             RETURNING *`,
-            [name, domain, apiKey, planType, email, llmProvider, modelName, systemPrompt, status]
-        );
+        const query = widgetConfig
+            ? `INSERT INTO clients (name, domain, api_key, plan_type, email, llm_provider, model_name, system_prompt, status, widget_config)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+               RETURNING *`
+            : `INSERT INTO clients (name, domain, api_key, plan_type, email, llm_provider, model_name, system_prompt, status)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               RETURNING *`;
+        const params = widgetConfig
+            ? [name, domain, apiKey, planType, email, llmProvider, modelName, systemPrompt, status, JSON.stringify(widgetConfig)]
+            : [name, domain, apiKey, planType, email, llmProvider, modelName, systemPrompt, status];
+
+        const result = await db.query(query, params);
         return result.rows[0];
     }
 
@@ -69,15 +76,21 @@ export class Client {
      * Update client
      */
     static async update(id, updates) {
-        const allowedFields = ['name', 'domain', 'plan_type', 'status', 'email', 'llm_provider', 'model_name', 'system_prompt'];
+        const allowedFields = ['name', 'domain', 'plan_type', 'status', 'email', 'llm_provider', 'model_name', 'system_prompt', 'widget_config'];
         const fields = [];
         const values = [];
         let paramIndex = 1;
 
         for (const [key, value] of Object.entries(updates)) {
             if (allowedFields.includes(key)) {
-                fields.push(`${key} = $${paramIndex}`);
-                values.push(value);
+                // Handle widget_config as JSONB
+                if (key === 'widget_config' && value !== null && typeof value === 'object') {
+                    fields.push(`${key} = $${paramIndex}::jsonb`);
+                    values.push(JSON.stringify(value));
+                } else {
+                    fields.push(`${key} = $${paramIndex}`);
+                    values.push(value);
+                }
                 paramIndex++;
             }
         }

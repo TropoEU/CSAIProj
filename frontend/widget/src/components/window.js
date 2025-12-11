@@ -12,7 +12,7 @@ export class ChatWindow {
     this.onSend = onSend;
     this.element = this.create();
     this.messageList = new MessageList();
-    this.inputArea = new InputArea((message) => this.handleSend(message));
+    this.inputArea = new InputArea((message) => this.handleSend(message), config);
     this.isOpen = false;
   }
 
@@ -41,17 +41,17 @@ export class ChatWindow {
     const title = this.config.title || 'Chat Support';
     const subtitle = this.config.subtitle || 'We typically reply instantly';
 
+    // Apply header text color if configured
+    if (this.config.headerTextColor) {
+      header.style.color = this.config.headerTextColor;
+    }
+
     header.innerHTML = `
       <div>
         <div class="csai-header-title">${title}</div>
         <div class="csai-header-subtitle">${subtitle}</div>
       </div>
       <div class="csai-header-actions">
-        <button class="csai-header-button csai-minimize-button" aria-label="Minimize">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M19 13H5v-2h14v2z"/>
-          </svg>
-        </button>
         <button class="csai-header-button csai-close-button" aria-label="Close">
           <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
@@ -60,11 +60,18 @@ export class ChatWindow {
       </div>
     `;
 
-    // Minimize button
-    const minimizeBtn = header.querySelector('.csai-minimize-button');
-    minimizeBtn.addEventListener('click', () => {
-      this.close();
-    });
+    // Apply header background color if configured
+    if (this.config.headerBgColor) {
+      header.style.backgroundColor = this.config.headerBgColor;
+    }
+
+    // Apply button text color to close button (should match send button icon color)
+    if (this.config.buttonTextColor) {
+      const closeButton = header.querySelector('.csai-close-button svg');
+      if (closeButton) {
+        closeButton.style.fill = this.config.buttonTextColor;
+      }
+    }
 
     // Close button
     const closeBtn = header.querySelector('.csai-close-button');

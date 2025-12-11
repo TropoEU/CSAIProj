@@ -20,9 +20,21 @@ function getConfigFromScript() {
 
   const config = {
     apiKey: script.getAttribute('data-api-key'),
-    apiUrl: script.getAttribute('data-api-url'),
+    // API URL is hardcoded in widget - no need to expose it in snippet
     position: script.getAttribute('data-position'),
     primaryColor: script.getAttribute('data-primary-color'),
+    backgroundColor: script.getAttribute('data-background-color'),
+    headerBgColor: script.getAttribute('data-header-bg-color'),
+    bodyBgColor: script.getAttribute('data-body-bg-color'),
+    footerBgColor: script.getAttribute('data-footer-bg-color'),
+    aiBubbleColor: script.getAttribute('data-ai-bubble-color'),
+    userBubbleColor: script.getAttribute('data-user-bubble-color'),
+    headerTextColor: script.getAttribute('data-header-text-color'),
+    aiTextColor: script.getAttribute('data-ai-text-color'),
+    userTextColor: script.getAttribute('data-user-text-color'),
+    inputBgColor: script.getAttribute('data-input-bg-color'),
+    inputTextColor: script.getAttribute('data-input-text-color'),
+    buttonTextColor: script.getAttribute('data-button-text-color'),
     greeting: script.getAttribute('data-greeting'),
     title: script.getAttribute('data-title'),
     subtitle: script.getAttribute('data-subtitle'),

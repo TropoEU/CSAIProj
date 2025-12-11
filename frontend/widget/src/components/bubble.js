@@ -3,10 +3,12 @@
  * The circular button that opens/closes the chat widget
  */
 export class ChatBubble {
-  constructor(onClick) {
+  constructor(onClick, config = {}) {
     this.onClick = onClick;
+    this.config = config;
     this.element = this.create();
     this.unreadCount = 0;
+    this.applyColors();
   }
 
   /**
@@ -30,6 +32,24 @@ export class ChatBubble {
     });
 
     return bubble;
+  }
+
+  /**
+   * Apply custom colors from config
+   */
+  applyColors() {
+    // Apply header background color to bubble
+    if (this.config.headerBgColor) {
+      this.element.style.backgroundColor = this.config.headerBgColor;
+    }
+
+    // Apply header text color to SVG icon
+    if (this.config.headerTextColor) {
+      const svg = this.element.querySelector('svg');
+      if (svg) {
+        svg.style.fill = this.config.headerTextColor;
+      }
+    }
   }
 
   /**

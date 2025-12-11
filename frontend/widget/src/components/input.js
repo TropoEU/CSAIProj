@@ -3,11 +3,13 @@
  * Text input area with send button
  */
 export class InputArea {
-  constructor(onSend) {
+  constructor(onSend, config = {}) {
     this.onSend = onSend;
+    this.config = config;
     this.element = this.create();
     this.input = this.element.querySelector('.csai-input');
     this.sendButton = this.element.querySelector('.csai-send-button');
+    this.applyColors();
   }
 
   /**
@@ -55,6 +57,36 @@ export class InputArea {
     });
 
     return container;
+  }
+
+  /**
+   * Apply custom colors from config
+   */
+  applyColors() {
+    // Apply footer background color
+    if (this.config.footerBgColor) {
+      this.element.style.backgroundColor = this.config.footerBgColor;
+    }
+
+    // Apply input background color
+    if (this.config.inputBgColor) {
+      this.input.style.backgroundColor = this.config.inputBgColor;
+    }
+
+    // Apply input text color
+    if (this.config.inputTextColor) {
+      this.input.style.color = this.config.inputTextColor;
+    }
+
+    // Apply button text color (to SVG fill) - ensure size is correct
+    if (this.config.buttonTextColor) {
+      const svg = this.sendButton.querySelector('svg');
+      if (svg) {
+        svg.style.fill = this.config.buttonTextColor;
+        svg.style.width = '18px';
+        svg.style.height = '18px';
+      }
+    }
   }
 
   /**

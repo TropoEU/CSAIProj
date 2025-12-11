@@ -60,7 +60,7 @@
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  background: var(--primary-color);
+  background: var(--header-bg, var(--primary-color));
   border: none;
   box-shadow: var(--shadow);
   cursor: pointer;
@@ -68,8 +68,30 @@
   align-items: center;
   justify-content: center;
   transition: all 0.3s ease;
-  position: relative;
+  position: fixed;
+  z-index: 999999;
   animation: fadeIn 0.5s ease;
+}
+
+/* Position bubble using :host() to check host element's classes from shadow DOM */
+:host(.position-bottom-right) .csai-chat-bubble {
+  bottom: 20px;
+  right: 20px;
+}
+
+:host(.position-bottom-left) .csai-chat-bubble {
+  bottom: 20px;
+  left: 20px;
+}
+
+:host(.position-top-right) .csai-chat-bubble {
+  top: 20px;
+  right: 20px;
+}
+
+:host(.position-top-left) .csai-chat-bubble {
+  top: 20px;
+  left: 20px;
 }
 
 .csai-chat-bubble:hover {
@@ -81,7 +103,7 @@
 .csai-chat-bubble svg {
   width: 28px;
   height: 28px;
-  fill: white;
+  /* Fill color is set via inline styles based on headerTextColor */
 }
 
 .csai-chat-bubble.open {
@@ -107,10 +129,10 @@
 
 /* Chat Window */
 .csai-chat-window {
-  position: absolute;
-  bottom: 75px;
-  right: 0;
+  position: fixed;
   width: 400px;
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 40px);
   height: 600px;
   background: var(--background);
   border-radius: 12px;
@@ -119,23 +141,33 @@
   flex-direction: column;
   overflow: hidden;
   animation: slideUp 0.3s ease;
+  z-index: 999999;
 }
 
-.csai-widget-container.position-bottom-left .csai-chat-window,
-.csai-widget-container.position-top-left .csai-chat-window {
-  right: auto;
-  left: 0;
+/* Position window using :host() to check host element's classes from shadow DOM */
+:host(.position-bottom-right) .csai-chat-window {
+  bottom: 20px;
+  right: 20px;
 }
 
-.csai-widget-container.position-top-right .csai-chat-window,
-.csai-widget-container.position-top-left .csai-chat-window {
-  bottom: auto;
-  top: 75px;
+:host(.position-bottom-left) .csai-chat-window {
+  bottom: 20px;
+  left: 20px;
+}
+
+:host(.position-top-right) .csai-chat-window {
+  top: 20px;
+  right: 20px;
+}
+
+:host(.position-top-left) .csai-chat-window {
+  top: 20px;
+  left: 20px;
 }
 
 /* Window Header */
 .csai-window-header {
-  background: var(--primary-color);
+  background: var(--header-bg, var(--primary-color));
   color: white;
   padding: 16px 20px;
   display: flex;
@@ -181,7 +213,7 @@
 .csai-header-button svg {
   width: 18px;
   height: 18px;
-  fill: white;
+  /* Fill color is set via inline styles based on headerTextColor */
 }
 
 /* Messages Area */
@@ -326,7 +358,7 @@
   display: flex;
   gap: 8px;
   flex-shrink: 0;
-  background: var(--background);
+  background: var(--footer-bg, var(--background));
 }
 
 .csai-input {

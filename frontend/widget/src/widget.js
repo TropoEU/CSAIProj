@@ -35,9 +35,23 @@ export class ChatWidget {
 
     return {
       apiKey: config.apiKey,
-      apiUrl: config.apiUrl || 'http://localhost:3000',
+      // API URL is hardcoded in widget code - backend services communicate internally
+      // Set via VITE_API_URL environment variable at build time, or defaults to production
+      apiUrl: import.meta.env.VITE_API_URL || 'https://api.yourdomain.com',
       position: config.position || 'bottom-right',
-      primaryColor: config.primaryColor || '#0066cc',
+      primaryColor: config.primaryColor || '#667eea',
+      backgroundColor: config.backgroundColor || '#ffffff',
+      headerBgColor: config.headerBgColor || config.primaryColor || '#667eea',
+      bodyBgColor: config.bodyBgColor || config.backgroundColor || '#ffffff',
+      footerBgColor: config.footerBgColor || config.backgroundColor || '#ffffff',
+      aiBubbleColor: config.aiBubbleColor || '#f3f4f6',
+      userBubbleColor: config.userBubbleColor || '#667eea',
+      headerTextColor: config.headerTextColor || '#111827',
+      aiTextColor: config.aiTextColor || '#111827',
+      userTextColor: config.userTextColor || '#ffffff',
+      inputBgColor: config.inputBgColor || '#f9fafb',
+      inputTextColor: config.inputTextColor || '#111827',
+      buttonTextColor: config.buttonTextColor || '#ffffff',
       greeting: config.greeting || 'Hi! How can I help you today?',
       title: config.title || 'Chat Support',
       subtitle: config.subtitle || 'We typically reply instantly',
@@ -68,6 +82,26 @@ export class ChatWidget {
   createContainer() {
     this.container = document.createElement('div');
     this.container.className = `csai-widget-container position-${this.config.position}`;
+    // Ensure container is fixed and doesn't scroll with page
+    this.container.style.position = 'fixed';
+    this.container.style.zIndex = '999999';
+    
+    // Explicitly set positioning to ensure it works (CSS classes should handle this, but this is a fallback)
+    const position = this.config.position || 'bottom-right';
+    if (position.includes('bottom')) {
+      this.container.style.bottom = '20px';
+      this.container.style.top = 'auto';
+    } else {
+      this.container.style.top = '20px';
+      this.container.style.bottom = 'auto';
+    }
+    if (position.includes('right')) {
+      this.container.style.right = '20px';
+      this.container.style.left = 'auto';
+    } else {
+      this.container.style.left = '20px';
+      this.container.style.right = 'auto';
+    }
   }
 
   /**
@@ -84,16 +118,20 @@ export class ChatWidget {
     const styleElement = document.createElement('style');
     styleElement.textContent = styles;
 
-    // Apply custom primary color
-    if (this.config.primaryColor) {
-      styleElement.textContent += `
-        :host {
-          --primary-color: ${this.config.primaryColor};
-          --primary-hover: ${this.adjustColor(this.config.primaryColor, -20)};
-          --user-message-bg: ${this.config.primaryColor};
-        }
-      `;
-    }
+    // Apply all custom colors as CSS variables
+    styleElement.textContent += `
+      :host {
+        --primary-color: ${this.config.primaryColor};
+        --primary-hover: ${this.adjustColor(this.config.primaryColor, -20)};
+        --background: ${this.config.bodyBgColor};
+        --header-bg: ${this.config.headerBgColor};
+        --footer-bg: ${this.config.footerBgColor};
+        --user-message-bg: ${this.config.userBubbleColor};
+        --user-message-text: ${this.config.userTextColor};
+        --ai-message-bg: ${this.config.aiBubbleColor};
+        --ai-message-text: ${this.config.aiTextColor};
+      }
+    `;
 
     this.shadowRoot.appendChild(styleElement);
   }
@@ -118,7 +156,7 @@ export class ChatWidget {
    */
   createComponents() {
     // Create chat bubble
-    this.bubble = new ChatBubble(() => this.toggleWindow());
+    this.bubble = new ChatBubble(() => this.toggleWindow(), this.config);
 
     // Create chat window
     this.window = new ChatWindow(
@@ -133,6 +171,9 @@ export class ChatWidget {
 
     // Initialize window
     this.window.init();
+    
+    // Show bubble when window is closed, hide when open
+    this.updateBubbleVisibility();
   }
 
   /**
@@ -192,6 +233,7 @@ export class ChatWidget {
     if (shouldBeOpen) {
       this.window.open();
     }
+    this.updateBubbleVisibility();
   }
 
   /**
@@ -200,6 +242,7 @@ export class ChatWidget {
   toggleWindow() {
     this.window.toggle();
     this.storage.setWidgetState(this.window.isOpen);
+    this.updateBubbleVisibility();
 
     // Clear unread count when opening
     if (this.window.isOpen) {
@@ -209,10 +252,25 @@ export class ChatWidget {
   }
 
   /**
+   * Update bubble visibility based on window state
+   */
+  updateBubbleVisibility() {
+    if (this.bubble && this.window) {
+      // Show bubble when window is closed, hide when open
+      if (this.window.isOpen) {
+        this.bubble.getElement().style.display = 'none';
+      } else {
+        this.bubble.getElement().style.display = 'flex';
+      }
+    }
+  }
+
+  /**
    * Handle window close
    */
   handleClose() {
     this.storage.setWidgetState(false);
+    this.updateBubbleVisibility();
   }
 
   /**
