@@ -107,6 +107,17 @@ export const billing = {
   getOutstanding: () => api.get('/admin/billing/outstanding'),
 };
 
+// Plan endpoints
+export const plans = {
+  getAll: (activeOnly = false) => api.get('/admin/plans', { params: { activeOnly } }),
+  getById: (id) => api.get(`/admin/plans/${id}`),
+  create: (data) => api.post('/admin/plans', data),
+  update: (id, data) => api.put(`/admin/plans/${id}`, data),
+  delete: (id) => api.delete(`/admin/plans/${id}`),
+  setDefault: (id) => api.post(`/admin/plans/${id}/set-default`),
+  refreshCache: () => api.post('/admin/plans/refresh-cache'),
+};
+
 // Usage endpoints
 export const usage = {
   getSummary: async (clientId, period = 'month') => {

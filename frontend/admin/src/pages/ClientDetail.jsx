@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { clients, tools as toolsApi } from '../services/api';
+import { clients, tools as toolsApi, plans as plansApi } from '../services/api';
 import {
   Card,
   CardBody,
@@ -59,6 +59,7 @@ export default function ClientDetail() {
   });
   const [showWidgetPreview, setShowWidgetPreview] = useState(false);
   const [copiedEmbed, setCopiedEmbed] = useState(false);
+  const [availablePlans, setAvailablePlans] = useState([]);
   const previewRef = useRef(null);
 
   const testToolForm = useForm();
@@ -75,7 +76,25 @@ export default function ClientDetail() {
 
   useEffect(() => {
     fetchClientData();
+    fetchPlans();
   }, [id]);
+
+  const fetchPlans = async () => {
+    try {
+      const response = await plansApi.getAll(true); // Get active plans only
+      setAvailablePlans(response.data || []);
+    } catch (err) {
+      console.error('Failed to load plans:', err);
+      // Fallback to default plans if API fails
+      setAvailablePlans([
+        { id: 1, name: 'unlimited', display_name: 'Unlimited' },
+        { id: 2, name: 'free', display_name: 'Free' },
+        { id: 3, name: 'starter', display_name: 'Starter' },
+        { id: 4, name: 'pro', display_name: 'Pro' },
+        { id: 5, name: 'enterprise', display_name: 'Enterprise' },
+      ]);
+    }
+  };
 
   useEffect(() => {
     if (client?.widget_config) {
@@ -1067,12 +1086,19 @@ export default function ClientDetail() {
           <Select
             label="Plan Type"
             {...register('plan_type')}
-            options={[
-              { value: 'free', label: 'Free' },
-              { value: 'starter', label: 'Starter' },
-              { value: 'pro', label: 'Pro' },
-              { value: 'enterprise', label: 'Enterprise' },
-            ]}
+            options={availablePlans.length > 0 
+              ? availablePlans.map(plan => ({
+                  value: plan.name,
+                  label: plan.display_name || (plan.name ? plan.name.charAt(0).toUpperCase() + plan.name.slice(1) : 'Unknown'),
+                }))
+              : [
+                  { value: 'unlimited', label: 'Unlimited' },
+                  { value: 'free', label: 'Free' },
+                  { value: 'starter', label: 'Starter' },
+                  { value: 'pro', label: 'Pro' },
+                  { value: 'enterprise', label: 'Enterprise' },
+                ]
+            }
           />
 
           <Select

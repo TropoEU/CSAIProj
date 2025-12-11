@@ -1,6 +1,7 @@
 import { Invoice } from '../models/Invoice.js';
 import { Client } from '../models/Client.js';
 import { ApiUsage } from '../models/ApiUsage.js';
+import { Plan } from '../models/Plan.js';
 import { db } from '../db.js';
 
 /**
@@ -9,67 +10,116 @@ import { db } from '../db.js';
  * This service provides:
  * - Invoice generation from usage data
  * - Payment provider abstraction (ready for Stripe/PayPal integration)
- * - Configurable pricing (base + usage-based)
+ * - Configurable pricing (base + usage-based) from database
  * - Revenue analytics
  */
 export class BillingService {
     /**
-     * Configurable pricing structure
-     * IMPORTANT: These values should be configured based on business model
-     * Can be moved to environment variables or database configuration
+     * Fallback pricing structure (used if database is unavailable)
      */
-    static PRICING_CONFIG = {
+    static FALLBACK_PRICING = {
+        unlimited: {
+            baseCost: 0,
+            costPerThousandTokens: 0,
+            costPerMessage: 0,
+            costPerToolCall: 0
+        },
         free: {
             baseCost: 0,
-            costPerThousandTokens: 0,   // Free plan has no costs
+            costPerThousandTokens: 0,
             costPerMessage: 0,
             costPerToolCall: 0
         },
         starter: {
             baseCost: 29.99,
-            costPerThousandTokens: 0.01,   // $0.01 per 1K tokens
-            costPerMessage: 0.001,          // $0.001 per message
-            costPerToolCall: 0.05           // $0.05 per tool call
+            costPerThousandTokens: 0.01,
+            costPerMessage: 0.001,
+            costPerToolCall: 0.05
         },
         pro: {
             baseCost: 99.99,
-            costPerThousandTokens: 0.008,  // $0.008 per 1K tokens (volume discount)
-            costPerMessage: 0.0008,         // $0.0008 per message
-            costPerToolCall: 0.04           // $0.04 per tool call
+            costPerThousandTokens: 0.008,
+            costPerMessage: 0.0008,
+            costPerToolCall: 0.04
         },
         enterprise: {
             baseCost: 499.99,
-            costPerThousandTokens: 0.005,  // $0.005 per 1K tokens (enterprise rate)
-            costPerMessage: 0.0005,         // $0.0005 per message
-            costPerToolCall: 0.03           // $0.03 per tool call
+            costPerThousandTokens: 0.005,
+            costPerMessage: 0.0005,
+            costPerToolCall: 0.03
         }
     };
 
+    // For backwards compatibility
+    static PRICING_CONFIG = this.FALLBACK_PRICING;
+
     /**
-     * Get pricing config for a plan type
+     * Get pricing config for a plan type (async, fetches from database)
+     * @param {string} planType - Plan type name
+     * @returns {Object} Pricing configuration
      */
-    static getPricingConfig(planType) {
-        return this.PRICING_CONFIG[planType] || this.PRICING_CONFIG.free;
+    static async getPricingConfigAsync(planType) {
+        try {
+            const plan = await Plan.findByName(planType);
+            if (plan && plan.pricing) {
+                // Convert database pricing format to billing service format
+                return {
+                    baseCost: plan.pricing.baseCost || 0,
+                    costPerThousandTokens: plan.pricing.usageMultiplier || 0,
+                    costPerMessage: plan.pricing.costPerMessage || 0,
+                    costPerToolCall: plan.pricing.costPerToolCall || 0
+                };
+            }
+        } catch (error) {
+            console.warn('[BillingService] Failed to fetch plan pricing from DB:', error.message);
+        }
+        // Fallback to hardcoded pricing
+        return this.FALLBACK_PRICING[planType] || this.FALLBACK_PRICING.free;
     }
 
     /**
-     * Set pricing config (for dynamic configuration)
+     * Get pricing config for a plan type (sync version - uses fallback)
+     * @deprecated Use getPricingConfigAsync instead
+     */
+    static getPricingConfig(planType) {
+        return this.FALLBACK_PRICING[planType] || this.FALLBACK_PRICING.free;
+    }
+
+    /**
+     * Set pricing config (for dynamic configuration - updates fallback)
      */
     static setPricingConfig(planType, config) {
-        if (this.PRICING_CONFIG[planType]) {
-            this.PRICING_CONFIG[planType] = { ...this.PRICING_CONFIG[planType], ...config };
+        if (this.FALLBACK_PRICING[planType]) {
+            this.FALLBACK_PRICING[planType] = { ...this.FALLBACK_PRICING[planType], ...config };
         }
     }
 
     /**
-     * Calculate usage cost based on configurable pricing
+     * Calculate usage cost based on configurable pricing (async version)
+     * @param {Object} usage - Usage data from ApiUsage
+     * @param {string} planType - Plan type (free, starter, pro)
+     * @returns {Promise<number>} Usage cost
+     */
+    static async calculateUsageCostAsync(usage, planType) {
+        const pricing = await this.getPricingConfigAsync(planType);
+        return this._calculateCost(usage, pricing);
+    }
+
+    /**
+     * Calculate usage cost based on configurable pricing (sync version - uses fallback)
      * @param {Object} usage - Usage data from ApiUsage
      * @param {string} planType - Plan type (free, starter, pro)
      * @returns {number} Usage cost
      */
     static calculateUsageCost(usage, planType) {
         const pricing = this.getPricingConfig(planType);
+        return this._calculateCost(usage, pricing);
+    }
 
+    /**
+     * Internal method to calculate cost from usage and pricing
+     */
+    static _calculateCost(usage, pricing) {
         // If any pricing component is null, return 0 (not configured yet)
         if (pricing.costPerThousandTokens === null ||
             pricing.costPerMessage === null ||
@@ -81,9 +131,9 @@ export class BillingService {
                           (parseInt(usage.total_tokens_output) || 0);
         const tokensInThousands = totalTokens / 1000;
 
-        const tokenCost = tokensInThousands * pricing.costPerThousandTokens;
-        const messageCost = (parseInt(usage.total_messages) || 0) * pricing.costPerMessage;
-        const toolCallCost = (parseInt(usage.total_tool_calls) || 0) * pricing.costPerToolCall;
+        const tokenCost = tokensInThousands * (pricing.costPerThousandTokens || 0);
+        const messageCost = (parseInt(usage.total_messages) || 0) * (pricing.costPerMessage || 0);
+        const toolCallCost = (parseInt(usage.total_tool_calls) || 0) * (pricing.costPerToolCall || 0);
 
         return parseFloat((tokenCost + messageCost + toolCallCost).toFixed(2));
     }
@@ -120,10 +170,10 @@ export class BillingService {
             endDate.toISOString().split('T')[0]
         );
 
-        // Calculate costs
-        const pricing = this.getPricingConfig(client.plan_type);
+        // Calculate costs (using async pricing from database)
+        const pricing = await this.getPricingConfigAsync(client.plan_type);
         const baseCost = pricing.baseCost || 0;
-        const usageCost = this.calculateUsageCost(usageData, client.plan_type);
+        const usageCost = await this.calculateUsageCostAsync(usageData, client.plan_type);
         const totalCost = parseFloat((baseCost + usageCost).toFixed(2));
 
         // Set due date (30 days from invoice creation)
@@ -471,3 +521,4 @@ export class BillingService {
         return await Invoice.markOverdueInvoices();
     }
 }
+

@@ -88,11 +88,11 @@ This architecture allows each client to have customized workflows without writin
 
 ### Database Schema
 
-The system uses 9 core tables:
+The system uses 12 core tables:
 
 **Multi-Tenant Structure:**
 
-- `clients`: Business clients using the platform (identified by API key)
+- `clients`: Business clients using the platform (identified by API key, includes `widget_config` JSON for customization)
 - `client_tools`: Which tools each client has enabled
 - `client_integrations`: External system connections per client
 - `integration_endpoints`: n8n webhook URLs for each client's integrations
@@ -107,6 +107,12 @@ The system uses 9 core tables:
 - `tools`: Master catalog of available tools (e.g., "get_order_status", "book_appointment")
 - `tool_executions`: Audit log of all tool calls
 - `api_usage`: Track LLM API consumption per client
+
+**Admin & Billing:**
+
+- `admins`: Admin user accounts for dashboard access
+- `invoices`: Billing invoices with payment tracking
+- `plans`: Plan configurations with limits, features, and pricing (database-driven)
 
 All models use a static class pattern (see `backend/src/models/Client.js` as reference). Models directly interact with the database via `db.query()`.
 
@@ -298,7 +304,17 @@ The embeddable chat widget is fully implemented and operational:
 - Multi-turn conversations stable (10+ exchanges tested)
 - No CSS conflicts with host pages (Shadow DOM isolation)
 
-**See**: `PHASE_4_COMPLETE.md` and `PHASE_4_SUMMARY.md` for detailed implementation notes
+**Widget Customization** (✅ Added December 11, 2025):
+
+The widget supports extensive customization via the admin dashboard:
+
+- **Position**: bottom-right, bottom-left, top-right, top-left
+- **14 Color Options**: Primary color, background, header background, body background, footer background, AI bubble color, user bubble color, header text, AI text, user text, input background, input text, button text
+- **Text Customization**: Title, subtitle, greeting message
+- **Embed Code Generator**: Auto-generates customized script tag with copy-to-clipboard
+- **Live Preview**: Preview widget appearance before deploying
+
+Widget configuration is stored in the `clients.widget_config` JSONB column and synced with the widget at runtime.
 
 ### What's Not Yet Implemented
 
@@ -335,11 +351,28 @@ The embeddable chat widget is fully implemented and operational:
 - Integration management
 - Analytics dashboard with charts
 - Test chat interface
+- Widget customization UI with embed code generator
 - Login credentials: `admin` / `admin123`
 
-**Phases 6-9** (Not Started):
+**Phase 6** (✅ Complete - December 11, 2025):
 
-- Phase 6: LLM optimization and provider options
+- Billing infrastructure with invoice generation
+- Usage tracking and analytics per client
+- **Database-driven plan management** (`plans` table with full CRUD)
+  - Plans stored in database with `name`, `display_name`, limits, features, pricing
+  - Admin panel "Plans" page for managing plans
+  - Plan dropdowns in client creation/editing fetch from database
+  - BillingService uses database pricing for invoice generation
+  - PlanLimits config fetches from database with caching (1 minute TTL)
+- Plan types: `unlimited` (default), `free`, `starter`, `pro`, `enterprise`
+- Plan limits middleware integrated into chat API (logs warnings, doesn't block by default)
+- Cost calculator for multiple LLM providers
+- Revenue analytics and reporting
+- Outstanding payments tracking
+- Payment provider abstraction layer (ready for Stripe/PayPal)
+
+**Phases 7-9** (Not Started):
+
 - Phase 7: Hebrew/RTL support
 - Phase 8: Advanced features (RAG, analytics, escalation)
 - Phase 9: Production deployment and DevOps
@@ -432,10 +465,10 @@ CSAIProj/
 │   │   ├── config.js          # Environment detection & config
 │   │   ├── db.js              # Postgres connection pool
 │   │   ├── redis.js           # Redis client
-│   │   ├── models/            # Database models (10 tables: +Admin)
+│   │   ├── models/            # Database models (12 tables: +Admin, +Invoice, +Plan)
 │   │   ├── routes/            # API route definitions (chat, tools, admin)
 │   │   ├── controllers/       # Route handlers
-│   │   ├── services/          # Business logic (n8n, cache, llm)
+│   │   ├── services/          # Business logic (n8n, cache, llm, billing, usage)
 │   │   ├── prompts/           # System prompt templates
 │   │   ├── middleware/        # Auth, rate limiting, admin auth
 │   │   ├── utils/             # Validation and helpers
@@ -461,7 +494,10 @@ CSAIProj/
 │       │   ├── App.jsx        # Protected routes setup
 │       │   ├── context/       # Auth context
 │       │   ├── services/      # API client
-│       │   ├── pages/         # Dashboard pages (Login, Dashboard, Clients, etc.)
+│       │   ├── pages/         # 12 Dashboard pages:
+│       │   │   │              #   Login, Dashboard, Clients, ClientDetail,
+│       │   │   │              #   Tools, Conversations, ConversationDetail,
+│       │   │   │              #   Integrations, TestChat, Billing, UsageReports, Plans
 │       │   ├── components/    # Reusable UI components
 │       │   └── index.css      # Tailwind CSS
 │       ├── index.html         # HTML entry point

@@ -280,8 +280,11 @@ class ConversationService {
       // Format tools for LLM (once, before the loop)
       const formattedTools = toolManager.formatToolsForLLM(clientTools);
 
+      // Determine effective provider (client override or default)
+      const effectiveProvider = client.llm_provider || llmService.provider;
+      
       // For Ollama, add tool descriptions to system prompt (only once!)
-      if (llmService.provider === 'ollama' && formattedTools && iterationCount === 0) {
+      if (effectiveProvider === 'ollama' && formattedTools && iterationCount === 0) {
         messages[0].content += formattedTools;
       }
 
@@ -289,11 +292,13 @@ class ConversationService {
       while (iterationCount < maxToolIterations) {
         iterationCount++;
 
-        // Call LLM
+        // Call LLM (with per-client model/provider if specified)
         const llmResponse = await llmService.chat(messages, {
           tools: llmService.supportsNativeFunctionCalling() ? formattedTools : null,
           maxTokens: 2048,
-          temperature: 0.3
+          temperature: 0.3,
+          model: client.model_name || null,      // Per-client model override
+          provider: client.llm_provider || null  // Per-client provider override
         });
 
         totalTokens += llmResponse.tokens.total;
@@ -302,7 +307,7 @@ class ConversationService {
         let toolCalls = llmResponse.toolCalls;
 
         // For Ollama, parse tool calls from content
-        if (!toolCalls && llmService.provider === 'ollama') {
+        if (!toolCalls && effectiveProvider === 'ollama') {
           toolCalls = toolManager.parseToolCallsFromContent(llmResponse.content);
         }
 

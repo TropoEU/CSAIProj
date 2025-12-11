@@ -36,7 +36,7 @@ CSAI is a **multi-tenant AI customer service platform** that provides businesses
 
 - 🤖 **Intelligent AI Agent** - Powered by OpenAI GPT-4, Claude, or private models (Ollama) for natural conversations
 - 🛠️ **Tool Execution System** - Execute real actions via n8n webhooks
-- 🎨 **Customizable Widget** - White-label chat widget with branding options
+- 🎨 **Customizable Widget** - White-label chat widget with visual editor (14 color options, embed code generator, live preview)
 - 📊 **Admin Dashboard** - Complete management interface for clients, tools, integrations, and billing
 - 💰 **Billing Infrastructure** - Invoice generation, usage tracking, and plan management
 - 🔐 **Multi-tenant Architecture** - Isolated data and configurations per client
@@ -415,9 +415,21 @@ See `backend/src/routes/` for complete API documentation.
 
 ## 🎨 Widget Integration
 
-### Basic Integration
+### Using the Admin Dashboard (Recommended)
 
-Add this script tag to any HTML page:
+The easiest way to configure and deploy the widget:
+
+1. Go to **Admin Dashboard** → **Clients** → Select your client
+2. Scroll to the **Widget Customization** section
+3. Configure appearance (14 color options, position, text)
+4. Click **Show Preview** to see changes
+5. Click **Save Configuration**
+6. Copy the generated embed code with one click
+7. Paste into your website
+
+### Basic Integration (Manual)
+
+Alternatively, add this script tag to any HTML page:
 
 ```html
 <script

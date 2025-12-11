@@ -1,74 +1,38 @@
 /**
  * Plan Limits Configuration
  *
- * This file provides a flexible, configurable plan management system.
- * Values are intentionally left as null for configuration later.
- *
- * IMPORTANT: This is infrastructure, not business rules.
- * Actual limits and features should be configured based on business decisions.
+ * This module provides plan management with database storage and hardcoded fallbacks.
+ * Plans are loaded from the database on first access and cached in memory.
+ * Hardcoded defaults are used as fallback if database is unavailable.
  */
 
+// Import Plan model lazily to avoid circular dependencies
+let Plan = null;
+
 /**
- * Plan configuration structure
- * Each plan supports any type of limit and any feature flag
+ * Cache for database plans
  */
-export const PLAN_CONFIG = {
-  free: {
+let dbPlanCache = null;
+let cacheLoadedAt = null;
+const CACHE_TTL_MS = 60000; // 1 minute cache
+
+/**
+ * Hardcoded fallback plan configurations
+ * Used when database is unavailable or during initial startup
+ */
+export const FALLBACK_PLANS = {
+  // Unlimited plan - no restrictions (default for all clients)
+  unlimited: {
     limits: {
-      // Free tier: Limited for testing and small-scale use
-      conversationsPerMonth: 50,       // 50 conversations per month
-      messagesPerMonth: 500,           // 500 messages per month
-      tokensPerMonth: 50000,           // 50K tokens (~35 pages of text)
-      toolCallsPerMonth: 25,           // 25 tool executions
-      integrationsEnabled: 1,          // 1 integration (e.g., one Shopify store)
-      costLimitUSD: 5,                 // $5 monthly cost limit (safety cap)
+      conversationsPerMonth: null,    // null = unlimited
+      messagesPerMonth: null,
+      tokensPerMonth: null,
+      toolCallsPerMonth: null,
+      integrationsEnabled: null,
+      costLimitUSD: null,
     },
     features: {
-      llmProvider: 'ollama',           // Free local model only
-      customBranding: false,
-      prioritySupport: false,
-      advancedAnalytics: false,
-      apiAccess: false,
-      whiteLabel: false,
-    },
-    pricing: {
-      baseCost: 0,                     // Free tier
-      usageMultiplier: 0,
-    },
-  },
-  starter: {
-    limits: {
-      conversationsPerMonth: 1000,     // 1,000 conversations per month
-      messagesPerMonth: 10000,         // 10,000 messages per month
-      tokensPerMonth: 1000000,         // 1M tokens (~700 pages)
-      toolCallsPerMonth: 500,          // 500 tool executions
-      integrationsEnabled: 3,          // 3 integrations
-      costLimitUSD: 100,               // $100 monthly cost limit
-    },
-    features: {
-      llmProvider: 'claude-3-haiku',   // Fast, cost-effective model
-      customBranding: false,
-      prioritySupport: false,
-      advancedAnalytics: true,
-      apiAccess: true,
-      whiteLabel: false,
-    },
-    pricing: {
-      baseCost: 29.99,                 // $29.99/month base
-      usageMultiplier: 0.00001,        // $0.00001 per token over limit
-    },
-  },
-  pro: {
-    limits: {
-      conversationsPerMonth: 10000,    // 10,000 conversations
-      messagesPerMonth: 100000,        // 100,000 messages
-      tokensPerMonth: 10000000,        // 10M tokens (~7,000 pages)
-      toolCallsPerMonth: 5000,         // 5,000 tool executions
-      integrationsEnabled: 10,         // 10 integrations
-      costLimitUSD: 500,               // $500 monthly cost limit
-    },
-    features: {
-      llmProvider: 'claude-3-5-sonnet', // High-quality model
+      llmProvider: 'claude-3-5-sonnet',
       customBranding: true,
       prioritySupport: true,
       advancedAnalytics: true,
@@ -76,22 +40,87 @@ export const PLAN_CONFIG = {
       whiteLabel: true,
     },
     pricing: {
-      baseCost: 99.99,                 // $99.99/month base
-      usageMultiplier: 0.000008,       // $0.000008 per token over limit
+      baseCost: 0,
+      usageMultiplier: 0,
+    },
+  },
+  free: {
+    limits: {
+      conversationsPerMonth: 50,
+      messagesPerMonth: 500,
+      tokensPerMonth: 50000,
+      toolCallsPerMonth: 25,
+      integrationsEnabled: 1,
+      costLimitUSD: 5,
+    },
+    features: {
+      llmProvider: 'ollama',
+      customBranding: false,
+      prioritySupport: false,
+      advancedAnalytics: false,
+      apiAccess: false,
+      whiteLabel: false,
+    },
+    pricing: {
+      baseCost: 0,
+      usageMultiplier: 0,
+    },
+  },
+  starter: {
+    limits: {
+      conversationsPerMonth: 1000,
+      messagesPerMonth: 10000,
+      tokensPerMonth: 1000000,
+      toolCallsPerMonth: 500,
+      integrationsEnabled: 3,
+      costLimitUSD: 100,
+    },
+    features: {
+      llmProvider: 'claude-3-haiku',
+      customBranding: false,
+      prioritySupport: false,
+      advancedAnalytics: true,
+      apiAccess: true,
+      whiteLabel: false,
+    },
+    pricing: {
+      baseCost: 29.99,
+      usageMultiplier: 0.00001,
+    },
+  },
+  pro: {
+    limits: {
+      conversationsPerMonth: 10000,
+      messagesPerMonth: 100000,
+      tokensPerMonth: 10000000,
+      toolCallsPerMonth: 5000,
+      integrationsEnabled: 10,
+      costLimitUSD: 500,
+    },
+    features: {
+      llmProvider: 'claude-3-5-sonnet',
+      customBranding: true,
+      prioritySupport: true,
+      advancedAnalytics: true,
+      apiAccess: true,
+      whiteLabel: true,
+    },
+    pricing: {
+      baseCost: 99.99,
+      usageMultiplier: 0.000008,
     },
   },
   enterprise: {
     limits: {
-      // Enterprise: Very high limits (effectively unlimited for most use cases)
-      conversationsPerMonth: 100000,   // 100K conversations
-      messagesPerMonth: 1000000,       // 1M messages
-      tokensPerMonth: 100000000,       // 100M tokens
-      toolCallsPerMonth: 50000,        // 50K tool executions
-      integrationsEnabled: null,       // Unlimited integrations
-      costLimitUSD: 5000,              // $5000 monthly cost limit
+      conversationsPerMonth: 100000,
+      messagesPerMonth: 1000000,
+      tokensPerMonth: 100000000,
+      toolCallsPerMonth: 50000,
+      integrationsEnabled: null,
+      costLimitUSD: 5000,
     },
     features: {
-      llmProvider: 'claude-3-5-sonnet', // High-quality model
+      llmProvider: 'claude-3-5-sonnet',
       customBranding: true,
       prioritySupport: true,
       advancedAnalytics: true,
@@ -101,24 +130,106 @@ export const PLAN_CONFIG = {
       sla: true,
     },
     pricing: {
-      baseCost: 499.99,                // $499.99/month base
-      usageMultiplier: 0.000005,       // $0.000005 per token (negotiated volume rate)
+      baseCost: 499.99,
+      usageMultiplier: 0.000005,
     },
   },
 };
 
+// For backwards compatibility
+export const PLAN_CONFIG = FALLBACK_PLANS;
+
 /**
- * Get plan configuration
+ * Load Plan model lazily
+ */
+async function loadPlanModel() {
+  if (!Plan) {
+    const module = await import('../models/Plan.js');
+    Plan = module.Plan;
+  }
+  return Plan;
+}
+
+/**
+ * Check if cache is still valid
+ */
+function isCacheValid() {
+  if (!dbPlanCache || !cacheLoadedAt) return false;
+  return Date.now() - cacheLoadedAt < CACHE_TTL_MS;
+}
+
+/**
+ * Load plans from database into cache
+ * @returns {Promise<Object>} Map of plan name to config
+ */
+export async function loadPlansFromDatabase() {
+  try {
+    const PlanModel = await loadPlanModel();
+    const configs = await PlanModel.getAllConfigs();
+    dbPlanCache = configs;
+    cacheLoadedAt = Date.now();
+    return configs;
+  } catch (error) {
+    console.warn('[PlanLimits] Failed to load plans from database, using fallbacks:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Clear the plan cache (call after updating plans)
+ */
+export function clearPlanCache() {
+  dbPlanCache = null;
+  cacheLoadedAt = null;
+}
+
+/**
+ * Get plan configuration (sync version - uses cache or fallback)
  * @param {string} planType - Plan type (free, starter, pro, enterprise)
  * @returns {Object} Plan configuration
  */
 export function getPlanConfig(planType) {
-  const plan = PLAN_CONFIG[planType?.toLowerCase()];
-  if (!plan) {
-    console.warn(`Unknown plan type: ${planType}, defaulting to free`);
-    return PLAN_CONFIG.free;
+  const planKey = planType?.toLowerCase();
+  
+  // Try database cache first
+  if (isCacheValid() && dbPlanCache) {
+    const dbPlan = dbPlanCache[planKey];
+    if (dbPlan) return dbPlan;
   }
-  return plan;
+  
+  // Fall back to hardcoded plans
+  const fallbackPlan = FALLBACK_PLANS[planKey];
+  if (fallbackPlan) return fallbackPlan;
+  
+  // Default to unlimited for unknown plan types
+  return FALLBACK_PLANS.unlimited;
+}
+
+/**
+ * Get plan configuration (async version - refreshes cache if needed)
+ * @param {string} planType - Plan type
+ * @returns {Promise<Object>} Plan configuration
+ */
+export async function getPlanConfigAsync(planType) {
+  const planKey = planType?.toLowerCase();
+  
+  // Refresh cache if needed
+  if (!isCacheValid()) {
+    await loadPlansFromDatabase();
+  }
+  
+  // Try database cache first
+  if (dbPlanCache) {
+    const dbPlan = dbPlanCache[planKey];
+    if (dbPlan) return dbPlan;
+  }
+  
+  // Fall back to hardcoded plans
+  const fallbackPlan = FALLBACK_PLANS[planKey];
+  if (fallbackPlan) return fallbackPlan;
+  
+  // Default to unlimited
+  return FALLBACK_PLANS.unlimited;
 }
 
 /**
@@ -133,7 +244,7 @@ export function checkLimit(planType, limitType, currentUsage) {
   const limit = config.limits[limitType];
 
   // null means unlimited
-  if (limit === null) {
+  if (limit === null || limit === undefined) {
     return {
       allowed: true,
       remaining: null,
@@ -195,39 +306,35 @@ export function getPlanPricing(planType) {
 }
 
 /**
- * Update plan configuration (for dynamic configuration)
- * @param {string} planType - Plan type
- * @param {Object} updates - Updates to apply
- */
-export function updatePlanConfig(planType, updates) {
-  const plan = PLAN_CONFIG[planType?.toLowerCase()];
-  if (!plan) {
-    throw new Error(`Unknown plan type: ${planType}`);
-  }
-
-  if (updates.limits) {
-    plan.limits = { ...plan.limits, ...updates.limits };
-  }
-  if (updates.features) {
-    plan.features = { ...plan.features, ...updates.features };
-  }
-  if (updates.pricing) {
-    plan.pricing = { ...plan.pricing, ...updates.pricing };
-  }
-}
-
-/**
- * Get list of all available plans
+ * Get list of all available plans (from cache or fallback)
  * @returns {Array} Array of plan names
  */
 export function getAvailablePlans() {
-  return Object.keys(PLAN_CONFIG);
+  if (isCacheValid() && dbPlanCache) {
+    return Object.keys(dbPlanCache);
+  }
+  return Object.keys(FALLBACK_PLANS);
+}
+
+/**
+ * Get all available plans async (refreshes cache)
+ * @returns {Promise<Array>} Array of plan names
+ */
+export async function getAvailablePlansAsync() {
+  if (!isCacheValid()) {
+    await loadPlansFromDatabase();
+  }
+  
+  if (dbPlanCache) {
+    return Object.keys(dbPlanCache);
+  }
+  return Object.keys(FALLBACK_PLANS);
 }
 
 /**
  * Check multiple limits at once
  * @param {string} planType - Plan type
- * @param {Object} usage - Object with usage values (e.g., { messagesPerMonth: 100, tokensPerMonth: 5000 })
+ * @param {Object} usage - Object with usage values
  * @returns {Object} Results for each limit
  */
 export function checkMultipleLimits(planType, usage) {
@@ -237,7 +344,6 @@ export function checkMultipleLimits(planType, usage) {
     results[limitType] = checkLimit(planType, limitType, currentUsage);
   }
 
-  // Overall status
   const anyExceeded = Object.values(results).some(r => r.exceeded);
   const allAllowed = Object.values(results).every(r => r.allowed);
 
@@ -306,15 +412,19 @@ export function getLimitWarning(
  * Default export
  */
 export default {
-  PLAN_CONFIG,
+  PLAN_CONFIG: FALLBACK_PLANS,
+  FALLBACK_PLANS,
+  loadPlansFromDatabase,
+  clearPlanCache,
   getPlanConfig,
+  getPlanConfigAsync,
   checkLimit,
   hasFeature,
   getPlanLimits,
   getPlanFeatures,
   getPlanPricing,
-  updatePlanConfig,
   getAvailablePlans,
+  getAvailablePlansAsync,
   checkMultipleLimits,
   getLimitWarning,
 };

@@ -8,12 +8,14 @@ import { Message } from '../models/Message.js';
 import { ToolExecution } from '../models/ToolExecution.js';
 import { ClientIntegration } from '../models/ClientIntegration.js';
 import { Invoice } from '../models/Invoice.js';
+import { Plan } from '../models/Plan.js';
 import { authenticateAdmin, generateToken } from '../middleware/adminAuth.js';
 import conversationService from '../services/conversationService.js';
 import toolManager from '../services/toolManager.js';
 import n8nService from '../services/n8nService.js';
 import { BillingService } from '../services/billingService.js';
 import { UsageTracker } from '../services/usageTracker.js';
+import { clearPlanCache } from '../config/planLimits.js';
 import { db } from '../db.js';
 
 const router = express.Router();
@@ -1441,12 +1443,96 @@ router.get('/clients/:id/usage/export', async (req, res) => {
  */
 router.get('/usage/summary', async (req, res) => {
   try {
+    const { period = 'month' } = req.query;
+    
+    // Get aggregated summary across all clients
+    const result = await db.query(
+      `SELECT
+        SUM(conversation_count) as conversations,
+        SUM(message_count) as messages,
+        SUM(tokens_input) as tokens_input,
+        SUM(tokens_output) as tokens_output,
+        SUM(tokens_input + tokens_output) as tokens_total,
+        SUM(tool_calls_count) as tool_calls,
+        SUM(cost_estimate) as cost,
+        COUNT(DISTINCT date) as active_days
+       FROM api_usage
+       WHERE date >= ${UsageTracker.getDateFilter(period)}`
+    );
+    
+    const usage = result.rows[0];
+    
+    res.json({
+      conversations: parseInt(usage.conversations) || 0,
+      messages: parseInt(usage.messages) || 0,
+      tokens: {
+        input: parseInt(usage.tokens_input) || 0,
+        output: parseInt(usage.tokens_output) || 0,
+        total: parseInt(usage.tokens_total) || 0,
+      },
+      toolCalls: parseInt(usage.tool_calls) || 0,
+      cost: parseFloat(usage.cost) || 0,
+      activeDays: parseInt(usage.active_days) || 0,
+      period,
+    });
+  } catch (error) {
+    console.error('[Admin] Get usage summary error:', error);
+    res.status(500).json({ error: 'Failed to get usage summary' });
+  }
+});
+
+/**
+ * GET /admin/usage/history
+ * Get aggregated usage history across all clients
+ */
+router.get('/usage/history', async (req, res) => {
+  try {
+    const { metric = 'messages', months = 12 } = req.query;
+    
+    const metricMap = {
+      messages: 'SUM(message_count)',
+      conversations: 'SUM(conversation_count)',
+      tokens: 'SUM(tokens_input + tokens_output)',
+      tokensInput: 'SUM(tokens_input)',
+      tokensOutput: 'SUM(tokens_output)',
+      toolCalls: 'SUM(tool_calls_count)',
+      cost: 'SUM(cost_estimate)',
+    };
+
+    const sqlMetric = metricMap[metric] || 'SUM(message_count)';
+
+    const result = await db.query(
+      `SELECT
+        TO_CHAR(date, 'YYYY-MM') as period,
+        ${sqlMetric} as value
+       FROM api_usage
+       WHERE date >= NOW() - INTERVAL '${parseInt(months)} months'
+       GROUP BY TO_CHAR(date, 'YYYY-MM')
+       ORDER BY period ASC`
+    );
+
+    res.json(result.rows.map(row => ({
+      period: row.period,
+      value: parseFloat(row.value) || 0,
+    })));
+  } catch (error) {
+    console.error('[Admin] Get usage history error:', error);
+    res.status(500).json({ error: 'Failed to get usage history' });
+  }
+});
+
+/**
+ * GET /admin/usage/top-clients
+ * Get top clients by usage metric
+ */
+router.get('/usage/top-clients', async (req, res) => {
+  try {
     const { metric = 'cost', limit = 10, period = 'month' } = req.query;
     const topClients = await UsageTracker.getTopClients(metric, parseInt(limit), period);
     res.json(topClients);
   } catch (error) {
-    console.error('[Admin] Get usage summary error:', error);
-    res.status(500).json({ error: 'Failed to get usage summary' });
+    console.error('[Admin] Get top clients error:', error);
+    res.status(500).json({ error: 'Failed to get top clients' });
   }
 });
 
@@ -1490,6 +1576,214 @@ router.post('/test-chat', async (req, res) => {
   } catch (error) {
     console.error('[Admin] Test chat error:', error);
     res.status(500).json({ error: 'Test chat failed', message: error.message });
+  }
+});
+
+// =====================================================
+// PLAN MANAGEMENT ROUTES
+// =====================================================
+
+/**
+ * GET /admin/plans
+ * Get all plans
+ */
+router.get('/plans', async (req, res) => {
+  try {
+    const { activeOnly } = req.query;
+    const plans = await Plan.findAll(activeOnly === 'true');
+    
+    // Add client count to each plan
+    const plansWithCount = await Promise.all(
+      plans.map(async (plan) => ({
+        ...plan,
+        clients_count: await Plan.getClientsCount(plan.id),
+      }))
+    );
+    
+    res.json(plansWithCount);
+  } catch (error) {
+    console.error('[Admin] Get plans error:', error);
+    res.status(500).json({ error: 'Failed to get plans' });
+  }
+});
+
+/**
+ * GET /admin/plans/:id
+ * Get a specific plan by ID
+ */
+router.get('/plans/:id', async (req, res) => {
+  try {
+    const plan = await Plan.findById(req.params.id);
+    if (!plan) {
+      return res.status(404).json({ error: 'Plan not found' });
+    }
+    
+    plan.clients_count = await Plan.getClientsCount(plan.id);
+    res.json(plan);
+  } catch (error) {
+    console.error('[Admin] Get plan error:', error);
+    res.status(500).json({ error: 'Failed to get plan' });
+  }
+});
+
+/**
+ * POST /admin/plans
+ * Create a new plan
+ */
+router.post('/plans', async (req, res) => {
+  try {
+    const {
+      name,
+      displayName,
+      description,
+      conversationsPerMonth,
+      messagesPerMonth,
+      tokensPerMonth,
+      toolCallsPerMonth,
+      integrationsEnabled,
+      costLimitUsd,
+      features,
+      baseCost,
+      usageMultiplier,
+      isDefault,
+      isActive,
+      sortOrder,
+    } = req.body;
+
+    if (!name || !displayName) {
+      return res.status(400).json({ error: 'Name and display name are required' });
+    }
+
+    // Check if plan name already exists
+    const existing = await Plan.findByName(name);
+    if (existing) {
+      return res.status(409).json({ error: 'A plan with this name already exists' });
+    }
+
+    const plan = await Plan.create({
+      name,
+      displayName,
+      description,
+      conversationsPerMonth,
+      messagesPerMonth,
+      tokensPerMonth,
+      toolCallsPerMonth,
+      integrationsEnabled,
+      costLimitUsd,
+      features,
+      baseCost,
+      usageMultiplier,
+      isDefault,
+      isActive,
+      sortOrder,
+    });
+
+    // Clear the plan cache so changes take effect immediately
+    clearPlanCache();
+
+    res.status(201).json(plan);
+  } catch (error) {
+    console.error('[Admin] Create plan error:', error);
+    res.status(500).json({ error: 'Failed to create plan' });
+  }
+});
+
+/**
+ * PUT /admin/plans/:id
+ * Update a plan
+ */
+router.put('/plans/:id', async (req, res) => {
+  try {
+    const plan = await Plan.findById(req.params.id);
+    if (!plan) {
+      return res.status(404).json({ error: 'Plan not found' });
+    }
+
+    // If changing name, check it doesn't conflict
+    if (req.body.name && req.body.name.toLowerCase() !== plan.name.toLowerCase()) {
+      const existing = await Plan.findByName(req.body.name);
+      if (existing) {
+        return res.status(409).json({ error: 'A plan with this name already exists' });
+      }
+    }
+
+    const updatedPlan = await Plan.update(req.params.id, req.body);
+
+    // Clear the plan cache so changes take effect immediately
+    clearPlanCache();
+
+    res.json(updatedPlan);
+  } catch (error) {
+    console.error('[Admin] Update plan error:', error);
+    res.status(500).json({ error: 'Failed to update plan' });
+  }
+});
+
+/**
+ * DELETE /admin/plans/:id
+ * Delete a plan
+ */
+router.delete('/plans/:id', async (req, res) => {
+  try {
+    const plan = await Plan.findById(req.params.id);
+    if (!plan) {
+      return res.status(404).json({ error: 'Plan not found' });
+    }
+
+    // Prevent deleting default plan
+    if (plan.is_default) {
+      return res.status(400).json({ error: 'Cannot delete the default plan' });
+    }
+
+    await Plan.delete(req.params.id);
+
+    // Clear the plan cache
+    clearPlanCache();
+
+    res.json({ message: 'Plan deleted successfully' });
+  } catch (error) {
+    console.error('[Admin] Delete plan error:', error);
+    if (error.message.includes('clients are currently using')) {
+      return res.status(400).json({ error: error.message });
+    }
+    res.status(500).json({ error: 'Failed to delete plan' });
+  }
+});
+
+/**
+ * POST /admin/plans/:id/set-default
+ * Set a plan as the default
+ */
+router.post('/plans/:id/set-default', async (req, res) => {
+  try {
+    const plan = await Plan.findById(req.params.id);
+    if (!plan) {
+      return res.status(404).json({ error: 'Plan not found' });
+    }
+
+    const updatedPlan = await Plan.update(req.params.id, { isDefault: true });
+
+    // Clear the plan cache
+    clearPlanCache();
+
+    res.json(updatedPlan);
+  } catch (error) {
+    console.error('[Admin] Set default plan error:', error);
+    res.status(500).json({ error: 'Failed to set default plan' });
+  }
+});
+
+/**
+ * POST /admin/plans/refresh-cache
+ * Force refresh the plan cache
+ */
+router.post('/plans/refresh-cache', async (req, res) => {
+  try {
+    clearPlanCache();
+    res.json({ message: 'Plan cache cleared successfully' });
+  } catch (error) {
+    console.error('[Admin] Refresh cache error:', error);
+    res.status(500).json({ error: 'Failed to refresh cache' });
   }
 });
 

@@ -68,6 +68,8 @@ class LLMService {
    * @param {Boolean} options.stream - Enable streaming
    * @param {Number} options.maxTokens - Max tokens to generate
    * @param {Number} options.temperature - Sampling temperature
+   * @param {String} options.model - Override model for this request (per-client)
+   * @param {String} options.provider - Override provider for this request (per-client)
    * @returns {Object} Response with content, tokens, and tool calls
    */
   async chat(messages, options = {}) {
@@ -75,22 +77,28 @@ class LLMService {
       tools = null,
       stream = false,
       maxTokens = 4096,
-      temperature = 0.7
+      temperature = 0.7,
+      model = null,      // Per-client model override
+      provider = null    // Per-client provider override
     } = options;
+    
+    // Use per-request overrides or fall back to default
+    const activeProvider = provider || this.provider;
+    const activeModel = model || this.model;
 
     try {
-      switch (this.provider) {
+      switch (activeProvider) {
         case 'ollama':
-          return await this.ollamaChat(messages, { tools, stream, maxTokens, temperature });
+          return await this.ollamaChat(messages, { tools, stream, maxTokens, temperature, model: activeModel });
 
         case 'openai':
-          return await this.openaiChat(messages, { tools, stream, maxTokens, temperature });
+          return await this.openaiChat(messages, { tools, stream, maxTokens, temperature, model: activeModel });
 
         case 'claude':
-          return await this.claudeChat(messages, { tools, stream, maxTokens, temperature });
+          return await this.claudeChat(messages, { tools, stream, maxTokens, temperature, model: activeModel });
 
         default:
-          throw new Error(`Unsupported provider: ${this.provider}`);
+          throw new Error(`Unsupported provider: ${activeProvider}`);
       }
     } catch (error) {
       console.error('LLM Service Error:', error);
@@ -103,9 +111,10 @@ class LLMService {
    */
   async ollamaChat(messages, options) {
     const ollamaUrl = OLLAMA_CONFIG.url;
+    const modelToUse = options.model || this.model;
 
     const requestBody = {
-      model: this.model,
+      model: modelToUse,
       messages: this.formatMessagesForOllama(messages),
       stream: options.stream,
       options: {
@@ -145,7 +154,7 @@ class LLMService {
         total: (data.prompt_eval_count || 0) + (data.eval_count || 0)
       },
       cost: 0, // Ollama is free
-      model: this.model,
+      model: modelToUse,
       provider: 'ollama'
     };
   }

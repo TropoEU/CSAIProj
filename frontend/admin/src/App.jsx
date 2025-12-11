@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Clients from './pages/Clients';
 import ClientDetail from './pages/ClientDetail';
 import Tools from './pages/Tools';
+import Plans from './pages/Plans';
 import Conversations from './pages/Conversations';
 import ConversationDetail from './pages/ConversationDetail';
 import Integrations from './pages/Integrations';
@@ -45,6 +46,7 @@ function App() {
                 <Route path="/clients" element={<Clients />} />
                 <Route path="/clients/:id" element={<ClientDetail />} />
                 <Route path="/tools" element={<Tools />} />
+                <Route path="/plans" element={<Plans />} />
                 <Route path="/conversations" element={<Conversations />} />
                 <Route path="/conversations/:id" element={<ConversationDetail />} />
                 <Route path="/integrations" element={<Integrations />} />
