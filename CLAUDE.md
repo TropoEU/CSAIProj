@@ -105,8 +105,10 @@ The system uses 12 core tables:
 **Tool System:**
 
 - `tools`: Master catalog of available tools (e.g., "get_order_status", "book_appointment")
+  - Tools can specify `integration_type` to link with client integrations
+  - When tool has `integration_type`, backend automatically fetches matching client integration during execution
 - `tool_executions`: Audit log of all tool calls
-- `api_usage`: Track LLM API consumption per client
+- `api_usage`: Track LLM API consumption per client (conversation_count uses UPSERT with proper boolean-to-int conversion)
 
 **Admin & Billing:**
 
@@ -209,6 +211,7 @@ The AI conversation engine is fully implemented and operational:
 - No API costs
 - Function calling handled via prompt engineering (not native API)
 - Optimized settings: temperature 0.3, max_tokens 2048
+- Token counting handles cached prompts correctly (when `prompt_eval_count` is 0, prompt was cached)
 
 ### Phase 3: Tool Execution System (✅ COMPLETE)
 
@@ -229,6 +232,14 @@ The tool execution system is fully operational and enables the AI to perform rea
 - Batch execution (parallel tool calls)
 - Response formatting for LLM
 - Health checks and webhook connectivity testing
+- **Integration support**: Automatically passes client integration credentials to n8n via `_integration` object
+
+**Integration Service** (`backend/src/services/integrationService.js`):
+
+- Fetches client integration credentials based on tool's `integration_type`
+- Formats integration config for n8n consumption
+- Supports multiple auth methods (bearer, api_key, basic, custom)
+- Enables reusable n8n workflows across all clients
 
 **Chat API** (`backend/src/routes/chat.js`, `backend/src/controllers/chatController.js`):
 
@@ -244,16 +255,32 @@ The tool execution system is fully operational and enables the AI to perform rea
 - `book_appointment` - Book appointments with validation
 - `check_inventory` - Check product availability and stock levels
 
-**Tool Execution Flow**:
+**Mock API for Testing** (`backend/src/routes/mockApi.js`):
+
+- Simulates Bob's Pizza Shop backend for demo/testing purposes
+- Endpoints: inventory check, order status, table booking
+- Date normalization: converts "today", "tomorrow", "yesterday" to `YYYY-MM-DD`
+- Auto-corrects dates more than 1 year in the past to today's date
+
+**Tool Execution Flow** (with Integration Support):
 
 1. User message → Chat API
 2. Load client's enabled tools
 3. Call LLM with tools available
 4. Detect tool calls in response
-5. Execute tools via n8n webhooks
-6. Log executions to `tool_executions` table
-7. Feed results back to LLM
-8. Return final AI response with tool data
+5. **If tool has `integration_type`**: Fetch client's matching integration credentials
+6. Execute tools via n8n webhooks (with `_integration` object if available)
+7. n8n workflow uses integration credentials to call client's API dynamically
+8. Log executions to `tool_executions` table
+9. Feed results back to LLM
+10. Return final AI response with tool data
+
+**Integration-Tool Architecture**:
+- Tools define `integration_type` (e.g., "inventory_api", "order_api")
+- Integrations store client-specific API credentials per integration type
+- Backend automatically bridges tools and integrations during execution
+- One generic n8n workflow per tool type works for all clients
+- See `INTEGRATION_SYSTEM_GUIDE.md` for complete flow documentation
 
 ### Phase 4: Chat Widget (✅ COMPLETE)
 
@@ -285,6 +312,15 @@ The embeddable chat widget is fully implemented and operational:
 - Fixed context pollution bug in `conversationService.js:289` (tool descriptions were being appended on every loop iteration)
 - Switched to Hermes-2-Pro-Mistral-7B for better tool calling
 - Optimized temperature (0.3) and max_tokens (2048) for stability
+- Fixed input focus loss after sending messages (December 12, 2025)
+- Fixed dev mode loading stale build instead of live source (December 12, 2025)
+
+**Development Mode Notes**:
+
+- **IMPORTANT**: Never put `widget.js` in `public/` folder - it will override live source code
+- `demo.html` loads from `/src/index.js` as ES module in dev mode
+- `public/widget.js*` is in `.gitignore` to prevent build artifacts from being committed
+- Run `npm run dev` in `frontend/widget/` for hot reloading during development
 
 **Integration Code**:
 
@@ -328,10 +364,17 @@ Widget configuration is stored in the `clients.widget_config` JSONB column and s
 - OpenAI provider implementation - currently placeholder only (Ollama and Claude work)
 - Streaming responses (prepared but not active)
 
-**From Phase 3** (Optional):
+**From Phase 3** (✅ Complete):
 
-- Integration Service (`backend/src/services/integrationService.js`) - for pulling live data from client APIs (Shopify, WooCommerce, etc.)
-- Advanced tool features: tool chaining, conditional execution, result caching
+- ✅ Integration Service (`backend/src/services/integrationService.js`) - **FULLY IMPLEMENTED**
+  - Tools and integrations work together in a complete flow
+  - When tool specifies `integration_type`, backend automatically fetches client's matching integration
+  - Integration credentials are passed to n8n workflows via `_integration` object
+  - Enables one generic n8n workflow per tool type, reusable across all clients
+  - See `INTEGRATION_SYSTEM_GUIDE.md` for complete documentation
+
+**Advanced tool features** (Optional):
+- Tool chaining, conditional execution, result caching
 
 **From Phase 4** (Optional):
 
@@ -377,24 +420,32 @@ Widget configuration is stored in the `clients.widget_config` JSONB column and s
 - Phase 8: Advanced features (RAG, analytics, escalation)
 - Phase 9: Production deployment and DevOps
 
+**🚀 Upcoming Planned Features** (Priority for next development cycle):
+
+1. **Customer Dashboard** - Self-service portal for businesses using the widget (details TBD)
+2. **Hebrew Support & RTL** - Right-to-left layout for Hebrew across widget, admin, and customer dashboard
+
 ## Important Implementation Patterns
 
 ### Adding a New Tool
 
 1. Create n8n workflow with webhook trigger (`http://localhost:5678/webhook/<tool_name>`)
-2. Add tool definition to `tools` table (name, description, parameters schema)
+   - If tool needs client API credentials, workflow should read from `{{ $json._integration }}`
+2. Add tool definition to `tools` table (name, description, parameters schema, **integration_type**)
 3. Enable tool for client in `client_tools` table with webhook URL
-4. Tool Manager automatically loads and formats it for the LLM
-5. No code changes needed - the system dynamically loads tools from database
+4. **If tool has `integration_type`**: Add matching integration for client in `client_integrations` table
+5. Tool Manager automatically loads and formats it for the LLM
+6. No code changes needed - the system dynamically loads tools from database
 
-**Example SQL**:
+**Example SQL** (with integration):
 
 ```sql
--- Add tool to catalog
-INSERT INTO tools (tool_name, description, parameters_schema) VALUES (
+-- Add tool to catalog (with integration_type)
+INSERT INTO tools (tool_name, description, parameters_schema, integration_type) VALUES (
   'get_product_info',
   'Get detailed information about a product',
-  '{"type": "object", "properties": {"productId": {"type": "string", "description": "Product ID"}}, "required": ["productId"]}'
+  '{"type": "object", "properties": {"productId": {"type": "string", "description": "Product ID"}}, "required": ["productId"]}',
+  'inventory_api'  -- Links to client integrations of type 'inventory_api'
 );
 
 -- Enable tool for client
@@ -404,7 +455,17 @@ INSERT INTO client_tools (client_id, tool_id, enabled, n8n_webhook_url) VALUES (
   true,
   'http://localhost:5678/webhook/get_product_info'
 );
+
+-- Add client's integration (required if tool has integration_type)
+INSERT INTO client_integrations (client_id, integration_type, name, connection_config) VALUES (
+  1,
+  'inventory_api',
+  'Bob\'s Inventory API',
+  '{"apiUrl": "https://api.bobshop.com", "apiKey": "sk-abc123", "authMethod": "bearer"}'::jsonb
+);
 ```
+
+**See**: `INTEGRATION_SYSTEM_GUIDE.md` for complete integration setup guide
 
 ### Adding a New Model
 

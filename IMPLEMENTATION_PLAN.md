@@ -223,15 +223,29 @@ Building a multi-tenant AI agent platform that businesses can embed as a chat wi
 - [x] Error recovery with graceful fallbacks
 - [x] **Log all executions** to `tool_executions` table (parameters, response, timing)
 
-### 3.4 Live Data Integration Service
+### 3.4 Integration Service (Tools + Integrations Flow) ✅
 
-- [ ] Create `backend/src/services/integrationService.js` (OPTIONAL - can be added later)
-- [ ] Implement connection testing
-- [ ] Implement data fetching from client backends
-- [ ] Cache fetched data temporarily in Redis
-- [ ] Handle authentication (API keys, OAuth, basic auth)
+- [x] Create `backend/src/services/integrationService.js`
+- [x] Implement integration credential fetching for tools
+- [x] Automatic integration lookup based on tool's `integration_type`
+- [x] Pass integration credentials to n8n workflows via `_integration` object
+- [x] Support for multiple auth methods (bearer, api_key, basic, custom)
+- [x] Format integration config for n8n consumption
 
-**Note**: This is optional for MVP. Current implementation uses n8n workflows to connect to external APIs.
+**Integration-Tool Flow**:
+1. Tool defines `integration_type` (e.g., "inventory_api", "order_api")
+2. When AI calls tool, backend automatically fetches client's matching integration
+3. Integration credentials are passed to n8n webhook under `_integration` key
+4. n8n workflow uses credentials dynamically to call client's API
+5. **Result**: One generic n8n workflow per tool type, reusable across all clients
+
+**Benefits**:
+- ✅ No duplicate workflows per client
+- ✅ Centralized credential management
+- ✅ Easy credential updates (change once, affects all tools using that integration)
+- ✅ Client isolation (each client's API credentials stay separate)
+
+**See**: `INTEGRATION_SYSTEM_GUIDE.md` for complete setup instructions
 
 ### 3.5 Create Demo n8n Workflows ✅
 
@@ -1212,3 +1226,86 @@ The platform is fully functional and ready for pilot clients. All core features 
 - Database-driven plan management
 - 12 admin dashboard pages (including Plans management)
 - Complete onboarding workflow
+
+---
+
+## Session Updates - December 12, 2025
+
+### Bug Fixes & Improvements
+
+**1. Token Display Improvements (Admin Panel)**
+- Modified `/admin/conversations/:id` route to calculate `tokens_cumulative` dynamically by summing message tokens
+- Updated `ConversationDetail.jsx` to show per-message token usage:
+  - `+X` badge showing incremental tokens for each message
+  - `Total: X` badge showing cumulative tokens up to that message
+- Added "Tokens (Total)" metadata card with note "(includes input tokens)"
+- Fixed date display to use `started_at` instead of `created_at`
+
+**2. Ollama Token Counting Fix**
+- Fixed token counting in `llmService.js` for cached prompts
+- When `prompt_eval_count` is 0 (prompt was cached), input tokens are not double-counted
+- `tokens.total` now correctly sums `estimatedInputTokens` and `evalCount`
+
+**3. Mock API Date Normalization**
+- Enhanced `backend/src/routes/mockApi.js` booking endpoint
+- Converts relative dates ("today", "tomorrow", "yesterday") to `YYYY-MM-DD` format
+- Detects dates more than 1 year in the past and replaces with today's date
+- Improves AI tool calling accuracy for date-based operations
+
+**4. Widget Input Focus Fix**
+- Fixed issue where input field lost focus after sending a message
+- Changed from disabling input field to using `isLoading` flag
+- Input field now stays enabled and focused during message sending
+- Only send button is disabled during loading (visual feedback)
+- Enter key sends message, Shift+Enter adds new line (preserved)
+
+**5. Widget Development Mode Fix**
+- **Root Cause**: Stale `public/widget.js` was overriding live source code
+- **Solution**: 
+  - Deleted `public/widget.js` and `public/widget.js.map`
+  - Updated `demo.html` to load from `/src/index.js` as ES module in dev mode
+  - Added `public/widget.js*` to `.gitignore` to prevent future issues
+  - Added warning comment in `vite.config.js`
+- Hot reloading now works correctly during development
+
+**6. API Usage Tracking Fix**
+- Fixed `conversation_count` always showing as 1 in `api_usage` table
+- Root cause: SQL `INSERT` was using boolean directly instead of converting to integer
+- Fixed: Changed to `CASE WHEN $7::boolean THEN 1 ELSE 0 END` for proper boolean-to-integer conversion
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `backend/src/routes/admin.js` | Dynamic token calculation for conversations |
+| `frontend/admin/src/pages/ConversationDetail.jsx` | Token display UI, date field fix |
+| `backend/src/services/llmService.js` | Cached prompt token counting |
+| `backend/src/routes/mockApi.js` | Date normalization for bookings |
+| `frontend/widget/src/components/input.js` | Focus fix, isLoading flag |
+| `frontend/widget/src/components/window.js` | Removed debug logs |
+| `frontend/widget/public/demo.html` | Dev mode module loading |
+| `frontend/widget/.gitignore` | Ignore build artifacts |
+| `frontend/widget/vite.config.js` | Warning comment added |
+| `backend/src/models/ApiUsage.js` | Boolean to integer SQL fix |
+
+---
+
+## 🚀 Upcoming Planned Features
+
+**Priority items for next development cycle:**
+
+### 1. Customer Dashboard (Coming Soon)
+- A self-service portal for end customers (the businesses using the widget)
+- Details and functionality to be defined
+- Will allow customers to manage their own account settings
+
+### 2. Hebrew Support & RTL
+- Right-to-left (RTL) layout support for Hebrew text
+- Hebrew language detection and UI adaptation
+- RTL support across:
+  - Chat widget (message bubbles, input field)
+  - Admin dashboard
+  - Customer dashboard (when implemented)
+- Mixed Hebrew/English content handling
+
+---
