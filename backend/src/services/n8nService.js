@@ -1,3 +1,5 @@
+import { logger } from '../utils/logger.js';
+
 /**
  * n8n Integration Service
  *
@@ -15,19 +17,56 @@ class N8nService {
   /**
    * Execute a tool via n8n webhook
    * @param {String} webhookUrl - Full webhook URL or path
-   * @param {Object} parameters - Tool parameters
-   * @param {Number} timeout - Timeout in milliseconds (default 30s)
+   * @param {Object} parameters - Tool parameters from AI
+   * @param {Object} options - Execution options
+   * @param {Number} options.timeout - Timeout in milliseconds (default 30s)
+   * @param {Object} options.integration - Client integration config (optional)
    * @returns {Object} { success, data, executionTimeMs, error }
    */
-  async executeTool(webhookUrl, parameters = {}, timeout = DEFAULT_TIMEOUT) {
+  async executeTool(webhookUrl, parameters = {}, options = {}) {
+    const { timeout = DEFAULT_TIMEOUT, integration = null } = 
+      typeof options === 'number' ? { timeout: options } : options;
     const startTime = Date.now();
 
     try {
       // Ensure webhook URL is complete
       const fullUrl = this.buildWebhookUrl(webhookUrl);
 
+      console.log(`\n========== N8N REQUEST DEBUG ==========`);
       console.log(`[n8n] Calling webhook: ${fullUrl}`);
       console.log(`[n8n] Parameters:`, JSON.stringify(parameters, null, 2));
+      console.log(`[n8n] Integration provided:`, integration ? 'YES' : 'NO');
+      if (integration) {
+        console.log(`[n8n] Integration details:`, {
+          type: integration.type,
+          apiUrl: integration.apiUrl,
+          hasApiKey: !!integration.apiKey,
+          authMethod: integration.authMethod
+        });
+      } else {
+        console.error(`[n8n] ❌ NO INTEGRATION PROVIDED!`);
+      }
+
+      // Build request body - include integration credentials if provided
+      const requestBody = {
+        ...parameters,
+        // Add integration config under _integration key for n8n to use
+        ...(integration && {
+          _integration: {
+            type: integration.type,
+            apiUrl: integration.apiUrl,
+            apiKey: integration.apiKey,
+            apiSecret: integration.apiSecret,
+            authMethod: integration.authMethod,
+            headers: integration.headers,
+            config: integration.config
+          }
+        })
+      };
+      
+      console.log(`[n8n] Request body being sent:`, JSON.stringify(requestBody, null, 2));
+      console.log(`[n8n] Has _integration in body:`, !!requestBody._integration);
+      console.log(`==========================================\n`);
 
       // Create abort controller for timeout
       const controller = new AbortController();
@@ -39,7 +78,7 @@ class N8nService {
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(parameters),
+          body: JSON.stringify(requestBody),
           signal: controller.signal
         });
 
@@ -63,11 +102,19 @@ class N8nService {
         // Parse response
         const contentType = response.headers.get('content-type');
         let data;
+        const responseText = await response.text();
 
         if (contentType && contentType.includes('application/json')) {
-          data = await response.json();
+          try {
+            data = responseText ? JSON.parse(responseText) : {};
+          } catch (parseError) {
+            console.error('[n8n] Failed to parse JSON response:', parseError.message);
+            console.error('[n8n] Response text:', responseText.substring(0, 200));
+            // Return the text as data if JSON parsing fails
+            data = { error: 'Invalid JSON response', raw: responseText };
+          }
         } else {
-          data = await response.text();
+          data = responseText || '';
         }
 
         console.log(`[n8n] Webhook success (${executionTimeMs}ms)`);
@@ -180,9 +227,9 @@ class N8nService {
 
   /**
    * Format n8n response for LLM consumption
-   * Converts various n8n response formats into clean, readable text
-   * @param {*} n8nResponse - Response from n8n webhook
-   * @returns {String} Formatted response
+   * Handles varied response formats from different client APIs
+   * @param {*} n8nResponse - Response from n8n webhook (any format)
+   * @returns {String} Formatted response suitable for LLM context
    */
   formatResponseForLLM(n8nResponse) {
     // Handle null/undefined
@@ -192,7 +239,7 @@ class N8nService {
 
     // Handle string responses
     if (typeof n8nResponse === 'string') {
-      return n8nResponse;
+      return this.truncateIfNeeded(n8nResponse);
     }
 
     // Handle array responses
@@ -201,41 +248,159 @@ class N8nService {
         return 'No results found.';
       }
 
-      // If array of objects, format nicely
-      if (typeof n8nResponse[0] === 'object') {
-        return JSON.stringify(n8nResponse, null, 2);
-      }
+      // Limit array size to prevent huge responses
+      const maxItems = 20;
+      const truncated = n8nResponse.length > maxItems;
+      const items = truncated ? n8nResponse.slice(0, maxItems) : n8nResponse;
 
-      // If array of primitives, join them
-      return n8nResponse.join(', ');
+      let result = JSON.stringify(items, null, 2);
+      if (truncated) {
+        result += `\n... and ${n8nResponse.length - maxItems} more items (truncated)`;
+      }
+      return this.truncateIfNeeded(result);
     }
 
-    // Handle object responses
+    // Handle object responses - the main case for API responses
     if (typeof n8nResponse === 'object') {
-      // Check for common n8n response patterns
-      if (n8nResponse.message) {
-        return n8nResponse.message;
+      // 1. Check for error patterns first
+      if (this.isErrorResponse(n8nResponse)) {
+        const errorMsg = n8nResponse.error 
+          || n8nResponse.errorMessage 
+          || n8nResponse.err 
+          || n8nResponse.message 
+          || 'Unknown error';
+        return `Error: ${errorMsg}`;
       }
 
-      if (n8nResponse.result) {
-        return this.formatResponseForLLM(n8nResponse.result);
+      // 2. Try to extract a human-readable message if present
+      const message = this.extractMessage(n8nResponse);
+      
+      // 3. Try to extract the actual data payload
+      const data = this.extractData(n8nResponse);
+
+      // 4. Build the response
+      let formatted = '';
+      
+      if (message) {
+        formatted = message;
+        // Only include data if it's small and adds value (don't dump huge JSON)
+        if (data && data !== message && typeof data === 'object') {
+          const dataStr = JSON.stringify(data, null, 2);
+          // Only include data if it's reasonably small (< 500 chars)
+          // The LLM can ask for more details if needed
+          if (dataStr.length < 500) {
+            formatted += '\n\nDetails:\n' + dataStr;
+          } else {
+            // For large data, just mention key fields
+            const keys = Object.keys(data);
+            formatted += `\n\nData includes: ${keys.slice(0, 5).join(', ')}${keys.length > 5 ? '...' : ''}`;
+          }
+        }
+      } else if (data) {
+        // No message, just data
+        formatted = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      } else {
+        // Fallback: stringify the whole response
+        formatted = JSON.stringify(n8nResponse, null, 2);
       }
 
-      if (n8nResponse.data) {
-        return this.formatResponseForLLM(n8nResponse.data);
-      }
-
-      // Check for error responses
-      if (n8nResponse.error) {
-        return `Error: ${n8nResponse.error}`;
-      }
-
-      // Default: stringify the object
-      return JSON.stringify(n8nResponse, null, 2);
+      return this.truncateIfNeeded(formatted);
     }
 
     // Fallback: convert to string
     return String(n8nResponse);
+  }
+
+  /**
+   * Check if response indicates an error
+   * Handles various API error patterns
+   */
+  isErrorResponse(response) {
+    // Explicit error fields
+    if (response.error || response.err || response.errorMessage) return true;
+    
+    // Success flags set to false
+    if (response.success === false) return true;
+    if (response.ok === false) return true;
+    if (response.succeeded === false) return true;
+    
+    // Status fields indicating error
+    const status = (response.status || '').toString().toLowerCase();
+    if (['error', 'failed', 'failure', 'fail'].includes(status)) return true;
+    
+    // HTTP status codes in response
+    if (response.statusCode >= 400) return true;
+    if (response.code >= 400) return true;
+    
+    return false;
+  }
+
+  /**
+   * Extract human-readable message from various response formats
+   */
+  extractMessage(response) {
+    // Try common message field names
+    const messageFields = [
+      'message', 'msg', 'description', 'text', 
+      'statusMessage', 'status_message', 'responseMessage',
+      'display_message', 'displayMessage', 'userMessage'
+    ];
+    
+    for (const field of messageFields) {
+      if (response[field] && typeof response[field] === 'string') {
+        return response[field];
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Extract actual data payload from various response wrappers
+   */
+  extractData(response) {
+    // Try common data wrapper field names
+    const dataFields = [
+      'data', 'result', 'results', 'payload', 'body',
+      'response', 'content', 'items', 'records', 'output'
+    ];
+    
+    for (const field of dataFields) {
+      if (response[field] !== undefined) {
+        return response[field];
+      }
+    }
+    
+    // If no wrapper found, return the response itself
+    // But remove internal/meta fields
+    const cleaned = { ...response };
+    delete cleaned.success;
+    delete cleaned.ok;
+    delete cleaned.status;
+    delete cleaned.statusCode;
+    delete cleaned.timestamp;
+    delete cleaned._integration; // Remove our internal field
+    
+    // If after cleaning there's nothing left, return original
+    if (Object.keys(cleaned).length === 0) {
+      return response;
+    }
+    
+    return cleaned;
+  }
+
+  /**
+   * Truncate response if too long for LLM context
+   * @param {String} text - Text to potentially truncate
+   * @param {Number} maxLength - Maximum length (default 8000 chars)
+   */
+  truncateIfNeeded(text, maxLength = 8000) {
+    if (text.length <= maxLength) {
+      return text;
+    }
+    
+    const truncated = text.substring(0, maxLength);
+    return truncated + '\n\n... (response truncated due to length)';
   }
 
   /**

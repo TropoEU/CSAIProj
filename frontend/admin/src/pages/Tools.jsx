@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { tools as toolsApi, analytics } from '../services/api';
+import { tools as toolsApi, analytics, integrations as integrationsApi } from '../services/api';
 import {
   Card,
   CardBody,
@@ -16,11 +16,13 @@ import {
   TableRow,
   TableHeader,
   TableCell,
+  Select,
 } from '../components/common';
 
 export default function Tools() {
   const [tools, setTools] = useState([]);
   const [toolStats, setToolStats] = useState([]);
+  const [integrationTypes, setIntegrationTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [statsError, setStatsError] = useState(null);
@@ -57,6 +59,15 @@ export default function Tools() {
       setTools(toolsRes.data);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load tools');
+    }
+
+    // Fetch integration types for dropdowns
+    try {
+      const typesRes = await integrationsApi.getTypes();
+      setIntegrationTypes(typesRes.data || []);
+    } catch (err) {
+      console.warn('Failed to load integration types:', err);
+      setIntegrationTypes([]);
     }
 
     // Fetch stats - this is optional, so we don't block the UI if it fails
@@ -127,6 +138,7 @@ export default function Tools() {
     editForm.reset({
       toolName: tool.tool_name,
       description: tool.description,
+      integrationType: tool.integration_type || '',
       parametersSchema: JSON.stringify(tool.parameters_schema || {}, null, 2),
     });
     setIsEditModalOpen(true);
@@ -138,6 +150,7 @@ export default function Tools() {
       await toolsApi.update(editingTool.id, {
         toolName: data.toolName,
         description: data.description,
+        integrationType: data.integrationType || null,
         parametersSchema,
       });
       setIsEditModalOpen(false);
@@ -219,6 +232,7 @@ export default function Tools() {
               <TableRow>
                 <TableHeader>Tool Name</TableHeader>
                 <TableHeader>Description</TableHeader>
+                <TableHeader>Integration Type</TableHeader>
                 <TableHeader>Parameters</TableHeader>
                 <TableHeader>Usage (Today)</TableHeader>
                 <TableHeader>Actions</TableHeader>
@@ -233,6 +247,13 @@ export default function Tools() {
                     </TableCell>
                     <TableCell className="text-gray-500 max-w-xs truncate">
                       {tool.description}
+                    </TableCell>
+                    <TableCell>
+                      {tool.integration_type ? (
+                        <Badge variant="primary">{tool.integration_type}</Badge>
+                      ) : (
+                        <span className="text-xs text-gray-400">None (n8n only)</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {tool.parameters_schema?.properties ? (
@@ -280,7 +301,7 @@ export default function Tools() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                  <TableCell colSpan={6} className="text-center text-gray-500 py-8">
                     No tools found
                   </TableCell>
                 </TableRow>
@@ -325,6 +346,21 @@ export default function Tools() {
               <p className="text-sm text-red-600 mt-1">{errors.description.message}</p>
             )}
           </div>
+
+          <Select
+            label="Integration Type"
+            {...register('integrationType')}
+          >
+            <option value="">None (n8n handles everything)</option>
+            {integrationTypes.map(type => (
+              <option key={type.type} value={type.type}>
+                {type.name} - {type.description}
+              </option>
+            ))}
+          </Select>
+          <p className="text-xs text-gray-500 -mt-3">
+            If set, the tool will fetch API credentials from the client's matching integration.
+          </p>
 
           <div>
             <label className="label">Parameters Schema (JSON)</label>
@@ -464,6 +500,21 @@ export default function Tools() {
               <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.description.message}</p>
             )}
           </div>
+
+          <Select
+            label="Integration Type"
+            {...editForm.register('integrationType')}
+          >
+            <option value="">None (n8n handles everything)</option>
+            {integrationTypes.map(type => (
+              <option key={type.type} value={type.type}>
+                {type.name} - {type.description}
+              </option>
+            ))}
+          </Select>
+          <p className="text-xs text-gray-500 -mt-3">
+            If set, the tool will fetch API credentials from the client's matching integration.
+          </p>
 
           <div>
             <label className="label">Parameters Schema (JSON)</label>

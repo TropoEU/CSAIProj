@@ -144,14 +144,53 @@ class LLMService {
 
     const data = await response.json();
 
+    // Ollama token counting:
+    // - prompt_eval_count: tokens in prompt that were actually evaluated (excludes cached tokens)
+    // - eval_count: tokens generated in the response
+    // For accurate billing, we need to count ALL tokens sent, not just newly evaluated ones
+    // However, Ollama doesn't provide the full prompt token count directly
+    // We'll use prompt_eval_count + eval_count, but note that this may undercount if caching is used
+    
+    // Ollama token counting:
+    // - prompt_eval_count: tokens in prompt that were actually evaluated (excludes cached tokens)
+    // - eval_count: tokens generated in the response
+    // For billing, we want to count ALL tokens sent, but Ollama's prompt_eval_count only counts newly evaluated tokens
+    // If prompt_eval_count is 0, it means the entire prompt was cached (common for system prompts)
+    // In this case, we should NOT count the cached tokens again - they were already counted in the first request
+    
+    const promptEvalCount = data.prompt_eval_count || 0;
+    const evalCount = data.eval_count || 0;
+    
+    // Use prompt_eval_count as-is (even if 0 due to caching)
+    // This is correct because:
+    // 1. First request: prompt_eval_count includes all tokens (system prompt + messages)
+    // 2. Subsequent requests: prompt_eval_count is 0 if cached, or only counts new tokens
+    // 3. We should only count tokens that were actually processed, not cached ones
+    // 
+    // However, if prompt_eval_count is 0 AND we have a substantial response, it's likely
+    // that the prompt was cached. In this case, we should estimate based on the NEW content only.
+    let estimatedInputTokens = promptEvalCount;
+    
+    // If prompt_eval_count is 0, it means the entire prompt was cached
+    // In this case, we should NOT count input tokens (they were already counted in the first request)
+    // Only count the output tokens (eval_count)
+    // This is correct because:
+    // - First request: prompt_eval_count includes all tokens (system prompt + messages)
+    // - Subsequent requests: prompt_eval_count is 0 if cached, so we don't count them again
+    // - We only count tokens that were actually processed in this request
+    if (promptEvalCount === 0) {
+      // Prompt was cached - don't count input tokens again
+      estimatedInputTokens = 0;
+    }
+
     return {
       content: data.message.content,
       role: data.message.role,
       toolCalls: data.message.tool_calls || null,
       tokens: {
-        input: data.prompt_eval_count || 0,
-        output: data.eval_count || 0,
-        total: (data.prompt_eval_count || 0) + (data.eval_count || 0)
+        input: estimatedInputTokens || promptEvalCount,
+        output: evalCount,
+        total: (estimatedInputTokens || promptEvalCount) + evalCount
       },
       cost: 0, // Ollama is free
       model: modelToUse,

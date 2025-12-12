@@ -17,24 +17,82 @@
     },
     {
       "parameters": {
-        "jsCode": "// Mock appointment booking\n// In production, this would integrate with calendar API (Google Calendar, Calendly, etc.)\n\n// Access data from webhook POST body\nconst requestData = $json.body || $json;\nconst { date, time, serviceType, customerName, customerEmail, customerPhone } = requestData;\n\n// Validation\nconst errors = [];\nif (!date) errors.push('date');\nif (!time) errors.push('time');\nif (!serviceType) errors.push('serviceType');\nif (!customerName) errors.push('customerName');\nif (!customerEmail && !customerPhone) errors.push('contact info (email or phone)');\n\nif (errors.length > 0) {\n  return {\n    success: false,\n    message: `Missing required fields: ${errors.join(', ')}`\n  };\n}\n\n// Mock availability check\nconst unavailableTimes = ['2025-01-15 10:00', '2025-01-15 14:00'];\nconst requestedSlot = `${date} ${time}`;\n\nif (unavailableTimes.includes(requestedSlot)) {\n  return {\n    success: false,\n    message: `Sorry, the time slot ${time} on ${date} is not available. Please choose another time.`,\n    availableTimes: ['09:00', '11:00', '13:00', '15:00', '16:00']\n  };\n}\n\n// Create appointment\nconst appointmentId = 'APT-' + Math.random().toString(36).substr(2, 9).toUpperCase();\n\nreturn {\n  success: true,\n  message: `Appointment booked successfully! Your appointment for ${serviceType} is scheduled on ${date} at ${time}. Confirmation ID: ${appointmentId}. You will receive a confirmation email shortly.`,\n  data: {\n    appointmentId,\n    date,\n    time,\n    serviceType,\n    customerName,\n    customerEmail,\n    customerPhone,\n    status: 'confirmed'\n  }\n};"
+        "jsCode": "// n8n webhook may put POST body in $json.body or at root level\nconst data = $json.body || $json;\nconst integration = data._integration;\n\nif (!data.date || !data.time) {\n  return {\n    _error: true,\n    success: false,\n    message: 'Date and time are required for booking. Please provide when you would like to make a reservation.'\n  };\n}\n\nif (!integration || !integration.apiUrl) {\n  return {\n    _error: true,\n    success: false,\n    message: 'No API integration configured for this client. Please set up a booking_api integration in the admin panel.'\n  };\n}\n\n// Prepare API call config\nreturn {\n  date: data.date,\n  time: data.time,\n  serviceType: data.serviceType || 'Table Reservation',\n  customerName: data.customerName || 'Guest',\n  customerEmail: data.customerEmail || '',\n  customerPhone: data.customerPhone || '',\n  partySize: data.partySize || 2,\n  notes: data.notes || '',\n  _apiConfig: {\n    url: integration.apiUrl + '/bookings',\n    key: integration.apiKey,\n    authMethod: integration.authMethod || 'bearer'\n  }\n};"
       },
-      "id": "code-1",
-      "name": "Process Booking",
+      "id": "prepare-request",
+      "name": "Prepare API Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [450, 300]
     },
     {
       "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json._error }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-error",
+      "name": "Has Error?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json._apiConfig.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json._apiConfig.key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"date\": \"{{ $json.date }}\",\n  \"time\": \"{{ $json.time }}\",\n  \"serviceType\": \"{{ $json.serviceType }}\",\n  \"customerName\": \"{{ $json.customerName }}\",\n  \"customerEmail\": \"{{ $json.customerEmail }}\",\n  \"customerPhone\": \"{{ $json.customerPhone }}\",\n  \"partySize\": {{ $json.partySize }},\n  \"notes\": \"{{ $json.notes }}\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "http-api-call",
+      "name": "Call Client API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify($json) }}"
       },
-      "id": "respond-1",
-      "name": "Respond to Webhook",
+      "id": "respond-error",
+      "name": "Return Error",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [650, 300]
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "respond-success",
+      "name": "Return Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1100, 400]
     }
   ],
   "connections": {
@@ -42,18 +100,47 @@
       "main": [
         [
           {
-            "node": "Process Booking",
+            "node": "Prepare API Request",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Process Booking": {
+    "Prepare API Request": {
       "main": [
         [
           {
-            "node": "Respond to Webhook",
+            "node": "Has Error?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Error?": {
+      "main": [
+        [
+          {
+            "node": "Return Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call Client API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Client API": {
+      "main": [
+        [
+          {
+            "node": "Return Result",
             "type": "main",
             "index": 0
           }
@@ -63,6 +150,6 @@
   },
   "active": true,
   "settings": {},
-  "versionId": "1",
+  "versionId": "4",
   "id": "book_appointment"
 }

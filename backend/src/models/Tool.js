@@ -3,13 +3,18 @@ import { db } from '../db.js';
 export class Tool {
     /**
      * Create a new tool in the master catalog
+     * @param {string} toolName - Tool name (e.g., 'check_inventory')
+     * @param {string} description - Tool description
+     * @param {Object} parametersSchema - JSON schema for parameters
+     * @param {string} category - Tool category (optional)
+     * @param {string} integrationType - Integration type this tool requires (optional, e.g., 'inventory_api')
      */
-    static async create(toolName, description, parametersSchema = null, category = null) {
+    static async create(toolName, description, parametersSchema = null, category = null, integrationType = null) {
         const result = await db.query(
-            `INSERT INTO tools (tool_name, description, parameters_schema, category)
-             VALUES ($1, $2, $3, $4)
+            `INSERT INTO tools (tool_name, description, parameters_schema, category, integration_type)
+             VALUES ($1, $2, $3, $4, $5)
              RETURNING *`,
-            [toolName, description, parametersSchema, category]
+            [toolName, description, parametersSchema, category, integrationType]
         );
         return result.rows[0];
     }
@@ -61,7 +66,7 @@ export class Tool {
      * Update tool
      */
     static async update(id, updates) {
-        const allowedFields = ['tool_name', 'description', 'parameters_schema', 'category'];
+        const allowedFields = ['tool_name', 'description', 'parameters_schema', 'category', 'integration_type'];
         const fields = [];
         const values = [];
         let paramIndex = 1;
@@ -99,5 +104,29 @@ export class Tool {
             [id]
         );
         return result.rows[0];
+    }
+
+    /**
+     * Get tools that require a specific integration type
+     */
+    static async findByIntegrationType(integrationType) {
+        const result = await db.query(
+            'SELECT * FROM tools WHERE integration_type = $1 ORDER BY tool_name',
+            [integrationType]
+        );
+        return result.rows;
+    }
+
+    /**
+     * Get available integration types from existing tools
+     */
+    static async getUsedIntegrationTypes() {
+        const result = await db.query(
+            `SELECT DISTINCT integration_type 
+             FROM tools 
+             WHERE integration_type IS NOT NULL 
+             ORDER BY integration_type`
+        );
+        return result.rows.map(r => r.integration_type);
     }
 }

@@ -263,9 +263,14 @@
     </footer>
   </div>
 
-  <!-- AI Chat Widget -->
+  <!-- AI Chat Widget
+       DEV MODE: Loads from /src/index.js for hot reloading
+       PRODUCTION: Client sites load from deployed URL (e.g., https://cdn.example.com/widget.js)
+       
+       NEVER put widget.js in public/ - it shadows the live source! -->
 <script
-src="http://localhost:3001/widget.js"
+type="module"
+src="/src/index.js"
 data-api-key="bobs_pizza_api_key_123"
 data-position="bottom-right"
 data-primary-color="#667eea"

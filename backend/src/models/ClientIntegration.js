@@ -64,6 +64,19 @@ export class ClientIntegration {
     }
 
     /**
+     * Find integration by client and type
+     */
+    static async findByClientAndType(clientId, integrationType) {
+        const result = await db.query(
+            `SELECT * FROM client_integrations
+             WHERE client_id = $1 AND LOWER(integration_type) = LOWER($2) AND enabled = true
+             LIMIT 1`,
+            [clientId, integrationType]
+        );
+        return result.rows[0] || null;
+    }
+
+    /**
      * Update integration config
      */
     static async updateConfig(id, connectionConfig) {

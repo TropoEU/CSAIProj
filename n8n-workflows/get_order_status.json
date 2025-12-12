@@ -17,24 +17,79 @@
     },
     {
       "parameters": {
-        "jsCode": "// Mock order status lookup\n// In production, this would call your e-commerce API\n\n// Access data from webhook POST body\nconst orderNumber = $json.body?.orderNumber || $json.orderNumber;\n\nif (!orderNumber) {\n  return {\n    success: false,\n    error: 'Order number is required'\n  };\n}\n\n// Mock order database\nconst orders = {\n  '12345': {\n    orderNumber: '12345',\n    status: 'out_for_delivery',\n    statusText: 'Out for Delivery',\n    estimatedDelivery: '30 minutes',\n    items: ['Large Pepperoni Pizza', 'Garlic Bread'],\n    total: '$28.50'\n  },\n  '12346': {\n    orderNumber: '12346',\n    status: 'preparing',\n    statusText: 'Being Prepared',\n    estimatedDelivery: '45 minutes',\n    items: ['Medium Margherita Pizza'],\n    total: '$15.00'\n  },\n  '12347': {\n    orderNumber: '12347',\n    status: 'delivered',\n    statusText: 'Delivered',\n    deliveredAt: '2 hours ago',\n    items: ['Family Combo Deal'],\n    total: '$42.00'\n  }\n};\n\nconst order = orders[orderNumber];\n\nif (!order) {\n  return {\n    success: false,\n    message: `Order #${orderNumber} not found. Please check the order number and try again.`\n  };\n}\n\nreturn {\n  success: true,\n  message: `Order #${order.orderNumber} is currently ${order.statusText}. ${order.estimatedDelivery ? 'Estimated delivery: ' + order.estimatedDelivery : 'Delivered ' + order.deliveredAt}.`,\n  data: order\n};"
+        "jsCode": "// n8n webhook may put POST body in $json.body or at root level\nconst data = $json.body || $json;\nconst integration = data._integration;\nconst orderNumber = data.orderNumber;\n\nif (!orderNumber) {\n  return {\n    _error: true,\n    success: false,\n    message: 'Order number is required. Please provide the order number to check.'\n  };\n}\n\nif (!integration || !integration.apiUrl) {\n  return {\n    _error: true,\n    success: false,\n    message: 'No API integration configured for this client. Please set up an order_api integration in the admin panel.'\n  };\n}\n\n// Prepare API call config\nreturn {\n  orderNumber: orderNumber,\n  _apiConfig: {\n    url: integration.apiUrl + '/orders/' + orderNumber + '/status',\n    key: integration.apiKey,\n    authMethod: integration.authMethod || 'bearer'\n  }\n};"
       },
-      "id": "code-1",
-      "name": "Process Order Lookup",
+      "id": "prepare-request",
+      "name": "Prepare API Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [450, 300]
     },
     {
       "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json._error }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-error",
+      "name": "Has Error?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json._apiConfig.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json._apiConfig.key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "http-api-call",
+      "name": "Call Client API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify($json) }}"
       },
-      "id": "respond-1",
-      "name": "Respond to Webhook",
+      "id": "respond-error",
+      "name": "Return Error",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [650, 300]
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "respond-success",
+      "name": "Return Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1100, 400]
     }
   ],
   "connections": {
@@ -42,18 +97,47 @@
       "main": [
         [
           {
-            "node": "Process Order Lookup",
+            "node": "Prepare API Request",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Process Order Lookup": {
+    "Prepare API Request": {
       "main": [
         [
           {
-            "node": "Respond to Webhook",
+            "node": "Has Error?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Error?": {
+      "main": [
+        [
+          {
+            "node": "Return Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call Client API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Client API": {
+      "main": [
+        [
+          {
+            "node": "Return Result",
             "type": "main",
             "index": 0
           }
@@ -63,6 +147,6 @@
   },
   "active": true,
   "settings": {},
-  "versionId": "1",
+  "versionId": "4",
   "id": "get_order_status"
 }

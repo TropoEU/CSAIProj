@@ -35,7 +35,7 @@ export class ClientTool {
      */
     static async getEnabledTools(clientId) {
         const result = await db.query(
-            `SELECT ct.*, t.tool_name, t.description, t.parameters_schema, t.category
+            `SELECT ct.*, t.tool_name, t.description, t.parameters_schema, t.category, t.integration_type
              FROM client_tools ct
              JOIN tools t ON ct.tool_id = t.id
              WHERE ct.client_id = $1 AND ct.enabled = true

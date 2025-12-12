@@ -13,6 +13,7 @@ import { authenticateAdmin, generateToken } from '../middleware/adminAuth.js';
 import conversationService from '../services/conversationService.js';
 import toolManager from '../services/toolManager.js';
 import n8nService from '../services/n8nService.js';
+import integrationService from '../services/integrationService.js';
 import { BillingService } from '../services/billingService.js';
 import { UsageTracker } from '../services/usageTracker.js';
 import { clearPlanCache } from '../config/planLimits.js';
@@ -401,13 +402,19 @@ router.get('/tools', async (req, res) => {
  */
 router.post('/tools', async (req, res) => {
   try {
-    const { toolName, description, parametersSchema } = req.body;
+    const { toolName, description, parametersSchema, category, integrationType } = req.body;
 
     if (!toolName || !description) {
       return res.status(400).json({ error: 'Tool name and description are required' });
     }
 
-    const tool = await Tool.create(toolName, description, parametersSchema || {});
+    const tool = await Tool.create(
+      toolName, 
+      description, 
+      parametersSchema || {}, 
+      category || null,
+      integrationType || null
+    );
     res.status(201).json(tool);
   } catch (error) {
     console.error('[Admin] Create tool error:', error);
@@ -421,12 +428,15 @@ router.post('/tools', async (req, res) => {
  */
 router.put('/tools/:id', async (req, res) => {
   try {
-    const { toolName, description, parametersSchema } = req.body;
+    const { toolName, description, parametersSchema, category, integrationType } = req.body;
     const updates = {};
 
     if (toolName) updates.tool_name = toolName;
     if (description) updates.description = description;
     if (parametersSchema) updates.parameters_schema = parametersSchema;
+    if (category !== undefined) updates.category = category;
+    // Allow setting integration_type to null to remove it
+    if (integrationType !== undefined) updates.integration_type = integrationType;
 
     const tool = await Tool.update(req.params.id, updates);
     res.json(tool);
@@ -676,13 +686,35 @@ router.get('/conversations/:id', async (req, res) => {
     const client = await Client.findById(conversation.client_id);
     conversation.client_name = client?.name;
 
-    // Get messages
+    // Get messages and calculate cumulative token count
+    // tokens_used in messages table is TOTAL tokens (input + output) for that LLM call
     const messages = await Message.getAll(conversation.id);
-    conversation.messages = messages;
+    let cumulativeTokens = 0;
+    conversation.messages = messages.map((msg, index) => {
+      cumulativeTokens += (msg.tokens_used || 0);
+      return {
+        ...msg,
+        tokens: msg.tokens_used || 0, // Map tokens_used to tokens for frontend
+        tokens_cumulative: cumulativeTokens, // Running total
+        timestamp: msg.timestamp || msg.created_at // Ensure timestamp is available
+      };
+    });
+    
+    // Use calculated sum as tokens_total (more accurate than stored value which can drift)
+    conversation.tokens_total = cumulativeTokens;
 
-    // Get tool executions
+    // Get tool executions and format for frontend
     const toolExecutions = await ToolExecution.getByConversation(conversation.id);
-    conversation.tool_executions = toolExecutions;
+    conversation.tool_executions = toolExecutions.map(exec => ({
+      id: exec.id,
+      tool_name: exec.tool_name,
+      input_params: exec.parameters || {},
+      result: exec.n8n_response || {},
+      status: exec.success ? 'success' : 'error',
+      success: exec.success,
+      execution_time_ms: exec.execution_time_ms,
+      timestamp: exec.timestamp
+    }));
 
     res.json(conversation);
   } catch (error) {
@@ -736,6 +768,20 @@ router.get('/conversations/export', async (req, res) => {
 // =====================================================
 
 /**
+ * GET /admin/integration-types
+ * Get all available integration types for tool configuration
+ */
+router.get('/integration-types', async (req, res) => {
+  try {
+    const types = integrationService.getAvailableIntegrationTypes();
+    res.json(types);
+  } catch (error) {
+    console.error('[Admin] Get integration types error:', error);
+    res.status(500).json({ error: 'Failed to get integration types' });
+  }
+});
+
+/**
  * GET /admin/clients/:clientId/integrations
  * Get integrations for a client
  */
@@ -744,18 +790,33 @@ router.get('/clients/:clientId/integrations', async (req, res) => {
     const integrationList = await ClientIntegration.getByClient(req.params.clientId);
     
     // Transform database format to frontend format
-    const formattedIntegrations = integrationList.map(integration => ({
-      id: integration.id,
-      client_id: integration.client_id,
-      integration_type: integration.integration_type,
-      name: integration.connection_config?.name || 'Unnamed Integration',
-      status: integration.enabled ? 'active' : 'inactive',
-      last_tested_at: integration.last_sync_test,
-      created_at: integration.created_at,
-      updated_at: integration.updated_at,
-      connection_config: integration.connection_config,
-      enabled: integration.enabled,
-    }));
+    const formattedIntegrations = integrationList.map(integration => {
+      const hasApiUrl = !!(integration.connection_config?.api_url || integration.connection_config?.apiUrl);
+      const isConfigured = hasApiUrl && integration.enabled;
+      
+      // Status logic: 
+      // - 'active' = enabled AND has API URL configured
+      // - 'inactive' = disabled OR missing API URL
+      let status = 'inactive';
+      if (integration.enabled && hasApiUrl) {
+        status = 'active';
+      } else if (!hasApiUrl) {
+        status = 'not_configured'; // Special status for missing URL
+      }
+      
+      return {
+        id: integration.id,
+        client_id: integration.client_id,
+        integration_type: integration.integration_type,
+        name: integration.connection_config?.name || 'Unnamed Integration',
+        status: status,
+        last_tested_at: integration.last_sync_test,
+        created_at: integration.created_at,
+        updated_at: integration.updated_at,
+        connection_config: integration.connection_config,
+        enabled: integration.enabled,
+      };
+    });
     
     res.json(formattedIntegrations);
   } catch (error) {
@@ -770,7 +831,7 @@ router.get('/clients/:clientId/integrations', async (req, res) => {
  */
 router.post('/clients/:clientId/integrations', async (req, res) => {
   try {
-    const { integrationType, name, apiKey, apiSecret, webhookUrl, config } = req.body;
+    const { integrationType, name, apiUrl, apiKey, apiSecret, authMethod, config } = req.body;
 
     if (!integrationType || !name) {
       return res.status(400).json({ error: 'Integration type and name are required' });
@@ -778,9 +839,10 @@ router.post('/clients/:clientId/integrations', async (req, res) => {
 
     const connectionConfig = {
       name,
-      api_key: apiKey,
-      api_secret: apiSecret,
-      webhook_url: webhookUrl,
+      api_url: apiUrl || null,
+      api_key: apiKey || null,
+      api_secret: apiSecret || null,
+      auth_method: authMethod || 'bearer',
       ...(config ? JSON.parse(config) : {}),
     };
 
@@ -803,7 +865,7 @@ router.post('/clients/:clientId/integrations', async (req, res) => {
  */
 router.put('/integrations/:id', async (req, res) => {
   try {
-    const { integrationType, name, apiKey, apiSecret, webhookUrl, config } = req.body;
+    const { integrationType, name, apiUrl, apiKey, apiSecret, authMethod, config } = req.body;
 
     const existingIntegration = await ClientIntegration.findById(req.params.id);
     if (!existingIntegration) {
@@ -813,9 +875,10 @@ router.put('/integrations/:id', async (req, res) => {
     const connectionConfig = {
       ...existingIntegration.connection_config,
       ...(name && { name }),
+      ...(apiUrl !== undefined && { api_url: apiUrl }),
       ...(apiKey && { api_key: apiKey }),
       ...(apiSecret && { api_secret: apiSecret }),
-      ...(webhookUrl !== undefined && { webhook_url: webhookUrl }),
+      ...(authMethod && { auth_method: authMethod }),
       ...(config && JSON.parse(config)),
     };
 
@@ -862,7 +925,7 @@ router.delete('/integrations/:id', async (req, res) => {
 
 /**
  * POST /admin/integrations/:id/test
- * Test integration connection
+ * Test integration connection (tests actual API endpoint, not just n8n webhook)
  */
 router.post('/integrations/:id/test', async (req, res) => {
   try {
@@ -871,23 +934,88 @@ router.post('/integrations/:id/test', async (req, res) => {
       return res.status(404).json({ error: 'Integration not found' });
     }
 
-    const webhookUrl = integration.connection_config?.webhook_url;
-
-    // For now, just test if webhook URL is reachable
-    if (webhookUrl) {
-      try {
-        const result = await n8nService.testWebhook(webhookUrl);
-        await ClientIntegration.updateSyncTest(req.params.id);
-        res.json({ message: 'Connection successful', result });
-      } catch (error) {
-        res.status(400).json({ error: 'Connection failed', message: error.message });
-      }
-    } else {
-      res.json({ message: 'No webhook URL to test' });
+    // Test the API URL
+    const apiUrl = integration.connection_config?.api_url || integration.connection_config?.apiUrl;
+    if (!apiUrl) {
+      return res.json({ 
+        message: 'No API URL configured to test', 
+        success: false,
+        error: 'This integration requires an API URL to be configured before it can be tested'
+      });
     }
+
+    const result = await integrationService.testIntegration(req.params.id);
+    return res.json({
+      message: result.success ? 'API connection successful' : 'API connection failed',
+      ...result
+    });
   } catch (error) {
     console.error('[Admin] Test integration error:', error);
     res.status(500).json({ error: 'Failed to test integration' });
+  }
+});
+
+// =====================================================
+// DEBUG ROUTES (for testing)
+// =====================================================
+
+/**
+ * GET /admin/debug/integration-test/:clientId/:toolName
+ * Test integration flow for debugging
+ */
+router.get('/debug/integration-test/:clientId/:toolName', async (req, res) => {
+  try {
+    const { clientId, toolName } = req.params;
+    const toolManager = (await import('../services/toolManager.js')).default;
+    const integrationService = (await import('../services/integrationService.js')).default;
+    
+    // Get tool
+    const tool = await toolManager.getToolByName(parseInt(clientId), toolName);
+    if (!tool) {
+      return res.status(404).json({ error: 'Tool not found' });
+    }
+    
+    // Get integration if needed
+    let integration = null;
+    if (tool.integration_type) {
+      integration = await integrationService.getIntegrationForClient(
+        parseInt(clientId),
+        tool.integration_type
+      );
+    }
+    
+    // Simulate request body
+    const toolArgs = { orderNumber: '12345' }; // Example
+    const requestBody = {
+      ...toolArgs,
+      ...(integration && {
+        _integration: {
+          type: integration.type,
+          apiUrl: integration.apiUrl,
+          apiKey: integration.apiKey,
+          authMethod: integration.authMethod
+        }
+      })
+    };
+    
+    res.json({
+      tool: {
+        name: tool.tool_name,
+        integration_type: tool.integration_type,
+        webhook_url: tool.n8n_webhook_url
+      },
+      integration: integration ? {
+        type: integration.type,
+        apiUrl: integration.apiUrl,
+        hasApiKey: !!integration.apiKey,
+        authMethod: integration.authMethod
+      } : null,
+      requestBody,
+      hasIntegration: !!requestBody._integration
+    });
+  } catch (error) {
+    console.error('[Admin] Debug test error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

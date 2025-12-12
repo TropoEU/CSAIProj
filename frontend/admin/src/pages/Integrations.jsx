@@ -20,14 +20,13 @@ import {
   TableCell,
 } from '../components/common';
 
-const INTEGRATION_TYPES = [
-  { value: 'shopify', label: 'Shopify' },
-  { value: 'woocommerce', label: 'WooCommerce' },
-  { value: 'gmail', label: 'Gmail' },
-  { value: 'google_calendar', label: 'Google Calendar' },
-  { value: 'stripe', label: 'Stripe' },
-  { value: 'webhook', label: 'Custom Webhook' },
-  { value: 'other', label: 'Other' },
+// Auth methods for API integrations
+const AUTH_METHODS = [
+  { value: 'bearer', label: 'Bearer Token (Authorization: Bearer {apiKey})' },
+  { value: 'api_key', label: 'API Key Header (X-API-Key: {apiKey})' },
+  { value: 'basic', label: 'Basic Auth (apiKey:apiSecret)' },
+  { value: 'custom', label: 'Custom (use headers in config)' },
+  { value: 'none', label: 'No Authentication' },
 ];
 
 export default function Integrations() {
@@ -35,6 +34,7 @@ export default function Integrations() {
   const [clientList, setClientList] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
   const [integrationList, setIntegrationList] = useState([]);
+  const [integrationTypes, setIntegrationTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -52,7 +52,27 @@ export default function Integrations() {
 
   useEffect(() => {
     fetchClients();
+    fetchIntegrationTypes();
   }, []);
+
+  const fetchIntegrationTypes = async () => {
+    try {
+      const response = await integrations.getTypes();
+      console.log('Integration types response:', response);
+      const types = response.data || response || [];
+      setIntegrationTypes(Array.isArray(types) ? types : []);
+    } catch (err) {
+      console.error('Failed to load integration types:', err);
+      // Fallback types if API fails
+      setIntegrationTypes([
+        { type: 'inventory_api', name: 'Inventory API', description: 'Product stock and availability' },
+        { type: 'order_api', name: 'Order API', description: 'Order status and management' },
+        { type: 'customer_api', name: 'Customer API', description: 'Customer data and profiles' },
+        { type: 'booking_api', name: 'Booking API', description: 'Appointments and reservations' },
+        { type: 'custom_api', name: 'Custom API', description: 'Any custom REST API' },
+      ]);
+    }
+  };
 
   useEffect(() => {
     if (selectedClient) {
@@ -112,13 +132,14 @@ export default function Integrations() {
     setEditingIntegration(integration);
     setValue('integrationType', integration.integration_type);
     setValue('name', integration.name);
+    setValue('apiUrl', integration.connection_config?.api_url || '');
     setValue('apiKey', ''); // Don't show existing API key
     setValue('apiSecret', '');
-    setValue('webhookUrl', integration.connection_config?.webhook_url || '');
+    setValue('authMethod', integration.connection_config?.auth_method || 'bearer');
 
-    // Extract extra config (everything except name, api_key, api_secret, webhook_url)
-    const { name, api_key, api_secret, webhook_url, ...extraConfig } = integration.connection_config || {};
-    setValue('config', JSON.stringify(extraConfig, null, 2));
+    // Extract extra config (everything except standard fields)
+    const { name, api_url, api_key, api_secret, auth_method, headers, ...extraConfig } = integration.connection_config || {};
+    setValue('config', Object.keys(extraConfig).length > 0 ? JSON.stringify(extraConfig, null, 2) : '');
     setIsModalOpen(true);
   };
 
@@ -163,7 +184,9 @@ export default function Integrations() {
 
   const openCreateModal = () => {
     setEditingIntegration(null);
-    reset();
+    reset({
+      authMethod: 'bearer' // Set default auth method
+    });
     setIsModalOpen(true);
   };
 
@@ -228,6 +251,7 @@ export default function Integrations() {
                   <TableRow>
                     <TableHeader>Name</TableHeader>
                     <TableHeader>Type</TableHeader>
+                    <TableHeader>API URL</TableHeader>
                     <TableHeader>Status</TableHeader>
                     <TableHeader>Last Tested</TableHeader>
                     <TableHeader>Actions</TableHeader>
@@ -242,9 +266,18 @@ export default function Integrations() {
                         </TableCell>
                         <TableCell>
                           <Badge variant="info">
-                            {INTEGRATION_TYPES.find((t) => t.value === integration.integration_type)?.label ||
+                            {integrationTypes.find((t) => t.type === integration.integration_type)?.name ||
                               integration.integration_type}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-gray-500 max-w-xs truncate">
+                          {integration.connection_config?.api_url ? (
+                            <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                              {integration.connection_config.api_url}
+                            </code>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           {testResult?.id === integration.id ? (
@@ -253,9 +286,16 @@ export default function Integrations() {
                             </Badge>
                           ) : (
                             <Badge
-                              variant={integration.status === 'active' ? 'success' : 'warning'}
+                              variant={
+                                integration.status === 'active' ? 'success' :
+                                integration.status === 'not_configured' ? 'warning' :
+                                'warning'
+                              }
                             >
-                              {integration.status || 'Unknown'}
+                              {integration.status === 'active' ? 'Active' :
+                               integration.status === 'not_configured' ? 'Not Configured' :
+                               integration.status === 'inactive' ? 'Inactive' :
+                               'Unknown'}
                             </Badge>
                           )}
                         </TableCell>
@@ -303,7 +343,7 @@ export default function Integrations() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                      <TableCell colSpan={6} className="text-center text-gray-500 py-8">
                         No integrations configured for this client
                       </TableCell>
                     </TableRow>
@@ -333,7 +373,10 @@ export default function Integrations() {
             error={errors.integrationType?.message}
             options={[
               { value: '', label: 'Select type...' },
-              ...INTEGRATION_TYPES,
+              ...integrationTypes.map((type) => ({
+                value: type.type,
+                label: `${type.name} - ${type.description}`
+              }))
             ]}
           />
 
@@ -341,35 +384,45 @@ export default function Integrations() {
             label="Name"
             {...register('name', { required: 'Name is required' })}
             error={errors.name?.message}
-            placeholder="e.g., My Shopify Store"
+            placeholder="e.g., Bob's Inventory System"
           />
+
+          <Input
+            label="API URL"
+            {...register('apiUrl')}
+            placeholder="https://api.example.com"
+          />
+          <p className="text-xs text-gray-500 -mt-3">
+            Base URL for the client's API. Tools will use this to make requests.
+          </p>
 
           <Input
             label="API Key"
             type="password"
             {...register('apiKey')}
-            placeholder={editingIntegration ? '(unchanged)' : 'Enter API key'}
+            placeholder={editingIntegration ? '(leave blank to keep current)' : 'Enter API key'}
           />
 
           <Input
             label="API Secret (optional)"
             type="password"
             {...register('apiSecret')}
-            placeholder={editingIntegration ? '(unchanged)' : 'Enter API secret'}
+            placeholder={editingIntegration ? '(leave blank to keep current)' : 'Enter API secret if required'}
           />
 
-          <Input
-            label="Webhook URL (optional)"
-            {...register('webhookUrl')}
-            placeholder="https://..."
+          <Select
+            label="Authentication Method"
+            {...register('authMethod')}
+            options={AUTH_METHODS}
           />
+
 
           <div>
-            <label className="label">Additional Config (JSON)</label>
+            <label className="label">Additional Config (JSON, optional)</label>
             <textarea
               {...register('config')}
-              className="input font-mono text-sm min-h-[100px]"
-              placeholder="{}"
+              className="input font-mono text-sm min-h-[80px]"
+              placeholder='{"custom_field": "value"}'
             />
           </div>
 

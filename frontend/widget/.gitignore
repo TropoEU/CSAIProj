@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Prevent build artifacts in public folder from shadowing dev source
+# NEVER put widget.js in public/ - it will override the live source in dev mode!
+public/widget.js
+public/widget.js.map
+public/widget.css
+
+# Logs
+*.log
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+

@@ -1,6 +1,17 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
+/**
+ * IMPORTANT: Never put widget.js in the public/ folder!
+ * 
+ * Vite serves public/ files as-is, which would shadow the live source code
+ * in dev mode. The demo.html loads from /src/index.js for development.
+ * 
+ * For production:
+ * - Run `npm run build` to create dist/widget.js
+ * - Deploy dist/widget.js to your CDN or backend static files
+ * - Client websites load from the deployed URL, not from this dev server
+ */
 export default defineConfig({
   server: {
     port: 3001,

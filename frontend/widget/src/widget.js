@@ -108,7 +108,7 @@ export class ChatWidget {
    * Create Shadow DOM for style encapsulation
    */
   createShadowDOM() {
-    this.shadowRoot = this.container.attachShadow({ mode: 'open' });
+    this.shadowRoot = this.container.attachShadow({ mode: 'open', delegatesFocus: true });
   }
 
   /**

@@ -1,200 +1,269 @@
-# n8n Demo Workflows
+# n8n Workflows with Integration Support
 
-This directory contains demo n8n workflows for Phase 3 of the AI Customer Service Agent platform.
+This directory contains n8n workflows that support the **Integration System** - allowing ONE workflow per tool to serve ALL clients with their own API credentials.
 
-## Available Workflows
+## 🏗️ Architecture
 
-### 1. Get Order Status (`get_order_status.json`)
-- **Purpose**: Check the status of a customer order
-- **Webhook Path**: `/webhook/get_order_status`
-- **Parameters**:
-  - `orderNumber` (required): Order number to look up
-- **Mock Data**: Contains 3 sample orders (12345, 12346, 12347)
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           HOW IT WORKS                                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Backend receives tool call from AI                                          │
+│           │                                                                  │
+│           ▼                                                                  │
+│  Checks if tool has integration_type (e.g., "inventory_api")                │
+│           │                                                                  │
+│           ▼                                                                  │
+│  Fetches client's integration credentials from database                      │
+│           │                                                                  │
+│           ▼                                                                  │
+│  Calls n8n webhook with:                                                     │
+│  {                                                                           │
+│    productName: "pepperoni",          // AI's request                        │
+│    _integration: {                    // Client's API credentials            │
+│      apiUrl: "https://api.client.com",                                       │
+│      apiKey: "client_api_key",                                               │
+│      authMethod: "bearer"                                                    │
+│    }                                                                         │
+│  }                                                                           │
+│           │                                                                  │
+│           ▼                                                                  │
+│  n8n workflow:                                                               │
+│  - If _integration present → calls real client API                           │
+│  - If not present → uses mock data (for testing)                            │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
-### 2. Book Appointment (`book_appointment.json`)
-- **Purpose**: Book an appointment for a customer
-- **Webhook Path**: `/webhook/book_appointment`
-- **Parameters**:
-  - `date` (required): Appointment date (YYYY-MM-DD)
-  - `time` (required): Appointment time (HH:MM)
-  - `serviceType` (required): Type of service
-  - `customerName` (required): Customer name
-  - `customerEmail` (optional): Customer email
-  - `customerPhone` (optional): Customer phone
-- **Features**: Mock availability checking, generates confirmation IDs
+## 📁 Available Workflows
 
-### 3. Check Inventory (`check_inventory.json`)
+### 1. Check Inventory (`check_inventory.json`)
 - **Purpose**: Check product availability and stock levels
 - **Webhook Path**: `/webhook/check_inventory`
+- **Integration Type**: `inventory_api`
 - **Parameters**:
   - `productName` (optional): Product name
   - `productSku` (optional): Product SKU
   - `quantity` (optional): Quantity needed (default: 1)
-- **Mock Data**: Contains sample pizza and side items
+- **Mock Data**: Pizza items, sides, and out-of-stock items
 
-## Setup Instructions
+### 2. Get Order Status (`get_order_status.json`)
+- **Purpose**: Check the status of a customer order
+- **Webhook Path**: `/webhook/get_order_status`
+- **Integration Type**: `order_api`
+- **Parameters**:
+  - `orderNumber` (required): Order number to look up
+- **Mock Data**: Orders in various statuses (preparing, out for delivery, delivered)
+
+### 3. Book Appointment (`book_appointment.json`)
+- **Purpose**: Book a reservation or appointment
+- **Webhook Path**: `/webhook/book_appointment`
+- **Integration Type**: `booking_api`
+- **Parameters**:
+  - `date` (required): Appointment date (YYYY-MM-DD)
+  - `time` (required): Appointment time (HH:MM)
+  - `serviceType` (optional): Type of service
+  - `customerName` (optional): Customer name
+  - `customerEmail` (optional): Customer email
+  - `customerPhone` (optional): Customer phone
+  - `partySize` (optional): Number of guests
+  - `notes` (optional): Special requests
+- **Features**: Availability checking, confirmation IDs
+
+---
+
+## 🚀 Setup Instructions
 
 ### Step 1: Import Workflows into n8n
 
-1. Make sure n8n is running:
-   ```powershell
-   npm run dockerup
-   ```
+1. Open n8n: `http://localhost:5678`
+2. Log in with your credentials
+3. For each workflow file:
+   - Click **Add Workflow** or **+**
+   - Click the three dots menu (⋮) → **Import from File**
+   - Select the JSON file
+   - Click **Save** and **Activate**
 
-2. Open n8n in your browser:
-   ```
-   http://localhost:5678
-   ```
+### Step 2: Verify Workflow Structure
 
-3. Log in with credentials from `.env`:
-   - Username: `admin`
-   - Password: `changeme`
+Each workflow should have this structure:
 
-4. Import each workflow:
-   - Click "Add Workflow" or use the "+" button
-   - Click the three dots menu (⋮) in the top right
-   - Select "Import from File"
-   - Choose one of the JSON files from this directory
-   - Click "Save" to activate the workflow
-
-5. Repeat for all three workflows
-
-### Step 2: Verify Webhook URLs
-
-After importing, verify that each workflow has the correct webhook path:
-- Get Order Status: `http://localhost:5678/webhook/get_order_status`
-- Book Appointment: `http://localhost:5678/webhook/book_appointment`
-- Check Inventory: `http://localhost:5678/webhook/check_inventory`
-
-### Step 3: Set Up Database
-
-Run the SQL setup script to add tools to the database:
-
-```powershell
-# Connect to Postgres
-docker exec -it docker-postgres-1 psql -U aiuser -d aiclient
-
-# In psql, run:
-\i /path/to/setup_tools.sql
+```
+Webhook → Check Integration → Has Real API? → [Branch]
+                                     │
+                    ┌────────────────┴────────────────┐
+                    │                                 │
+                    ▼                                 ▼
+            Call Real API                    Mock Fallback
+                    │                                 │
+                    ▼                                 │
+            Format Response                          │
+                    │                                 │
+                    └────────────┬────────────────────┘
+                                 │
+                                 ▼
+                              Merge
+                                 │
+                                 ▼
+                        Respond to Webhook
 ```
 
-Or pipe the file directly:
+### Step 3: Test Webhooks
 
-```powershell
-Get-Content setup_tools.sql | docker exec -i docker-postgres-1 psql -U aiuser -d aiclient
+**Test with mock data (no integration):**
+```bash
+curl -X POST http://localhost:5678/webhook/check_inventory \
+  -H "Content-Type: application/json" \
+  -d '{"productName": "pepperoni"}'
 ```
 
-### Step 4: Test Webhooks
-
-Test each webhook manually with curl:
-
-**Get Order Status:**
-```powershell
-curl -X POST http://localhost:5678/webhook/get_order_status `
-  -H "Content-Type: application/json" `
-  -d '{"orderNumber": "12345"}'
-```
-
-**Book Appointment:**
-```powershell
-curl -X POST http://localhost:5678/webhook/book_appointment `
-  -H "Content-Type: application/json" `
+**Test with integration credentials (simulates real client):**
+```bash
+curl -X POST http://localhost:5678/webhook/check_inventory \
+  -H "Content-Type: application/json" \
   -d '{
-    "date": "2025-01-20",
-    "time": "14:00",
-    "serviceType": "consultation",
-    "customerName": "John Doe",
-    "customerEmail": "john@example.com"
+    "productName": "pepperoni",
+    "_integration": {
+      "apiUrl": "https://api.example.com",
+      "apiKey": "test_key_123",
+      "authMethod": "bearer"
+    }
   }'
 ```
 
-**Check Inventory:**
-```powershell
-curl -X POST http://localhost:5678/webhook/check_inventory `
-  -H "Content-Type: application/json" `
-  -d '{"productName": "pepperoni-pizza", "quantity": 2}'
+---
+
+## 🔧 Accessing Integration Data in n8n
+
+When the backend passes integration credentials, access them in n8n like this:
+
+| What | n8n Expression |
+|------|----------------|
+| API Base URL | `{{ $json._integration.apiUrl }}` |
+| API Key | `{{ $json._integration.apiKey }}` |
+| API Secret | `{{ $json._integration.apiSecret }}` |
+| Auth Method | `{{ $json._integration.authMethod }}` |
+| Headers | `{{ $json._integration.headers }}` |
+| Full Config | `{{ $json._integration.config }}` |
+
+### Example: HTTP Request Node Configuration
+
+**URL:**
+```
+{{ $json._integration.apiUrl }}/api/inventory/{{ $json.productSku }}
 ```
 
-## Testing with the AI Agent
+**Headers:**
+```
+Authorization: Bearer {{ $json._integration.apiKey }}
+Content-Type: application/json
+```
 
-Once setup is complete, you can test the full integration:
+---
 
-```powershell
+## 📋 Client Setup Checklist
+
+For each client that needs these tools:
+
+1. **Admin Panel → Tools**
+   - Verify each tool has the correct `integration_type` set
+
+2. **Admin Panel → Clients → [Client] → Tools**
+   - Enable the tools needed
+   - Set webhook URL: `http://localhost:5678/webhook/{tool_name}`
+
+3. **Admin Panel → Clients → [Client] → Integrations**
+   - Add integrations matching the tool requirements:
+     - `inventory_api` for check_inventory tool
+     - `order_api` for get_order_status tool
+     - `booking_api` for book_appointment tool
+   - Fill in API URL and API Key
+
+---
+
+## 🧪 Testing Flow
+
+### Full Integration Test (via Backend)
+
+```bash
 # Start the backend
-npm start
+cd backend && npm start
 
-# In another terminal, send a message:
-curl -X POST http://localhost:3000/chat/message `
-  -H "Content-Type: application/json" `
-  -H "Authorization: Bearer bobs_pizza_api_key_123" `
+# In another terminal, test via the chat API
+curl -X POST http://localhost:3000/api/chat/message \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_CLIENT_API_KEY" \
   -d '{
-    "sessionId": "test-session-1",
-    "message": "What is the status of my order 12345?"
+    "sessionId": "test-session",
+    "message": "Do you have pepperoni in stock?"
   }'
 ```
 
-The AI should:
-1. Recognize the need to use `get_order_status`
-2. Call the n8n webhook with `orderNumber: "12345"`
-3. Receive the order status from the workflow
-4. Format a natural language response for the user
+Expected flow:
+1. AI recognizes need for `check_inventory` tool
+2. Backend fetches client's `inventory_api` credentials
+3. Backend calls n8n with tool params + `_integration`
+4. n8n calls real API (or mock if no integration)
+5. AI receives result and responds to user
 
-## Customizing Workflows
+### Test in Admin Panel
 
-### Adding Real API Integrations
+1. Go to Admin Panel → Chat Test
+2. Select a client (e.g., Bob's Pizza)
+3. Ask: "Check if you have pepperoni in stock"
+4. Watch console logs to see integration data being passed
 
-To connect to real systems, replace the "Code" node with actual API calls:
+---
 
-1. **For Shopify**: Use the Shopify node
-2. **For WooCommerce**: Use the HTTP Request node
-3. **For Custom APIs**: Use the HTTP Request node with authentication
+## 🔍 Troubleshooting
 
-### Example: Replace Mock with Real API
+### Workflow Not Using Real API
 
-In the Code node, replace:
-```javascript
-const orders = {
-  '12345': { ... }
-};
-```
+1. Check that client has the correct integration type configured
+2. Verify integration has `api_url` set (not just `webhook_url`)
+3. Check backend logs for `[Integration] No {type} integration found`
 
-With an HTTP Request node:
-- Method: GET
-- URL: `https://yourstore.com/api/orders/{{ $json.orderNumber }}`
-- Authentication: API Key / OAuth / Basic Auth
+### Mock Data Always Used
 
-## Troubleshooting
+The mock fallback runs when:
+- No `_integration` object in request
+- `_integration.apiUrl` is null/empty
+- Testing directly via n8n (without backend)
 
-### Workflow Not Responding
+### Real API Call Failing
 
-1. Check that workflow is active (toggle in top right should be green)
-2. Verify webhook path matches database configuration
-3. Check n8n logs: `docker logs docker-n8n-1`
+1. Check the "Call Real API" node execution in n8n
+2. Verify API URL is correct
+3. Check authentication method matches what API expects
+4. Look at HTTP response status and body
 
-### Tool Not Found Error
+---
 
-1. Verify tool exists in database: `SELECT * FROM tools;`
-2. Check tool is enabled for client: `SELECT * FROM client_tools WHERE client_id = 1;`
-3. Verify webhook URL is correct in `client_tools` table
+## 🏢 Adding More Tools
 
-### Timeout Errors
+To add a new tool with integration support:
 
-1. Check n8n is running: `npm run check:connections`
-2. Increase timeout in `n8nService.js` (default: 30s)
-3. Optimize workflow (remove delays, simplify logic)
+1. **Create workflow in n8n:**
+   - Copy an existing workflow as template
+   - Modify the mock data and API endpoints
+   - Update parameter handling
 
-## Next Steps
+2. **Register tool in Admin Panel:**
+   - Add tool with appropriate `integration_type`
 
-After Phase 3 is complete:
+3. **Define integration type (if new):**
+   - Add to `integrationService.getAvailableIntegrationTypes()`
 
-1. **Add More Tools**: Create workflows for common customer service tasks
-2. **Real Integrations**: Replace mock data with actual API calls
-3. **Error Handling**: Add error handling nodes in workflows
-4. **Monitoring**: Set up n8n webhook error notifications
-5. **Authentication**: Add API key verification in webhooks if needed
+4. **Export workflow:**
+   - Download as JSON
+   - Save to this directory
 
-## Resources
+---
+
+## 📚 Resources
 
 - [n8n Documentation](https://docs.n8n.io/)
 - [n8n Webhook Trigger](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.webhook/)
-- [n8n Code Node](https://docs.n8n.io/code-examples/expressions/)
+- [n8n HTTP Request Node](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.httprequest/)
+- [INTEGRATION_SYSTEM_GUIDE.md](../INTEGRATION_SYSTEM_GUIDE.md) - Full integration system documentation

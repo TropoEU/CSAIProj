@@ -17,24 +17,82 @@
     },
     {
       "parameters": {
-        "jsCode": "// Mock inventory check\n// In production, this would query your inventory management system\n\n// Access data from webhook POST body\nconst requestData = $json.body || $json;\nconst { productName, productSku, quantity } = requestData;\n\nif (!productName && !productSku) {\n  return {\n    success: false,\n    message: 'Please provide either product name or SKU'\n  };\n}\n\n// Mock inventory database\nconst inventory = {\n  'pepperoni-pizza': {\n    name: 'Large Pepperoni Pizza',\n    sku: 'PIZZA-001',\n    inStock: true,\n    quantity: 45,\n    price: '$18.99'\n  },\n  'PIZZA-001': {\n    name: 'Large Pepperoni Pizza',\n    sku: 'PIZZA-001',\n    inStock: true,\n    quantity: 45,\n    price: '$18.99'\n  },\n  'margherita-pizza': {\n    name: 'Medium Margherita Pizza',\n    sku: 'PIZZA-002',\n    inStock: true,\n    quantity: 32,\n    price: '$15.00'\n  },\n  'PIZZA-002': {\n    name: 'Medium Margherita Pizza',\n    sku: 'PIZZA-002',\n    inStock: true,\n    quantity: 32,\n    price: '$15.00'\n  },\n  'garlic-bread': {\n    name: 'Garlic Bread',\n    sku: 'SIDE-001',\n    inStock: true,\n    quantity: 120,\n    price: '$4.99'\n  },\n  'SIDE-001': {\n    name: 'Garlic Bread',\n    sku: 'SIDE-001',\n    inStock: true,\n    quantity: 120,\n    price: '$4.99'\n  },\n  'truffle-pizza': {\n    name: 'Truffle Mushroom Pizza',\n    sku: 'PIZZA-SPECIAL-001',\n    inStock: false,\n    quantity: 0,\n    price: '$28.00',\n    nextAvailable: 'Tomorrow'\n  },\n  'PIZZA-SPECIAL-001': {\n    name: 'Truffle Mushroom Pizza',\n    sku: 'PIZZA-SPECIAL-001',\n    inStock: false,\n    quantity: 0,\n    price: '$28.00',\n    nextAvailable: 'Tomorrow'\n  }\n};\n\n// Search by name or SKU\nconst searchKey = (productSku || productName || '').toLowerCase().replace(/\\s+/g, '-');\nconst product = inventory[searchKey];\n\nif (!product) {\n  return {\n    success: false,\n    message: `Product \"${productName || productSku}\" not found in our catalog. Please check the product name or SKU.`\n  };\n}\n\n// Check if requested quantity is available\nconst requestedQty = quantity || 1;\n\nif (!product.inStock) {\n  return {\n    success: true,\n    message: `${product.name} is currently out of stock. ${product.nextAvailable ? 'It will be available ' + product.nextAvailable + '.' : 'Please check back later.'}`,\n    data: {\n      ...product,\n      available: false\n    }\n  };\n}\n\nif (product.quantity < requestedQty) {\n  return {\n    success: true,\n    message: `We only have ${product.quantity} units of ${product.name} in stock. Would you like to order the available quantity?`,\n    data: {\n      ...product,\n      available: true,\n      requestedQuantity: requestedQty,\n      availableQuantity: product.quantity\n    }\n  };\n}\n\nreturn {\n  success: true,\n  message: `${product.name} is in stock! We have ${product.quantity} units available. Price: ${product.price}`,\n  data: {\n    ...product,\n    available: true\n  }\n};"
+        "jsCode": "// n8n webhook may put POST body in $json.body or at root level\nconst data = $json.body || $json;\nconst integration = data._integration;\n\nif (!integration || !integration.apiUrl) {\n  return {\n    _error: true,\n    success: false,\n    message: 'No API integration configured for this client. Please set up an inventory_api integration in the admin panel.'\n  };\n}\n\n// Prepare API call config\nreturn {\n  productName: data.productName,\n  productSku: data.productSku,\n  quantity: data.quantity || 1,\n  _apiConfig: {\n    url: integration.apiUrl + '/inventory/check',\n    key: integration.apiKey,\n    authMethod: integration.authMethod || 'bearer'\n  }\n};"
       },
-      "id": "code-1",
-      "name": "Check Stock",
+      "id": "prepare-request",
+      "name": "Prepare API Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [450, 300]
     },
     {
       "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json._error }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-error",
+      "name": "Has Error?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json._apiConfig.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json._apiConfig.key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"productName\": \"{{ $json.productName }}\",\n  \"productSku\": \"{{ $json.productSku }}\",\n  \"quantity\": {{ $json.quantity }}\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "http-api-call",
+      "name": "Call Client API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify($json) }}"
       },
-      "id": "respond-1",
-      "name": "Respond to Webhook",
+      "id": "respond-error",
+      "name": "Return Error",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [650, 300]
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "respond-success",
+      "name": "Return Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1100, 400]
     }
   ],
   "connections": {
@@ -42,18 +100,47 @@
       "main": [
         [
           {
-            "node": "Check Stock",
+            "node": "Prepare API Request",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Check Stock": {
+    "Prepare API Request": {
       "main": [
         [
           {
-            "node": "Respond to Webhook",
+            "node": "Has Error?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Error?": {
+      "main": [
+        [
+          {
+            "node": "Return Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call Client API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Client API": {
+      "main": [
+        [
+          {
+            "node": "Return Result",
             "type": "main",
             "index": 0
           }
@@ -63,6 +150,6 @@
   },
   "active": true,
   "settings": {},
-  "versionId": "1",
+  "versionId": "4",
   "id": "check_inventory"
 }

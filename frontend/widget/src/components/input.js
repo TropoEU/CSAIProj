@@ -6,6 +6,7 @@ export class InputArea {
   constructor(onSend, config = {}) {
     this.onSend = onSend;
     this.config = config;
+    this.isLoading = false;
     this.element = this.create();
     this.input = this.element.querySelector('.csai-input');
     this.sendButton = this.element.querySelector('.csai-send-button');
@@ -102,7 +103,7 @@ export class InputArea {
    */
   updateSendButton() {
     const hasText = this.input.value.trim().length > 0;
-    this.sendButton.disabled = !hasText;
+    this.sendButton.disabled = !hasText || this.isLoading;
   }
 
   /**
@@ -111,7 +112,7 @@ export class InputArea {
   handleSend() {
     const message = this.input.value.trim();
 
-    if (message && !this.sendButton.disabled) {
+    if (message && !this.isLoading) {
       this.onSend(message);
       this.clear();
     }
@@ -124,6 +125,7 @@ export class InputArea {
     this.input.value = '';
     this.input.style.height = 'auto';
     this.updateSendButton();
+    // Keep focus on input
     this.input.focus();
   }
 
@@ -145,18 +147,19 @@ export class InputArea {
   }
 
   /**
-   * Disable the input
+   * Disable the input (prevents sending but keeps focus)
    */
   disable() {
-    this.input.disabled = true;
+    this.isLoading = true;
     this.sendButton.disabled = true;
+    // Don't disable input.disabled to keep focus
   }
 
   /**
    * Enable the input
    */
   enable() {
-    this.input.disabled = false;
+    this.isLoading = false;
     this.updateSendButton();
   }
 

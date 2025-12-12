@@ -81,12 +81,33 @@ export class Conversation {
      * Update message count and token total
      */
     static async updateStats(id, messageCount, tokensTotal) {
+        const updates = [];
+        const params = [id];
+        let paramIndex = 2;
+
+        if (messageCount !== null && messageCount !== undefined) {
+            updates.push(`message_count = $${paramIndex}`);
+            params.push(messageCount);
+            paramIndex++;
+        }
+
+        if (tokensTotal !== null && tokensTotal !== undefined) {
+            updates.push(`tokens_total = $${paramIndex}`);
+            params.push(tokensTotal);
+            paramIndex++;
+        }
+
+        if (updates.length === 0) {
+            // No updates to make
+            return await this.findById(id);
+        }
+
         const result = await db.query(
             `UPDATE conversations
-             SET message_count = $2, tokens_total = $3
+             SET ${updates.join(', ')}
              WHERE id = $1
              RETURNING *`,
-            [id, messageCount, tokensTotal]
+            params
         );
         return result.rows[0];
     }

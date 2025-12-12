@@ -1,4 +1,5 @@
 import conversationService from '../services/conversationService.js';
+import { logger } from '../utils/logger.js';
 import { Client } from '../models/Client.js';
 import { Conversation } from '../models/Conversation.js';  // Add this import
 import { RedisCache } from '../services/redisCache.js';
@@ -21,6 +22,12 @@ export async function sendMessage(req, res) {
       userIdentifier
     } = req.body;
 
+    logger.log('[ChatController] Received message request', { 
+      message: message?.substring(0, 50), 
+      sessionId,
+      clientId: req.client?.id 
+    });
+
     // Validation
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return res.status(400).json({
@@ -36,6 +43,11 @@ export async function sendMessage(req, res) {
 
     // Get client from API key (set by auth middleware)
     const client = req.client;
+    
+    logger.log('[ChatController] Processing message for client', { 
+      clientId: client?.id, 
+      clientName: client?.name 
+    });
 
     if (!client) {
       return res.status(401).json({

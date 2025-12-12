@@ -90,53 +90,46 @@ class ToolManager {
       return '';
     }
 
-    const toolDescriptions = tools.map(tool => {
+    // Compact but informative: tool name, description, and ALL parameter names (not just required)
+    // This is critical - the model needs to know parameter names even if they're optional
+    const toolList = tools.map(tool => {
       const params = tool.parameters_schema?.properties || {};
       const required = tool.parameters_schema?.required || [];
-
-      let description = `\n### ${tool.tool_name}\n`;
-      description += `${tool.description}\n`;
-
-      if (Object.keys(params).length > 0) {
-        description += '\nParameters:\n';
-        Object.entries(params).forEach(([name, schema]) => {
-          const isRequired = required.includes(name);
-          const requiredTag = isRequired ? ' (required)' : ' (optional)';
-          description += `  - ${name}${requiredTag}: ${schema.description || schema.type}\n`;
-        });
-      }
-
-      description += `\nTo use this tool, you MUST respond with this EXACT format:\n`;
-      description += `USE_TOOL: ${tool.tool_name}\n`;
-      if (Object.keys(params).length > 0) {
-        description += `PARAMETERS: ${JSON.stringify(params)}\n`;
-      }
-
-      return description;
+      const allParamNames = Object.keys(params);
+      
+      // Show required params in parentheses, optional params after
+      const requiredStr = required.length > 0 ? ` REQUIRED(${required.join(',')})` : '';
+      const optionalParams = allParamNames.filter(p => !required.includes(p));
+      const optionalStr = optionalParams.length > 0 ? ` optional(${optionalParams.join(',')})` : '';
+      
+      // Use first ~50 chars of description
+      const shortDesc = (tool.description || '').substring(0, 50).replace(/\n/g, ' ');
+      return `${tool.tool_name}${requiredStr}${optionalStr}: ${shortDesc}`;
     }).join('\n');
 
-    return `
-## Available Tools
+    // Show examples for tools that have different parameter patterns
+    const examples = [];
+    tools.slice(0, 2).forEach(tool => {
+      const params = tool.parameters_schema?.properties || {};
+      const required = tool.parameters_schema?.required || [];
+      const paramNames = required.length > 0 ? required : Object.keys(params).slice(0, 2);
+      const exampleArgs = {};
+      paramNames.forEach((key) => {
+        exampleArgs[key] = 'value';
+      });
+      if (Object.keys(exampleArgs).length > 0) {
+        examples.push({
+          tool: tool.tool_name,
+          params: exampleArgs
+        });
+      }
+    });
 
-You have access to the following tools. When you need real-time data, you MUST use the EXACT format shown below - DO NOT explain what you're doing, just output the format:
+    const exampleText = examples.map(ex => 
+      `USE_TOOL: ${ex.tool}\nPARAMETERS: ${JSON.stringify(ex.params)}`
+    ).join('\n\n');
 
-${toolDescriptions}
-
-Example conversation:
-User: "What's the status of order 12345?"
-You: "USE_TOOL: get_order_status
-PARAMETERS: {"orderNumber": "12345"}"
-
-User: "Book an appointment for tomorrow at 2pm"
-You: "USE_TOOL: book_appointment
-PARAMETERS: {"date": "tomorrow", "time": "14:00"}"
-
-CRITICAL RULES:
-1. When you need real-time data, output ONLY the USE_TOOL format above
-2. DO NOT say "I will use the tool" or "Let me check" - just output the format
-3. After receiving tool results, then respond conversationally to the user
-4. If you can answer from general knowledge, do so without tools
-`;
+    return `\nTools:\n${toolList}\n\nIMPORTANT: Before calling a tool, check if all REQUIRED parameters are available. If missing, ask the user for them, then call the tool.\n\n**CRITICAL FORMAT** - You MUST use this EXACT format (no variations):\nUSE_TOOL: tool_name\nPARAMETERS: {"param":"value"}\n\nDo NOT use formats like "tool_name: {...}" - use the EXACT format above.\n\nExamples:\n${exampleText}`;
   }
 
   /**
@@ -145,15 +138,10 @@ CRITICAL RULES:
    * @returns {Array|null} Parsed tool calls or null
    */
   parseToolCallsFromContent(content) {
-    // Check if response contains tool usage pattern (multiple formats)
-    if (!content.includes('USE_TOOL:') && !content.match(/using the tool:/i)) {
-      return null;
-    }
-
     try {
       const toolCalls = [];
 
-      // Pattern 1: Multi-line format
+      // Pattern 1: Multi-line format (preferred)
       // USE_TOOL: tool_name
       // PARAMETERS: {...}
       const lines = content.split('\n');
@@ -182,10 +170,42 @@ CRITICAL RULES:
         }
       }
 
-      // Pattern 2: Single-line Ollama format
-      // "Using the tool: TOOL_NAME - PARAMETERS: {...}"
-      const singleLineRegex = /using the tool:\s*([A-Z_]+)\s*-\s*PARAMETERS:\s*(\{[^}]+\})/gi;
+      // Pattern 2: tool_name: {...} format (fallback - AI sometimes outputs this)
+      // Matches: "book_appointment: {...}" or "book_appointment: {...}"
+      const toolNameColonRegex = /(\w+):\s*(\{[^}]+\})/g;
       let match;
+      while ((match = toolNameColonRegex.exec(content)) !== null) {
+        const toolName = match[1].toLowerCase();
+        // Check if this looks like a tool name (contains underscore or matches known tools)
+        if (toolName.includes('_') || ['book_appointment', 'get_order_status', 'check_inventory'].includes(toolName)) {
+          let parameters = {};
+          try {
+            parameters = JSON.parse(match[2]);
+          } catch (e) {
+            // Try to extract JSON from the line
+            const jsonMatch = match[2].match(/\{.*\}/);
+            if (jsonMatch) {
+              try {
+                parameters = JSON.parse(jsonMatch[0]);
+              } catch (e2) {
+                console.warn(`Failed to parse parameters for ${toolName}:`, match[2]);
+              }
+            }
+          }
+
+          // Only add if we successfully parsed parameters
+          if (Object.keys(parameters).length > 0) {
+            toolCalls.push({
+              id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              name: toolName,
+              arguments: parameters
+            });
+          }
+        }
+      }
+
+      // Pattern 3: Single-line "Using the tool: TOOL_NAME - PARAMETERS: {...}"
+      const singleLineRegex = /using the tool:\s*([A-Z_]+)\s*-\s*PARAMETERS:\s*(\{[^}]+\})/gi;
       while ((match = singleLineRegex.exec(content)) !== null) {
         const toolName = match[1].toLowerCase();
         let parameters = {};

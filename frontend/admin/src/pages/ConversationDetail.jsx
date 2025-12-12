@@ -10,6 +10,13 @@ export default function ConversationDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const formatTokenCount = (tokens) => {
+    if (!tokens || tokens === 0) return '0';
+    if (tokens < 1000) return tokens.toString();
+    if (tokens < 1000000) return `${(tokens / 1000).toFixed(1)}K`;
+    return `${(tokens / 1000000).toFixed(2)}M`;
+  };
+
   useEffect(() => {
     fetchConversation();
   }, [id]);
@@ -63,7 +70,7 @@ export default function ConversationDetail() {
       </div>
 
       {/* Metadata */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardBody className="p-4">
             <p className="text-sm text-gray-500">Client</p>
@@ -84,9 +91,17 @@ export default function ConversationDetail() {
         </Card>
         <Card>
           <CardBody className="p-4">
+            <p className="text-sm text-gray-500">Tokens</p>
+            <p className="font-medium text-gray-900 font-mono" title="Total tokens used in this conversation">
+              {conversation.tokens_total ? formatTokenCount(conversation.tokens_total) : '0'}
+            </p>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardBody className="p-4">
             <p className="text-sm text-gray-500">Started</p>
             <p className="font-medium text-gray-900">
-              {new Date(conversation.created_at).toLocaleString()}
+              {conversation.started_at ? new Date(conversation.started_at).toLocaleString() : 'N/A'}
             </p>
           </CardBody>
         </Card>
@@ -128,13 +143,20 @@ export default function ConversationDetail() {
                         {message.role === 'user' ? 'Customer' : 'AI Assistant'}
                       </span>
                       <span className="text-xs text-gray-500">
-                        {new Date(message.created_at).toLocaleTimeString()}
+                        {message.timestamp ? new Date(message.timestamp).toLocaleString() : 'N/A'}
                       </span>
-                      {message.tokens && (
-                        <Badge variant="default" className="text-xs">
-                          {message.tokens} tokens
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-2 ml-auto">
+                        {message.tokens !== undefined && message.tokens > 0 && (
+                          <Badge variant="default" className="text-xs" title="Tokens used for this LLM call">
+                            {formatTokenCount(message.tokens)}
+                          </Badge>
+                        )}
+                        {message.tokens_cumulative !== undefined && message.tokens_cumulative > 0 && (
+                          <Badge variant="info" className="text-xs" title="Cumulative tokens">
+                            Total: {formatTokenCount(message.tokens_cumulative)}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <p className="text-gray-700 whitespace-pre-wrap">{message.content}</p>
                   </div>

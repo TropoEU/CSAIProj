@@ -101,13 +101,22 @@ export default function Conversations() {
   });
 
   const formatDuration = (startTime, endTime) => {
+    if (!startTime) return 'N/A';
     if (!endTime) return 'Active';
     const start = new Date(startTime);
     const end = new Date(endTime);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return 'N/A';
     const diff = Math.floor((end - start) / 1000);
     if (diff < 60) return `${diff}s`;
     if (diff < 3600) return `${Math.floor(diff / 60)}m`;
     return `${Math.floor(diff / 3600)}h ${Math.floor((diff % 3600) / 60)}m`;
+  };
+
+  const formatTokenCount = (tokens) => {
+    if (!tokens || tokens === 0) return '0';
+    if (tokens < 1000) return tokens.toString();
+    if (tokens < 1000000) return `${(tokens / 1000).toFixed(1)}K`;
+    return `${(tokens / 1000000).toFixed(2)}M`;
   };
 
   return (
@@ -178,6 +187,7 @@ export default function Conversations() {
                   <TableHeader>Client</TableHeader>
                   <TableHeader>Messages</TableHeader>
                   <TableHeader>Tool Calls</TableHeader>
+                  <TableHeader>Tokens</TableHeader>
                   <TableHeader>Duration</TableHeader>
                   <TableHeader>Started</TableHeader>
                   <TableHeader>Actions</TableHeader>
@@ -201,11 +211,14 @@ export default function Conversations() {
                           {conv.tool_call_count || 0}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-gray-500">
-                        {formatDuration(conv.created_at, conv.ended_at)}
+                      <TableCell className="text-gray-600 font-mono text-sm">
+                        {formatTokenCount(conv.tokens_total)}
                       </TableCell>
                       <TableCell className="text-gray-500">
-                        {new Date(conv.created_at).toLocaleString()}
+                        {formatDuration(conv.started_at, conv.ended_at)}
+                      </TableCell>
+                      <TableCell className="text-gray-500">
+                        {conv.started_at ? new Date(conv.started_at).toLocaleString() : 'N/A'}
                       </TableCell>
                       <TableCell>
                         <Link
@@ -219,7 +232,7 @@ export default function Conversations() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-gray-500 py-8">
+                    <TableCell colSpan={8} className="text-center text-gray-500 py-8">
                       No conversations found
                     </TableCell>
                   </TableRow>

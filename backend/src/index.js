@@ -4,6 +4,7 @@ import axios from "axios";
 import toolRoutes from "./routes/tools.js";
 import chatRoutes from "./routes/chat.js";
 import adminRoutes from "./routes/admin.js";
+import mockApiRoutes from "./routes/mockApi.js";
 import { redisClient } from "./redis.js";
 import { db } from "./db.js";
 
@@ -21,6 +22,7 @@ app.use(express.json());
 app.use("/tools", toolRoutes);
 app.use("/chat", chatRoutes);
 app.use("/admin", adminRoutes);
+app.use("/mock-api", mockApiRoutes); // Mock client APIs for testing
 
 //health check for services
 app.get('/health', async (req, res) => {
