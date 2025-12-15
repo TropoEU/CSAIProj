@@ -8,13 +8,22 @@ export class Tool {
      * @param {Object} parametersSchema - JSON schema for parameters
      * @param {string} category - Tool category (optional)
      * @param {string} integrationType - Integration type this tool requires (optional, e.g., 'inventory_api')
+     * @param {Array} capabilities - Array of capability descriptions (optional)
      */
-    static async create(toolName, description, parametersSchema = null, category = null, integrationType = null) {
+    static async create(toolName, description, parametersSchema = null, category = null, integrationType = null, capabilities = null) {
+        // Format JSONB fields properly - ensure arrays/objects are JSON strings
+        const formattedParams = parametersSchema 
+            ? (typeof parametersSchema === 'string' ? parametersSchema : JSON.stringify(parametersSchema))
+            : null;
+        const formattedCapabilities = capabilities 
+            ? (Array.isArray(capabilities) ? JSON.stringify(capabilities) : (typeof capabilities === 'string' ? capabilities : JSON.stringify(capabilities)))
+            : null;
+        
         const result = await db.query(
-            `INSERT INTO tools (tool_name, description, parameters_schema, category, integration_type)
-             VALUES ($1, $2, $3, $4, $5)
+            `INSERT INTO tools (tool_name, description, parameters_schema, category, integration_type, capabilities)
+             VALUES ($1, $2, $3::jsonb, $4, $5, $6::jsonb)
              RETURNING *`,
-            [toolName, description, parametersSchema, category, integrationType]
+            [toolName, description, formattedParams, category, integrationType, formattedCapabilities]
         );
         return result.rows[0];
     }
@@ -66,15 +75,26 @@ export class Tool {
      * Update tool
      */
     static async update(id, updates) {
-        const allowedFields = ['tool_name', 'description', 'parameters_schema', 'category', 'integration_type'];
+        const allowedFields = ['tool_name', 'description', 'parameters_schema', 'category', 'integration_type', 'capabilities'];
         const fields = [];
         const values = [];
         let paramIndex = 1;
 
         for (const [key, value] of Object.entries(updates)) {
             if (allowedFields.includes(key)) {
-                fields.push(`${key} = $${paramIndex}`);
-                values.push(value);
+                // For JSONB fields, ensure proper JSON formatting
+                if (key === 'capabilities') {
+                    // If it's an array, stringify it; if null, keep as null
+                    fields.push(`${key} = $${paramIndex}::jsonb`);
+                    values.push(value === null ? null : JSON.stringify(value));
+                } else if (key === 'parameters_schema' && value !== null) {
+                    // Ensure parameters_schema is also properly formatted
+                    fields.push(`${key} = $${paramIndex}::jsonb`);
+                    values.push(typeof value === 'string' ? value : JSON.stringify(value));
+                } else {
+                    fields.push(`${key} = $${paramIndex}`);
+                    values.push(value);
+                }
                 paramIndex++;
             }
         }

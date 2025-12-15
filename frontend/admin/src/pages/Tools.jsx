@@ -64,9 +64,17 @@ export default function Tools() {
     // Fetch integration types for dropdowns
     try {
       const typesRes = await integrationsApi.getTypes();
-      setIntegrationTypes(typesRes.data || []);
+      // Axios wraps responses in .data, handle both cases
+      const types = Array.isArray(typesRes.data) ? typesRes.data : (Array.isArray(typesRes) ? typesRes : []);
+      if (types.length === 0) {
+        console.error('API returned empty array - this should not happen');
+        setError('Integration types API returned no data. Please check server logs.');
+      } else {
+        setIntegrationTypes(types);
+      }
     } catch (err) {
-      console.warn('Failed to load integration types:', err);
+      console.error('Failed to load integration types:', err);
+      setError(`Failed to load integration types: ${err.response?.data?.error || err.message}`);
       setIntegrationTypes([]);
     }
 
@@ -90,8 +98,13 @@ export default function Tools() {
       const parametersSchema = data.parametersSchema
         ? JSON.parse(data.parametersSchema)
         : {};
+      
+      // Parse capabilities from newline-separated string to array
+      const capabilities = data.capabilities
+        ? data.capabilities.split('\n').map(c => c.trim()).filter(c => c.length > 0)
+        : null;
 
-      await toolsApi.create({ ...data, parametersSchema });
+      await toolsApi.create({ ...data, parametersSchema, capabilities });
       setIsCreateModalOpen(false);
       reset();
       fetchData();
@@ -140,6 +153,9 @@ export default function Tools() {
       description: tool.description,
       integrationType: tool.integration_type || '',
       parametersSchema: JSON.stringify(tool.parameters_schema || {}, null, 2),
+      capabilities: Array.isArray(tool.capabilities) 
+        ? tool.capabilities.join('\n')
+        : '',
     });
     setIsEditModalOpen(true);
   };
@@ -147,11 +163,17 @@ export default function Tools() {
   const handleUpdate = async (data) => {
     try {
       const parametersSchema = data.parametersSchema ? JSON.parse(data.parametersSchema) : {};
+      // Parse capabilities from newline-separated string to array
+      const capabilities = data.capabilities
+        ? data.capabilities.split('\n').map(c => c.trim()).filter(c => c.length > 0)
+        : null;
+      
       await toolsApi.update(editingTool.id, {
         toolName: data.toolName,
         description: data.description,
         integrationType: data.integrationType || null,
         parametersSchema,
+        capabilities,
       });
       setIsEditModalOpen(false);
       setEditingTool(null);
@@ -347,17 +369,34 @@ export default function Tools() {
             )}
           </div>
 
+          <div>
+            <label className="label">Capabilities (one per line)</label>
+            <textarea
+              {...register('capabilities')}
+              className="input min-h-[120px]"
+              placeholder="Get real-time tracking information&#10;View driver details and contact info&#10;See estimated delivery time"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Enter one capability per line. These will be shown as bullet points in the customer dashboard.
+            </p>
+          </div>
+
           <Select
             label="Integration Type"
             {...register('integrationType')}
-          >
-            <option value="">None (n8n handles everything)</option>
-            {integrationTypes.map(type => (
-              <option key={type.type} value={type.type}>
-                {type.name} - {type.description}
-              </option>
-            ))}
-          </Select>
+            options={[
+              { value: '', label: 'None (n8n handles everything)' },
+              ...integrationTypes.map(type => ({
+                value: type.type,
+                label: `${type.name} - ${type.description}`
+              }))
+            ]}
+          />
+          {integrationTypes.length === 0 && (
+            <p className="text-xs text-yellow-600 mt-1">
+              No integration types loaded. Check console for errors.
+            </p>
+          )}
           <p className="text-xs text-gray-500 -mt-3">
             If set, the tool will fetch API credentials from the client's matching integration.
           </p>
@@ -501,17 +540,34 @@ export default function Tools() {
             )}
           </div>
 
+          <div>
+            <label className="label">Capabilities (one per line)</label>
+            <textarea
+              {...editForm.register('capabilities')}
+              className="input min-h-[120px]"
+              placeholder="Get real-time tracking information&#10;View driver details and contact info&#10;See estimated delivery time"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Enter one capability per line. These will be shown as bullet points in the customer dashboard.
+            </p>
+          </div>
+
           <Select
             label="Integration Type"
             {...editForm.register('integrationType')}
-          >
-            <option value="">None (n8n handles everything)</option>
-            {integrationTypes.map(type => (
-              <option key={type.type} value={type.type}>
-                {type.name} - {type.description}
-              </option>
-            ))}
-          </Select>
+            options={[
+              { value: '', label: 'None (n8n handles everything)' },
+              ...integrationTypes.map(type => ({
+                value: type.type,
+                label: `${type.name} - ${type.description}`
+              }))
+            ]}
+          />
+          {integrationTypes.length === 0 && (
+            <p className="text-xs text-yellow-600 mt-1">
+              No integration types loaded. Check console for errors.
+            </p>
+          )}
           <p className="text-xs text-gray-500 -mt-3">
             If set, the tool will fetch API credentials from the client's matching integration.
           </p>

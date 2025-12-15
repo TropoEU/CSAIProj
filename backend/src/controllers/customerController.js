@@ -201,6 +201,7 @@ class CustomerController {
           t.tool_name,
           t.description,
           t.category,
+          t.capabilities,
           ct.enabled
         FROM client_tools ct
         JOIN tools t ON ct.tool_id = t.id
@@ -210,7 +211,7 @@ class CustomerController {
       );
 
       const tools = result.rows.map(tool => {
-        const capabilities = this.getToolCapabilities(tool.tool_name);
+        const capabilities = this.getToolCapabilities(tool.tool_name, tool.capabilities);
         return {
           name: tool.tool_name,
           description: tool.description || 'No description available',
@@ -233,8 +234,17 @@ class CustomerController {
 
   /**
    * Get tool capabilities (plain language bullet points)
+   * @param {string} toolName - Tool name
+   * @param {Array|null} dbCapabilities - Capabilities from database (optional)
+   * @returns {Array} Array of capability strings
    */
-  getToolCapabilities(toolName) {
+  getToolCapabilities(toolName, dbCapabilities = null) {
+    // If capabilities exist in database, use them
+    if (dbCapabilities && Array.isArray(dbCapabilities) && dbCapabilities.length > 0) {
+      return dbCapabilities;
+    }
+    
+    // Fallback to hardcoded capabilities for backward compatibility
     const capabilities = {
       get_order_status: [
         'Get real-time tracking information',

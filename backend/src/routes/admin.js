@@ -419,7 +419,7 @@ router.get('/tools', async (req, res) => {
  */
 router.post('/tools', async (req, res) => {
   try {
-    const { toolName, description, parametersSchema, category, integrationType } = req.body;
+    const { toolName, description, parametersSchema, category, integrationType, capabilities } = req.body;
 
     if (!toolName || !description) {
       return res.status(400).json({ error: 'Tool name and description are required' });
@@ -430,7 +430,8 @@ router.post('/tools', async (req, res) => {
       description, 
       parametersSchema || {}, 
       category || null,
-      integrationType || null
+      integrationType || null,
+      capabilities || null
     );
     res.status(201).json(tool);
   } catch (error) {
@@ -445,7 +446,7 @@ router.post('/tools', async (req, res) => {
  */
 router.put('/tools/:id', async (req, res) => {
   try {
-    const { toolName, description, parametersSchema, category, integrationType } = req.body;
+    const { toolName, description, parametersSchema, category, integrationType, capabilities } = req.body;
     const updates = {};
 
     if (toolName) updates.tool_name = toolName;
@@ -454,6 +455,8 @@ router.put('/tools/:id', async (req, res) => {
     if (category !== undefined) updates.category = category;
     // Allow setting integration_type to null to remove it
     if (integrationType !== undefined) updates.integration_type = integrationType;
+    // Allow setting capabilities to null to remove them
+    if (capabilities !== undefined) updates.capabilities = capabilities;
 
     const tool = await Tool.update(req.params.id, updates);
     res.json(tool);
@@ -834,7 +837,13 @@ router.get('/conversations/export', async (req, res) => {
 router.get('/integration-types', async (req, res) => {
   try {
     const types = integrationService.getAvailableIntegrationTypes();
-    res.json(types);
+    // Ensure we return an array, not wrapped in an object
+    if (Array.isArray(types)) {
+      res.json(types);
+    } else {
+      console.warn('[Admin] Integration types is not an array:', typeof types);
+      res.json([]);
+    }
   } catch (error) {
     console.error('[Admin] Get integration types error:', error);
     res.status(500).json({ error: 'Failed to get integration types' });
