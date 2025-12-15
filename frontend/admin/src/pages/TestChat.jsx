@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { clients, testChat } from '../services/api';
+import { loadFilterState, saveFilterState, PAGE_KEYS } from '../utils/filterStorage';
 import {
   Card,
   CardBody,
@@ -11,8 +12,13 @@ import {
 } from '../components/common';
 
 export default function TestChat() {
+  // Load filter state from localStorage
+  const initialFilters = loadFilterState(PAGE_KEYS.TEST_CHAT, {
+    selectedClient: null,
+  });
+
   const [clientList, setClientList] = useState([]);
-  const [selectedClient, setSelectedClient] = useState(null);
+  const [selectedClient, setSelectedClient] = useState(initialFilters.selectedClient);
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [sessionId, setSessionId] = useState(null);
@@ -21,6 +27,13 @@ export default function TestChat() {
   const [debugMode, setDebugMode] = useState(false);
   const [debugInfo, setDebugInfo] = useState([]);
   const messagesEndRef = useRef(null);
+
+  // Save filter state when it changes
+  useEffect(() => {
+    saveFilterState(PAGE_KEYS.TEST_CHAT, {
+      selectedClient,
+    });
+  }, [selectedClient]);
 
   useEffect(() => {
     fetchClients();

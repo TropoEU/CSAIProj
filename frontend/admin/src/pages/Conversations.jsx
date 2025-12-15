@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { conversations, clients } from '../services/api';
+import { loadFilterState, saveFilterState, PAGE_KEYS } from '../utils/filterStorage';
 import {
   Card,
   CardBody,
@@ -18,15 +19,31 @@ import {
 } from '../components/common';
 
 export default function Conversations() {
+  // Load filter state from localStorage
+  const initialFilters = loadFilterState(PAGE_KEYS.CONVERSATIONS, {
+    clientFilter: 'all',
+    searchQuery: '',
+  });
+
   const [conversationList, setConversationList] = useState([]);
   const [clientList, setClientList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [clientFilter, setClientFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState(initialFilters.searchQuery);
+  const [clientFilter, setClientFilter] = useState(initialFilters.clientFilter);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isExporting, setIsExporting] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState(null);
+
+  // Save filter state when it changes
+  useEffect(() => {
+    saveFilterState(PAGE_KEYS.CONVERSATIONS, {
+      clientFilter,
+      searchQuery,
+    });
+  }, [clientFilter, searchQuery]);
 
   useEffect(() => {
     fetchClients();
@@ -35,6 +52,19 @@ export default function Conversations() {
   useEffect(() => {
     fetchConversations();
   }, [page, clientFilter]);
+
+  // Auto-refresh polling (every 5 seconds)
+  useEffect(() => {
+    if (!autoRefresh) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      fetchConversations(true); // Silent refresh (no loading state)
+    }, 5000); // 5 seconds
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, page, clientFilter]);
 
   const fetchClients = async () => {
     try {
@@ -45,8 +75,10 @@ export default function Conversations() {
     }
   };
 
-  const fetchConversations = async () => {
-    setLoading(true);
+  const fetchConversations = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
     try {
       const params = {
         page,
@@ -56,10 +88,16 @@ export default function Conversations() {
       const response = await conversations.getAll(params);
       setConversationList(response.data.conversations || response.data);
       setTotalPages(response.data.totalPages || 1);
+      setLastRefresh(new Date());
+      setError(null);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load conversations');
+      if (!silent) {
+        setError(err.response?.data?.error || 'Failed to load conversations');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -126,7 +164,34 @@ export default function Conversations() {
           <h1 className="text-2xl font-bold text-gray-900">Conversations</h1>
           <p className="text-gray-600 mt-1">Monitor and review chat sessions</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
+          {lastRefresh && (
+            <span className="text-xs text-gray-500">
+              Updated {Math.floor((new Date() - lastRefresh) / 1000)}s ago
+            </span>
+          )}
+          <button
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              autoRefresh
+                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <svg className={`w-4 h-4 ${autoRefresh ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
+          </button>
+          <button
+            onClick={() => fetchConversations()}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh Now
+          </button>
           <Button
             variant="secondary"
             onClick={() => handleExport('csv')}
@@ -185,6 +250,7 @@ export default function Conversations() {
                 <TableRow>
                   <TableHeader>Session ID</TableHeader>
                   <TableHeader>Client</TableHeader>
+                  <TableHeader>Provider</TableHeader>
                   <TableHeader>Messages</TableHeader>
                   <TableHeader>Tool Calls</TableHeader>
                   <TableHeader>Tokens</TableHeader>
@@ -202,6 +268,18 @@ export default function Conversations() {
                       </TableCell>
                       <TableCell className="font-medium text-gray-900">
                         {conv.client_name || 'Unknown'}
+                      </TableCell>
+                      <TableCell className="text-gray-600">
+                        <Badge variant="outline" className="text-xs">
+                          {conv.llm_provider || 'ollama'}
+                          {conv.model_name && (
+                            <span className="ml-1 text-gray-500">
+                              ({conv.model_name.length > 15 
+                                ? conv.model_name.substring(0, 12) + '...' 
+                                : conv.model_name})
+                            </span>
+                          )}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge variant="default">{conv.message_count || 0}</Badge>

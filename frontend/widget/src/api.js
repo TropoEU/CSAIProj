@@ -43,7 +43,7 @@ export class ChatAPI {
   /**
    * Get conversation history for a session
    * @param {string} sessionId - Session identifier
-   * @returns {Promise<Array>} Array of messages
+   * @returns {Promise<Object>} Object with messages array and conversationEnded flag
    */
   async getHistory(sessionId) {
     try {
@@ -60,7 +60,10 @@ export class ChatAPI {
       }
 
       const data = await response.json();
-      return data.messages || [];
+      return {
+        messages: data.messages || [],
+        conversationEnded: data.conversationEnded || false
+      };
     } catch (error) {
       console.error('ChatAPI: Failed to get history', error);
       throw error;

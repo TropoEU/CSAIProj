@@ -34,6 +34,8 @@ export default function ClientDetail() {
   const [editingTool, setEditingTool] = useState(null);
   const [isRegeneratingKey, setIsRegeneratingKey] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [isRegeneratingAccessCode, setIsRegeneratingAccessCode] = useState(false);
+  const [showAccessCode, setShowAccessCode] = useState(false);
   const [isTestToolModalOpen, setIsTestToolModalOpen] = useState(false);
   const [testingTool, setTestingTool] = useState(null);
   const [testResult, setTestResult] = useState(null);
@@ -68,11 +70,54 @@ export default function ClientDetail() {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm();
 
   const toolForm = useForm();
   const editToolForm = useForm();
+
+  // Watch the LLM provider field for changes
+  const selectedProvider = watch('llm_provider');
+
+  // Available models per provider
+  const AVAILABLE_MODELS = {
+    groq: [
+      { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B Versatile (Recommended)' },
+      { value: 'llama-3.1-70b-versatile', label: 'Llama 3.1 70B Versatile' },
+      { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B Instant (Fast)' },
+      { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
+      { value: 'gemma2-9b-it', label: 'Gemma 2 9B' },
+    ],
+    claude: [
+      { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (Recommended)' },
+      { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (Fast & Cheap)' },
+      { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus (Most Capable)' },
+      { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
+      { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' },
+    ],
+    openai: [
+      { value: 'gpt-4o', label: 'GPT-4o (Recommended)' },
+      { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast & Cheap)' },
+      { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+      { value: 'gpt-4', label: 'GPT-4' },
+      { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (Cheapest)' },
+    ],
+  };
+
+  // Auto-select default model when provider changes
+  useEffect(() => {
+    if (selectedProvider && selectedProvider !== 'ollama' && AVAILABLE_MODELS[selectedProvider]) {
+      const currentModel = watch('model_name');
+      const availableModels = AVAILABLE_MODELS[selectedProvider].map(m => m.value);
+
+      // If current model is not valid for this provider, set to default
+      if (!availableModels.includes(currentModel)) {
+        setValue('model_name', AVAILABLE_MODELS[selectedProvider][0].value);
+      }
+    }
+  }, [selectedProvider, setValue, watch]);
 
   useEffect(() => {
     fetchClientData();
@@ -120,6 +165,13 @@ export default function ClientDetail() {
     }
   }, [client]);
 
+  // Reset form when edit modal opens to ensure it shows current client data
+  useEffect(() => {
+    if (isEditModalOpen && client) {
+      reset(client);
+    }
+  }, [isEditModalOpen, client, reset]);
+
   const fetchClientData = async () => {
     try {
       const [clientRes, toolsRes, allToolsRes] = await Promise.all([
@@ -160,6 +212,21 @@ export default function ClientDetail() {
       setError(err.response?.data?.error || 'Failed to regenerate API key');
     } finally {
       setIsRegeneratingKey(false);
+    }
+  };
+
+  const handleRegenerateAccessCode = async () => {
+    if (!confirm('Are you sure? This will generate a new access code for the customer dashboard.')) {
+      return;
+    }
+    setIsRegeneratingAccessCode(true);
+    try {
+      await clients.regenerateAccessCode(id);
+      fetchClientData();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to regenerate access code');
+    } finally {
+      setIsRegeneratingAccessCode(false);
     }
   };
 
@@ -542,6 +609,56 @@ export default function ClientDetail() {
                 loading={isRegeneratingKey}
               >
                 Regenerate API Key
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* Access Code for Customer Dashboard */}
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-semibold">Customer Dashboard Access</h3>
+          </CardHeader>
+          <CardBody>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Share this code with your client for customer dashboard login
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-lg font-mono font-bold text-center tracking-widest">
+                  {showAccessCode ? client.access_code || 'Not generated' : '•••-•••'}
+                </code>
+                <button
+                  onClick={() => setShowAccessCode(!showAccessCode)}
+                  className="p-2 rounded-lg hover:bg-gray-100"
+                  title={showAccessCode ? 'Hide' : 'Show'}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {showAccessCode ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    )}
+                  </svg>
+                </button>
+                <button
+                  onClick={() => copyToClipboard(client.access_code)}
+                  className="p-2 rounded-lg hover:bg-gray-100"
+                  title="Copy to clipboard"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </button>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="w-full"
+                onClick={handleRegenerateAccessCode}
+                loading={isRegeneratingAccessCode}
+              >
+                Regenerate Access Code
               </Button>
             </div>
           </CardBody>
@@ -1065,7 +1182,12 @@ export default function ClientDetail() {
       {/* Edit Client Modal */}
       <Modal
         isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
+        onClose={() => {
+          if (client) {
+            reset(client);
+          }
+          setIsEditModalOpen(false);
+        }}
         title="Edit Client"
       >
         <form onSubmit={handleSubmit(onUpdateClient)} className="space-y-4">
@@ -1106,16 +1228,33 @@ export default function ClientDetail() {
             {...register('llm_provider')}
             options={[
               { value: 'ollama', label: 'Ollama (Local)' },
+              { value: 'groq', label: 'Groq (Fast & Free)' },
               { value: 'claude', label: 'Claude (Anthropic)' },
               { value: 'openai', label: 'OpenAI (ChatGPT)' },
             ]}
           />
 
-          <Input
-            label="Model Name"
-            {...register('model_name')}
-            placeholder="e.g., claude-3-5-sonnet-20241022"
-          />
+          {/* Conditional model field based on provider */}
+          {selectedProvider === 'ollama' ? (
+            <Input
+              label="Model Name"
+              {...register('model_name')}
+              placeholder="e.g., hermes-2-pro-mistral-7b.q5_k_m.gguf"
+            />
+          ) : selectedProvider && AVAILABLE_MODELS[selectedProvider] ? (
+            <Select
+              label="Model Name"
+              {...register('model_name')}
+              options={AVAILABLE_MODELS[selectedProvider]}
+            />
+          ) : (
+            <Input
+              label="Model Name"
+              {...register('model_name')}
+              placeholder="Select a provider first"
+              disabled
+            />
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1130,7 +1269,16 @@ export default function ClientDetail() {
           </div>
 
           <div className="flex justify-end gap-3 mt-6">
-            <Button type="button" variant="secondary" onClick={() => setIsEditModalOpen(false)}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                if (client) {
+                  reset(client);
+                }
+                setIsEditModalOpen(false);
+              }}
+            >
               Cancel
             </Button>
             <Button type="submit" loading={isSubmitting}>

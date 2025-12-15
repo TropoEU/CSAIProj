@@ -291,9 +291,12 @@ class N8nService {
           if (dataStr.length < 500) {
             formatted += '\n\nDetails:\n' + dataStr;
           } else {
-            // For large data, just mention key fields
-            const keys = Object.keys(data);
-            formatted += `\n\nData includes: ${keys.slice(0, 5).join(', ')}${keys.length > 5 ? '...' : ''}`;
+            // For large data, extract key fields with values (not just field names)
+            // This gives LLM enough context without overwhelming it
+            const importantFields = this.extractImportantFields(data);
+            if (importantFields && Object.keys(importantFields).length > 0) {
+              formatted += '\n\nKey Details:\n' + JSON.stringify(importantFields, null, 2);
+            }
           }
         }
       } else if (data) {
@@ -387,6 +390,82 @@ class N8nService {
     }
     
     return cleaned;
+  }
+
+  /**
+   * Extract important fields from large data objects
+   * Prioritizes common high-value fields to give LLM context without overwhelming it
+   * @param {Object} data - The data object to extract from
+   * @returns {Object} Subset of important fields with values
+   */
+  extractImportantFields(data) {
+    if (!data || typeof data !== 'object') return null;
+
+    // Priority fields to extract (in order of importance)
+    const priorityFields = [
+      // IDs and identifiers
+      'id', 'orderId', 'orderNumber', 'order_id', 'order_number',
+      'bookingId', 'booking_id', 'confirmationNumber', 'confirmation_number',
+      'transactionId', 'transaction_id', 'reference', 'ref',
+
+      // Status and state
+      'status', 'statusText', 'status_text', 'state', 'orderStatus', 'order_status',
+
+      // Time and scheduling
+      'estimatedDelivery', 'estimated_delivery', 'deliveryTime', 'delivery_time',
+      'eta', 'arrivalTime', 'arrival_time', 'date', 'time', 'datetime',
+
+      // Names and descriptions
+      'name', 'customerName', 'customer_name', 'title', 'description',
+
+      // Amounts and quantities
+      'total', 'amount', 'price', 'cost', 'subtotal', 'quantity', 'count',
+
+      // Contact info
+      'phone', 'email', 'address',
+
+      // Driver/delivery info (for order tracking)
+      'driver', 'courier', 'deliveryPerson', 'delivery_person'
+    ];
+
+    const extracted = {};
+    let fieldCount = 0;
+    const maxFields = 8; // Limit to 8 important fields
+
+    // Extract priority fields that exist in data
+    for (const field of priorityFields) {
+      if (fieldCount >= maxFields) break;
+
+      if (data[field] !== undefined && data[field] !== null) {
+        // For nested objects (like driver), extract key info only
+        if (typeof data[field] === 'object' && !Array.isArray(data[field])) {
+          const nested = {};
+          // Extract up to 3 key fields from nested object
+          const nestedKeys = Object.keys(data[field]).slice(0, 3);
+          for (const key of nestedKeys) {
+            nested[key] = data[field][key];
+          }
+          extracted[field] = nested;
+        }
+        // For arrays, show count and first item if small
+        else if (Array.isArray(data[field])) {
+          if (data[field].length === 0) {
+            extracted[field] = [];
+          } else if (data[field].length === 1) {
+            extracted[field] = data[field];
+          } else {
+            extracted[field] = `[${data[field].length} items]`;
+          }
+        }
+        // For simple values, include directly
+        else {
+          extracted[field] = data[field];
+        }
+        fieldCount++;
+      }
+    }
+
+    return Object.keys(extracted).length > 0 ? extracted : null;
   }
 
   /**

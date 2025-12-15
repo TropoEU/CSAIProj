@@ -106,10 +106,12 @@ class ConversationService {
    * @param {String} clientId - Client ID
    * @param {String} sessionId - Session ID
    * @param {String} userIdentifier - Optional user identifier (email, phone, etc.)
+   * @param {String} llmProvider - LLM provider used for this conversation
+   * @param {String} modelName - Model name used for this conversation
    * @returns {Object} Conversation record
    */
-  async createConversation(clientId, sessionId, userIdentifier = null) {
-    return await Conversation.create(clientId, sessionId, userIdentifier);
+  async createConversation(clientId, sessionId, userIdentifier = null, llmProvider = null, modelName = null) {
+    return await Conversation.create(clientId, sessionId, userIdentifier, llmProvider, modelName);
   }
 
   /**
@@ -117,15 +119,21 @@ class ConversationService {
    * @param {String} clientId - Client ID
    * @param {String} sessionId - Session ID
    * @param {String} userIdentifier - Optional user identifier
+   * @param {String} llmProvider - LLM provider used for this conversation
+   * @param {String} modelName - Model name used for this conversation
    * @returns {Object} Conversation record
    */
-  async getOrCreateConversation(clientId, sessionId, userIdentifier = null) {
-    // Try to find existing active conversation
+  async getOrCreateConversation(clientId, sessionId, userIdentifier = null, llmProvider = null, modelName = null) {
+    // Try to find existing conversation
     let conversation = await Conversation.findBySession(sessionId);
 
-    // Create new if not found
-    if (!conversation) {
-      conversation = await this.createConversation(clientId, sessionId, userIdentifier);
+    // If conversation exists but has ended, create a new one
+    if (conversation && conversation.ended_at) {
+      console.log(`[Conversation] Session ${sessionId} has ended, creating new conversation`);
+      conversation = await this.createConversation(clientId, sessionId, userIdentifier, llmProvider, modelName);
+    } else if (!conversation) {
+      // Create new if not found
+      conversation = await this.createConversation(clientId, sessionId, userIdentifier, llmProvider, modelName);
     }
 
     return conversation;
@@ -291,15 +299,65 @@ class ConversationService {
       throw new Error('Conversation not found');
     }
 
-    const updated = await Conversation.update(conversation.id, {
-      status: 'ended',
-      endedAt: new Date()
-    });
+    const updated = await Conversation.end(conversation.id);
 
     // Clear cache
-    await RedisCache.clearConversationContext(sessionId);
+    await RedisCache.deleteConversationContext(sessionId);
 
     return updated;
+  }
+
+  /**
+   * Auto-end inactive conversations
+   * Ends conversations that have been inactive for more than the specified minutes
+   * @param {Number} inactivityMinutes - Minutes of inactivity before auto-ending (default: 15)
+   * @returns {Object} Summary of ended conversations
+   */
+  async autoEndInactiveConversations(inactivityMinutes = 15) {
+    try {
+      const inactiveConversations = await Conversation.findInactive(inactivityMinutes);
+      
+      if (inactiveConversations.length === 0) {
+        return {
+          ended: 0,
+          conversations: []
+        };
+      }
+
+      const endedConversations = [];
+      
+      for (const conv of inactiveConversations) {
+        try {
+          // End the conversation
+          await Conversation.end(conv.id);
+          
+          // Clear Redis cache if session_id exists
+          if (conv.session_id) {
+            await RedisCache.deleteConversationContext(conv.session_id);
+          }
+          
+          endedConversations.push({
+            id: conv.id,
+            session_id: conv.session_id,
+            client_id: conv.client_id,
+            last_activity: conv.last_activity
+          });
+        } catch (error) {
+          console.error(`[Conversation] Failed to auto-end conversation ${conv.id}:`, error);
+          // Continue with other conversations even if one fails
+        }
+      }
+
+      console.log(`[Conversation] Auto-ended ${endedConversations.length} inactive conversation(s)`);
+      
+      return {
+        ended: endedConversations.length,
+        conversations: endedConversations
+      };
+    } catch (error) {
+      console.error('[Conversation] Error auto-ending inactive conversations:', error);
+      throw error;
+    }
   }
 
   /**
@@ -343,12 +401,97 @@ class ConversationService {
   }
 
   /**
+   * Detect if user message indicates conversation should end
+   * @param {String} message - User's message
+   * @returns {Boolean} True if message indicates conversation should end
+   */
+  detectConversationEnd(message) {
+    if (!message || typeof message !== 'string') {
+      return false;
+    }
+
+    const normalizedMessage = message.toLowerCase().trim();
+    
+    // Common ending phrases
+    const endingPhrases = [
+      'thank you',
+      'thanks',
+      'thank you very much',
+      'thanks a lot',
+      'thank you so much',
+      'goodbye',
+      'bye',
+      'bye bye',
+      'see you',
+      'see ya',
+      'that\'s all',
+      'thats all',
+      'that is all',
+      'i\'m done',
+      'im done',
+      'i am done',
+      'we\'re done',
+      'were done',
+      'we are done',
+      'i\'m finished',
+      'im finished',
+      'i am finished',
+      'we\'re finished',
+      'were finished',
+      'we are finished',
+      'end conversation',
+      'end the conversation',
+      'close conversation',
+      'close the conversation',
+      'that\'s it',
+      'thats it',
+      'that is it',
+      'all done',
+      'all set',
+      'no more questions',
+      'no further questions',
+      'nothing else',
+      'nothing more',
+      'have a good day',
+      'have a nice day',
+      'have a great day',
+      'take care',
+      'talk to you later',
+      'catch you later',
+      'until next time'
+    ];
+
+    // Check for exact matches or phrases that end with these
+    for (const phrase of endingPhrases) {
+      // Exact match
+      if (normalizedMessage === phrase) {
+        return true;
+      }
+      
+      // Ends with the phrase (with optional punctuation)
+      const regex = new RegExp(`^.*${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[.!?,;]*$`, 'i');
+      if (regex.test(normalizedMessage)) {
+        return true;
+      }
+      
+      // Contains the phrase as a complete word/phrase
+      const wordBoundaryRegex = new RegExp(`\\b${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+      if (wordBoundaryRegex.test(normalizedMessage) && normalizedMessage.length < 100) {
+        // Only if message is short (to avoid false positives in long messages)
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * Process a user message with full tool execution flow
    * @param {Object} client - Client configuration
    * @param {String} sessionId - Session ID
    * @param {String} userMessage - User's message
    * @param {Object} options - Optional parameters
-   * @returns {Object} { response, toolsUsed, tokensUsed, conversationId }
+   * @returns {Object} { response, toolsUsed, tokensUsed, conversationId, conversationEnded }
    */
   async processMessage(client, sessionId, userMessage, options = {}) {
     const { userIdentifier = null, maxToolIterations = 3 } = options;
@@ -358,8 +501,50 @@ class ConversationService {
       let conversation = await Conversation.findBySession(sessionId);
       const isNewConversation = !conversation; // Track if this is a new conversation
       
+      // Get effective provider/model (use client's settings or defaults)
+      const effectiveProvider = client.llm_provider || 'ollama';
+      const effectiveModel = client.model_name || null;
+      
       if (!conversation) {
-        conversation = await this.createConversation(client.id, sessionId, userIdentifier);
+        conversation = await this.createConversation(client.id, sessionId, userIdentifier, effectiveProvider, effectiveModel);
+      }
+
+      // Check if user wants to end the conversation
+      const shouldEndConversation = this.detectConversationEnd(userMessage);
+      
+      if (shouldEndConversation) {
+        console.log(`[Conversation] Detected conversation end signal: "${userMessage}"`);
+        
+        // Save user message
+        await this.addMessage(conversation.id, 'user', userMessage);
+        
+        // End the conversation
+        await Conversation.end(conversation.id);
+        
+        // Clear Redis cache
+        await RedisCache.deleteConversationContext(sessionId);
+        
+        // Generate a friendly goodbye response
+        const goodbyeMessages = [
+          'Thank you for chatting with us! Have a great day!',
+          'Thanks for reaching out! We\'re here if you need anything else.',
+          'Thank you! Feel free to come back anytime if you have more questions.',
+          'Thanks for the conversation! Have a wonderful day!',
+          'Thank you! We appreciate your time. Take care!'
+        ];
+        const goodbyeResponse = goodbyeMessages[Math.floor(Math.random() * goodbyeMessages.length)];
+        
+        // Save assistant response
+        await this.addMessage(conversation.id, 'assistant', goodbyeResponse, 0);
+        
+        return {
+          response: goodbyeResponse,
+          toolsUsed: [],
+          tokensUsed: 0,
+          conversationId: conversation.id,
+          iterations: 0,
+          conversationEnded: true
+        };
       }
 
       // Save user message
@@ -386,11 +571,10 @@ class ConversationService {
       let finalResponse = null;
       let lastLLMResponse = null; // Track last LLM response for token counting
 
-      // Format tools for LLM (once, before the loop)
-      const formattedTools = toolManager.formatToolsForLLM(clientTools);
+      // effectiveProvider was already determined above when creating the conversation
 
-      // Determine effective provider (client override or default)
-      const effectiveProvider = client.llm_provider || llmService.provider;
+      // Format tools for LLM (once, before the loop) - pass provider to get correct format
+      const formattedTools = toolManager.formatToolsForLLM(clientTools, effectiveProvider);
       
       // For Ollama, we use prompt-engineering tool instructions.
       // IMPORTANT: do NOT permanently mutate/cache the system prompt with tool instructions,
@@ -412,18 +596,33 @@ class ConversationService {
         }
       }
 
+      // Track last executed tool calls to detect if LLM tries to call them again
+      let lastExecutedToolKeys = null;
+
       // Tool execution loop (handle multi-turn tool calls)
       while (iterationCount < maxToolIterations) {
         iterationCount++;
 
         // Call LLM (with per-client model/provider if specified)
-        const llmResponse = await llmService.chat(messages, {
-          tools: llmService.supportsNativeFunctionCalling() ? formattedTools : null,
-          maxTokens: 2048,
-          temperature: 0.3,
-          model: client.model_name || null,      // Per-client model override
-          provider: client.llm_provider || null  // Per-client provider override
-        });
+        let llmResponse;
+        try {
+          llmResponse = await llmService.chat(messages, {
+            tools: llmService.supportsNativeFunctionCalling(effectiveProvider) ? formattedTools : null,
+            maxTokens: 2048,
+            temperature: 0.3,
+            model: client.model_name || null,      // Per-client model override
+            provider: client.llm_provider || null  // Per-client provider override
+          });
+        } catch (llmError) {
+          console.error(`[Conversation] LLM call failed on iteration ${iterationCount}:`, llmError);
+          // If we have tool results from previous iteration, try to use them to generate a response
+          if (lastExecutedToolKeys && lastLLMResponse && lastLLMResponse.content) {
+            console.log(`[Conversation] Using previous LLM response as fallback after error`);
+            finalResponse = lastLLMResponse.content;
+            break;
+          }
+          throw llmError; // Re-throw if we can't recover
+        }
 
         lastLLMResponse = llmResponse; // Track last response
         totalTokens += llmResponse.tokens.total;
@@ -445,32 +644,106 @@ class ConversationService {
           toolCalls = toolManager.parseToolCallsFromContent(llmResponse.content);
         }
 
+        // If LLM is trying to call the same tools we just executed, break to prevent infinite loop
+        if (toolCalls && toolCalls.length > 0 && lastExecutedToolKeys) {
+          const currentToolKeys = toolCalls.map(tc => `${tc.name}:${JSON.stringify(tc.arguments)}`);
+          const isSameAsLastExecution = currentToolKeys.every(key => lastExecutedToolKeys.includes(key)) &&
+                                        currentToolKeys.length === lastExecutedToolKeys.length;
+          
+          if (isSameAsLastExecution) {
+            console.log(`[Conversation] LLM tried to call same tools again after execution. Breaking loop to prevent infinite recursion.`);
+            // Use any content as final response, or generate a fallback
+            if (llmResponse.content && llmResponse.content.trim().length > 0) {
+              finalResponse = llmResponse.content;
+            } else {
+              finalResponse = 'I apologize, but I encountered an issue processing your request. Please try again.';
+            }
+            break;
+          }
+        }
+
+        // Check finish_reason/stopReason - if it's 'stop' and we have content, use it as final response
+        // This prevents infinite loops when LLM returns content but also has tool_calls
+        if (llmResponse.stopReason === 'stop' && llmResponse.content && llmResponse.content.trim().length > 0) {
+          // If we have both content and tool calls, prefer content if finish_reason is 'stop'
+          // This means the LLM is done and the content is the final response
+          if (toolCalls && toolCalls.length > 0) {
+            console.log(`[Conversation] LLM returned both content and tool_calls with finish_reason='stop'. Using content as final response.`);
+            toolCalls = null; // Ignore tool calls, use content instead
+          }
+        }
+
         // No tool calls - we have the final response
         if (!toolCalls || toolCalls.length === 0) {
-          // Check if AI claimed to have done something without calling a tool (hallucination detection)
-          const responseLower = llmResponse.content.toLowerCase();
-          const actionWords = ['booked', 'reserved', 'confirmed', 'scheduled', 'completed', 'done', 'finished'];
-          const hasActionClaim = actionWords.some(word => responseLower.includes(word));
-          
-          // If AI claimed an action but no tool was called, and user requested an action, force tool call
-          if (hasActionClaim && userMessage.toLowerCase().match(/(book|reserve|schedule|check|get.*status)/i)) {
-            console.warn(`[Conversation] AI claimed action "${responseLower}" but no tool was called. This is a hallucination.`);
-            // Don't accept this response - the AI needs to actually call the tool
-            // We'll let it continue in the loop, but this is logged for debugging
+          // If we have content, use it as final response
+          if (llmResponse.content && llmResponse.content.trim().length > 0) {
+            // Check if AI claimed to have done something without calling a tool (hallucination detection)
+            const responseLower = llmResponse.content.toLowerCase();
+            const actionWords = ['booked', 'reserved', 'confirmed', 'scheduled', 'completed', 'done', 'finished'];
+            const hasActionClaim = actionWords.some(word => responseLower.includes(word));
+            
+            // If AI claimed an action but no tool was called, and user requested an action, force tool call
+            if (hasActionClaim && userMessage.toLowerCase().match(/(book|reserve|schedule|check|get.*status)/i)) {
+              console.warn(`[Conversation] AI claimed action "${responseLower}" but no tool was called. This is a hallucination.`);
+              // Don't accept this response - the AI needs to actually call the tool
+              // We'll let it continue in the loop, but this is logged for debugging
+            }
+            
+            finalResponse = llmResponse.content;
+            break;
+          } else {
+            // No content and no tool calls - this is unusual
+            // If we just executed tools, the LLM should respond with the results
+            if (lastExecutedToolKeys) {
+              console.warn(`[Conversation] LLM returned empty content after tool execution (iteration ${iterationCount}). Using tool result as fallback.`);
+              // Try to extract a message from the last tool result if available
+              const lastToolMessage = messages.filter(m => m.role === 'tool').pop();
+              if (lastToolMessage && lastToolMessage.content) {
+                // Try to extract a user-friendly message from the tool result
+                const toolContent = lastToolMessage.content;
+                // The tool result should already be formatted by n8nService.formatResponseForLLM
+                // which extracts the "message" field if available
+                // So we can use it directly
+                finalResponse = toolContent;
+                console.log(`[Conversation] Using tool result message as fallback response`);
+                break;
+              }
+            }
+            // If no tool results to fall back on, continue loop (might help on next iteration)
+            // But if we're at max iterations, we'll use the fallback error message
           }
-          
-          finalResponse = llmResponse.content;
-          break;
         }
 
         // Execute tool calls
         console.log(`[Conversation] Executing ${toolCalls.length} tool(s)`);
+        
+        // For native function calling (Groq/OpenAI), if finish_reason was 'tool_calls',
+        // the LLM explicitly requested these tools. After execution, the next call should return final response.
+        // If it returns tool_calls again, that's unexpected - break to prevent infinite loop.
+        const wasToolCallRequest = llmResponse.stopReason === 'tool_calls';
 
         // Add assistant message with tool calls to context
-        messages.push({
+        // For Groq/OpenAI, we need to include tool_calls in the assistant message
+        const assistantMessage = {
           role: 'assistant',
           content: llmResponse.content || ''
-        });
+        };
+        
+        // Include tool_calls for providers that support native function calling
+        if (llmService.supportsNativeFunctionCalling(effectiveProvider) && toolCalls && toolCalls.length > 0) {
+          assistantMessage.tool_calls = toolCalls.map(tc => ({
+            id: tc.id,
+            type: 'function',
+            function: {
+              name: tc.name,
+              arguments: typeof tc.arguments === 'string' 
+                ? tc.arguments 
+                : JSON.stringify(tc.arguments)
+            }
+          }));
+        }
+        
+        messages.push(assistantMessage);
 
         for (const toolCall of toolCalls) {
           const { id, name, arguments: toolArgs } = toolCall;
@@ -600,7 +873,11 @@ class ConversationService {
           );
 
           // Format result for LLM
-          const formattedResult = n8nService.formatResponseForLLM(result.data);
+          let formattedResult = n8nService.formatResponseForLLM(result.data);
+
+          // REMOVED: Tool result simplification was causing Groq to retry the same tool
+          // The LLM needs to see structured data to understand the tool actually returned useful info
+          // The formatResponseForLLM already handles truncation appropriately
 
           // Add tool result to messages
           messages.push({
@@ -619,12 +896,43 @@ class ConversationService {
           console.log(`[Conversation] Tool ${name} ${result.success ? 'succeeded' : 'failed'} (${result.executionTimeMs}ms)`);
         }
 
+        // Track what we just executed to detect if LLM tries to call them again in next iteration
+        lastExecutedToolKeys = toolCalls.map(tc => `${tc.name}:${JSON.stringify(tc.arguments)}`);
+        
         // Continue loop to get final response with tool results
       }
 
       // If we hit max iterations without a final response
       if (!finalResponse) {
-        finalResponse = 'I apologize, but I encountered an issue processing your request. Please try again or rephrase your question.';
+        // Before using generic error, try to extract a message from the last successful tool execution
+        const lastToolMessage = messages.filter(m => m.role === 'tool').pop();
+        if (lastToolMessage && lastToolMessage.content) {
+          // Try to extract a user-friendly message from the tool result
+          try {
+            const toolContent = lastToolMessage.content;
+            // If the tool result contains a "message" field (common in our API responses)
+            if (toolContent.includes('message') || toolContent.includes('Message')) {
+              // Try to parse JSON if possible, or extract message text
+              const jsonMatch = toolContent.match(/"message"\s*:\s*"([^"]+)"/);
+              if (jsonMatch) {
+                finalResponse = jsonMatch[1];
+                console.log(`[Conversation] Using tool result message as fallback: ${finalResponse.substring(0, 50)}...`);
+              } else {
+                // Use the tool content directly if it looks like a message
+                finalResponse = toolContent.length < 500 ? toolContent : toolContent.substring(0, 200) + '...';
+              }
+            } else {
+              // Use tool content as fallback
+              finalResponse = toolContent.length < 500 ? toolContent : `Based on the results: ${toolContent.substring(0, 200)}...`;
+            }
+          } catch (e) {
+            // If parsing fails, use generic error
+            finalResponse = 'I apologize, but I encountered an issue processing your request. Please try again or rephrase your question.';
+          }
+        } else {
+          // No tool results available, use generic error
+          finalResponse = 'I apologize, but I encountered an issue processing your request. Please try again or rephrase your question.';
+        }
       }
 
       // Restore base system prompt before caching, to prevent tool-prompt duplication across turns
@@ -662,7 +970,8 @@ class ConversationService {
         toolsUsed,
         tokensUsed: totalTokens,
         conversationId: conversation.id,
-        iterations: iterationCount
+        iterations: iterationCount,
+        conversationEnded: false
       };
 
     } catch (error) {

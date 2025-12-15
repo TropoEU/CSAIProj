@@ -4,12 +4,12 @@ export class Conversation {
     /**
      * Create a new conversation
      */
-    static async create(clientId, sessionId, userIdentifier = null) {
+    static async create(clientId, sessionId, userIdentifier = null, llmProvider = null, modelName = null) {
         const result = await db.query(
-            `INSERT INTO conversations (client_id, session_id, user_identifier)
-             VALUES ($1, $2, $3)
+            `INSERT INTO conversations (client_id, session_id, user_identifier, llm_provider, model_name)
+             VALUES ($1, $2, $3, $4, $5)
              RETURNING *`,
-            [clientId, sessionId, userIdentifier]
+            [clientId, sessionId, userIdentifier, llmProvider, modelName]
         );
         return result.rows[0];
     }
@@ -59,6 +59,28 @@ export class Conversation {
              WHERE client_id = $1 AND ended_at IS NULL
              ORDER BY started_at DESC`,
             [clientId]
+        );
+        return result.rows;
+    }
+
+    /**
+     * Find active conversations that have been inactive for more than X minutes
+     * Returns conversations with their last message timestamp
+     */
+    static async findInactive(inactivityMinutes = 15) {
+        // Calculate the cutoff timestamp (now - inactivity minutes)
+        const cutoffTime = new Date(Date.now() - inactivityMinutes * 60 * 1000);
+        
+        const result = await db.query(
+            `SELECT c.*, 
+                    COALESCE(MAX(m.timestamp), c.started_at) as last_activity
+             FROM conversations c
+             LEFT JOIN messages m ON c.id = m.conversation_id
+             WHERE c.ended_at IS NULL
+             GROUP BY c.id
+             HAVING COALESCE(MAX(m.timestamp), c.started_at) < $1
+             ORDER BY last_activity ASC`,
+            [cutoffTime]
         );
         return result.rows;
     }

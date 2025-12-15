@@ -1,17 +1,35 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { usage, clients as clientsApi } from '../services/api';
+import { loadFilterState, saveFilterState, PAGE_KEYS } from '../utils/filterStorage';
 
 export default function UsageReports() {
   const [searchParams] = useSearchParams();
+
+  // Load filter state from localStorage
+  const initialFilters = loadFilterState(PAGE_KEYS.USAGE_REPORTS, {
+    selectedClient: null,
+    period: 'month',
+  });
+
   const [clients, setClients] = useState([]);
-  const [selectedClient, setSelectedClient] = useState(null);
-  const [period, setPeriod] = useState('month');
+  const [selectedClient, setSelectedClient] = useState(initialFilters.selectedClient);
+  const [period, setPeriod] = useState(initialFilters.period);
   const [summary, setSummary] = useState(null);
   const [history, setHistory] = useState([]);
   const [toolBreakdown, setToolBreakdown] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState(null);
+
+  // Save filter state when it changes
+  useEffect(() => {
+    saveFilterState(PAGE_KEYS.USAGE_REPORTS, {
+      selectedClient,
+      period,
+    });
+  }, [selectedClient, period]);
 
   // Fetch clients on mount
   useEffect(() => {
@@ -25,6 +43,19 @@ export default function UsageReports() {
     }
   }, [selectedClient, period]);
 
+  // Auto-refresh polling (every 5 seconds when client is selected)
+  useEffect(() => {
+    if (!autoRefresh || selectedClient === null) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      fetchUsageData(true); // Silent refresh (no loading state)
+    }, 5000); // 5 seconds
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, selectedClient, period]);
+
   const fetchClients = async () => {
     try {
       const response = await clientsApi.getAll();
@@ -35,8 +66,8 @@ export default function UsageReports() {
       const clientIdFromQuery = searchParams.get('client');
       if (clientIdFromQuery && clientData.some(c => c.id === parseInt(clientIdFromQuery))) {
         setSelectedClient(parseInt(clientIdFromQuery));
-      } else {
-        // Default to "all" for platform-wide view
+      } else if (selectedClient === null) {
+        // Only set default if no filter was loaded from localStorage
         setSelectedClient('all');
       }
     } catch (err) {
@@ -45,10 +76,12 @@ export default function UsageReports() {
     }
   };
 
-  const fetchUsageData = async () => {
+  const fetchUsageData = async (silent = false) => {
     if (selectedClient === null) return;
 
-    setLoading(true);
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -68,11 +101,16 @@ export default function UsageReports() {
         setSummary(summaryData);
         setHistory(historyData);
       }
+      setLastRefresh(new Date());
     } catch (err) {
-      setError('Failed to load usage data');
+      if (!silent) {
+        setError('Failed to load usage data');
+      }
       console.error('Error fetching usage:', err);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -131,13 +169,45 @@ export default function UsageReports() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Usage Reports</h1>
-        <button
-          onClick={handleExport}
-          disabled={!selectedClient}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-        >
-          Export CSV
-        </button>
+        <div className="flex items-center gap-3">
+          {lastRefresh && selectedClient !== null && (
+            <span className="text-xs text-gray-500">
+              Updated {Math.floor((new Date() - lastRefresh) / 1000)}s ago
+            </span>
+          )}
+          {selectedClient !== null && (
+            <button
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                autoRefresh
+                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <svg className={`w-4 h-4 ${autoRefresh ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
+            </button>
+          )}
+          <button
+            onClick={() => fetchUsageData()}
+            disabled={selectedClient === null}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh Now
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={!selectedClient}
+            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            Export CSV
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

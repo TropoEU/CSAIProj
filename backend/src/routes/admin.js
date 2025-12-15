@@ -243,6 +243,23 @@ router.post('/clients/:id/api-key', async (req, res) => {
 });
 
 /**
+ * POST /admin/clients/:id/access-code
+ * Regenerate client access code for customer dashboard
+ */
+router.post('/clients/:id/access-code', async (req, res) => {
+  try {
+    const client = await Client.regenerateAccessCode(req.params.id);
+    if (!client) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+    res.json(client);
+  } catch (error) {
+    console.error('[Admin] Regenerate access code error:', error);
+    res.status(500).json({ error: 'Failed to regenerate access code' });
+  }
+});
+
+/**
  * POST /admin/clients/:id/upgrade-plan
  * Upgrade/downgrade client plan with prorating
  */
@@ -631,8 +648,11 @@ router.get('/conversations', async (req, res) => {
 
     let query = `
       SELECT c.*, cl.name as client_name,
+        COALESCE(c.llm_provider, cl.llm_provider, 'ollama') as llm_provider,
+        COALESCE(c.model_name, cl.model_name) as model_name,
         (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count,
-        (SELECT COUNT(*) FROM tool_executions WHERE conversation_id = c.id) as tool_call_count
+        (SELECT COUNT(*) FROM tool_executions WHERE conversation_id = c.id) as tool_call_count,
+        CASE WHEN c.ended_at IS NULL THEN 'active' ELSE 'ended' END as status
       FROM conversations c
       LEFT JOIN clients cl ON c.client_id = cl.id
     `;
@@ -682,9 +702,15 @@ router.get('/conversations/:id', async (req, res) => {
       return res.status(404).json({ error: 'Conversation not found' });
     }
 
+    // Add status field: 'active' if ended_at is null, otherwise 'ended'
+    conversation.status = conversation.ended_at ? 'ended' : 'active';
+
     // Get client name
     const client = await Client.findById(conversation.client_id);
     conversation.client_name = client?.name;
+    // Use stored provider/model from conversation, fallback to client's current settings
+    conversation.llm_provider = conversation.llm_provider || client?.llm_provider || 'ollama';
+    conversation.model_name = conversation.model_name || client?.model_name || null;
 
     // Get messages and calculate cumulative token count
     // tokens_used in messages table is TOTAL tokens (input + output) for that LLM call
@@ -715,6 +741,40 @@ router.get('/conversations/:id', async (req, res) => {
       execution_time_ms: exec.execution_time_ms,
       timestamp: exec.timestamp
     }));
+
+    // Match tool executions to assistant messages
+    // Tools called between a user message and the next assistant message belong to that assistant message
+    const messagesWithTools = conversation.messages.map((msg, index) => {
+      if (msg.role !== 'assistant') {
+        return msg;
+      }
+
+      // Find the previous user message timestamp (or conversation start)
+      const prevUserMessage = conversation.messages
+        .slice(0, index)
+        .reverse()
+        .find(m => m.role === 'user');
+      const startTime = prevUserMessage?.timestamp || conversation.started_at;
+
+      // Find the next message timestamp (or now if this is the last message)
+      const nextMessage = conversation.messages[index + 1];
+      const endTime = nextMessage?.timestamp || new Date().toISOString();
+
+      // Find tool executions that occurred between startTime and endTime
+      const toolsForThisMessage = toolExecutions.filter(exec => {
+        const execTime = new Date(exec.timestamp).getTime();
+        const start = new Date(startTime).getTime();
+        const end = new Date(endTime).getTime();
+        return execTime >= start && execTime <= end;
+      }).map(exec => exec.tool_name);
+
+      return {
+        ...msg,
+        tools_called: toolsForThisMessage.length > 0 ? toolsForThisMessage : null
+      };
+    });
+
+    conversation.messages = messagesWithTools;
 
     res.json(conversation);
   } catch (error) {

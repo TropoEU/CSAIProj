@@ -3,7 +3,7 @@ import { OLLAMA_CONFIG } from '../config.js';
 
 /**
  * LLM Service - Multi-Provider Architecture
- * Supports Ollama (dev), OpenAI (prod), and Claude (optional)
+ * Supports Ollama (dev), Groq (dev/prod), OpenAI (prod), and Claude (prod)
  *
  * Features:
  * - Provider abstraction
@@ -15,13 +15,26 @@ import { OLLAMA_CONFIG } from '../config.js';
 
 class LLMService {
   constructor() {
-    this.provider = process.env.LLM_PROVIDER || 'ollama'; // ollama | openai | claude
+    this.provider = process.env.LLM_PROVIDER || 'ollama'; // ollama | groq | openai | claude
     this.model = this.getModelForProvider();
     this.client = this.initializeClient();
 
-    // Log configuration for debugging
-    if (this.provider === 'ollama') {
-      console.log(`🦙 Ollama configured: ${OLLAMA_CONFIG.url} (model: ${OLLAMA_CONFIG.model})`);
+    // Log available providers (provider is set per-client, not globally)
+    const providers = ['ollama', 'groq', 'claude', 'openai'];
+    const defaultProvider = this.provider;
+    console.log(`🤖 LLM Service ready - Supports: ${providers.join(', ')} (default: ${defaultProvider})`);
+    
+    // Log Ollama URL if available (since it's commonly used for development)
+    // Keep model name very short to prevent console formatting issues
+    if (OLLAMA_CONFIG.url) {
+      const modelName = OLLAMA_CONFIG.model;
+      // Extract just the base model name (before first dot) to keep it short
+      const shortModel = modelName.includes('.') 
+        ? modelName.split('.')[0] 
+        : modelName.length > 20
+        ? modelName.substring(0, 17) + '...'
+        : modelName;
+      console.log(`   🦙 Ollama: ${OLLAMA_CONFIG.url} (${shortModel})`);
     }
   }
 
@@ -31,6 +44,7 @@ class LLMService {
   getModelForProvider() {
     const models = {
       ollama: process.env.OLLAMA_MODEL || 'llama2',
+      groq: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
       openai: process.env.OPENAI_MODEL || 'gpt-4o',
       claude: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022'
     };
@@ -44,6 +58,9 @@ class LLMService {
     switch (this.provider) {
       case 'ollama':
         return null; // Ollama uses direct HTTP requests
+
+      case 'groq':
+        return null; // Groq uses direct HTTP requests
 
       case 'openai':
         // Will implement OpenAI SDK
@@ -86,10 +103,15 @@ class LLMService {
     const activeProvider = provider || this.provider;
     const activeModel = model || this.model;
 
+    console.log(`[LLMService] Calling ${activeProvider.toUpperCase()} API with model: ${activeModel || 'default'}`);
+
     try {
       switch (activeProvider) {
         case 'ollama':
           return await this.ollamaChat(messages, { tools, stream, maxTokens, temperature, model: activeModel });
+
+        case 'groq':
+          return await this.groqChat(messages, { tools, stream, maxTokens, temperature, model: activeModel });
 
         case 'openai':
           return await this.openaiChat(messages, { tools, stream, maxTokens, temperature, model: activeModel });
@@ -111,7 +133,7 @@ class LLMService {
    */
   async ollamaChat(messages, options) {
     const ollamaUrl = OLLAMA_CONFIG.url;
-    const modelToUse = options.model || this.model;
+    const modelToUse = options.model || OLLAMA_CONFIG.model;
 
     const requestBody = {
       model: modelToUse,
@@ -199,6 +221,72 @@ class LLMService {
   }
 
   /**
+   * Groq Implementation (OpenAI-compatible)
+   */
+  async groqChat(messages, options) {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) {
+      throw new Error('GROQ_API_KEY environment variable is not set');
+    }
+
+    const modelToUse = options.model || this.model;
+
+    const requestBody = {
+      model: modelToUse,
+      messages: this.formatMessagesForGroq(messages),
+      temperature: options.temperature,
+      max_tokens: options.maxTokens,
+      stream: options.stream || false
+    };
+
+    // Add tools if provided (Groq supports OpenAI-style function calling)
+    if (options.tools && Array.isArray(options.tools) && options.tools.length > 0) {
+      requestBody.tools = this.formatToolsForGroq(options.tools);
+      requestBody.tool_choice = 'auto';
+    }
+
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Groq API error: ${response.statusText} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const choice = data.choices[0];
+    const message = choice.message;
+
+    // Extract tool calls if present
+    const toolCalls = message.tool_calls?.map(tc => ({
+      id: tc.id,
+      name: tc.function.name,
+      arguments: JSON.parse(tc.function.arguments)
+    })) || null;
+
+    return {
+      content: message.content || '',
+      role: message.role,
+      toolCalls: toolCalls,
+      tokens: {
+        input: data.usage.prompt_tokens,
+        output: data.usage.completion_tokens,
+        total: data.usage.total_tokens
+      },
+      cost: this.calculateGroqCost(data.usage),
+      model: modelToUse,
+      provider: 'groq',
+      stopReason: choice.finish_reason
+    };
+  }
+
+  /**
    * OpenAI Implementation
    */
   async openaiChat(messages, options) {
@@ -211,12 +299,14 @@ class LLMService {
    * Claude Implementation (Anthropic API)
    */
   async claudeChat(messages, options) {
+    const modelToUse = options.model || this.model;
+    
     // Separate system message from other messages
     const systemMessage = messages.find(m => m.role === 'system');
     const conversationMessages = messages.filter(m => m.role !== 'system');
 
     const requestParams = {
-      model: this.model,
+      model: modelToUse,
       max_tokens: options.maxTokens,
       temperature: options.temperature,
       messages: this.formatMessagesForClaude(conversationMessages)
@@ -266,17 +356,23 @@ class LLMService {
 
   /**
    * Check if current model/provider supports native function calling
+   * @param {String} provider - Optional provider to check (defaults to this.provider)
    */
-  supportsNativeFunctionCalling() {
+  supportsNativeFunctionCalling(provider = null) {
+    const providerToCheck = provider || this.provider;
+    
     // Claude supports function calling
-    if (this.provider === 'claude') return true;
+    if (providerToCheck === 'claude') return true;
+
+    // Groq supports OpenAI-style function calling
+    if (providerToCheck === 'groq') return true;
 
     // OpenAI supports function calling
-    if (this.provider === 'openai') return true;
+    if (providerToCheck === 'openai') return true;
 
     // Ollama function calling is experimental and inconsistent
     // Return false for now - we'll use prompt engineering instead
-    if (this.provider === 'ollama') return false;
+    if (providerToCheck === 'ollama') return false;
 
     return false;
   }
@@ -327,9 +423,79 @@ class LLMService {
   }
 
   /**
+   * Format messages for Groq (OpenAI-compatible)
+   */
+  formatMessagesForGroq(messages) {
+    return messages.map(msg => {
+      const formatted = {
+        role: msg.role,
+        content: msg.content || ''
+      };
+
+      // Handle tool calls in assistant messages
+      if (msg.tool_calls) {
+        formatted.tool_calls = msg.tool_calls.map(tc => {
+          // If already in Groq format (has function.name), use as-is
+          if (tc.function && tc.function.name) {
+            return {
+              id: tc.id,
+              type: tc.type || 'function',
+              function: {
+                name: tc.function.name,
+                arguments: typeof tc.function.arguments === 'string'
+                  ? tc.function.arguments
+                  : JSON.stringify(tc.function.arguments)
+              }
+            };
+          }
+          // Otherwise, format from our internal format (tc.name)
+          return {
+            id: tc.id,
+            type: 'function',
+            function: {
+              name: tc.name,
+              arguments: typeof tc.arguments === 'string'
+                ? tc.arguments
+                : JSON.stringify(tc.arguments)
+            }
+          };
+        });
+      }
+
+      // Handle tool results
+      if (msg.role === 'tool') {
+        formatted.role = 'tool';
+        formatted.tool_call_id = msg.tool_call_id;
+      }
+
+      return formatted;
+    });
+  }
+
+  /**
    * Format tools for Ollama
    */
   formatToolsForOllama(tools) {
+    return tools.map(tool => ({
+      type: 'function',
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters
+      }
+    }));
+  }
+
+  /**
+   * Format tools for Groq (OpenAI-compatible)
+   */
+  formatToolsForGroq(tools) {
+    // Safety check: ensure tools is an array
+    if (!tools || !Array.isArray(tools)) {
+      console.warn('[LLMService] formatToolsForGroq: tools is not an array', typeof tools, tools);
+      return [];
+    }
+    
     return tools.map(tool => ({
       type: 'function',
       function: {
@@ -364,6 +530,18 @@ class LLMService {
   }
 
   /**
+   * Calculate cost for Groq API
+   * Groq pricing (as of 2024):
+   * - Most models are FREE during beta
+   * - Future pricing TBD
+   */
+  calculateGroqCost(usage) {
+    // Currently free during beta
+    // TODO: Update when Groq announces pricing
+    return 0;
+  }
+
+  /**
    * Calculate cost for OpenAI API
    * TODO: Implement when OpenAI is added
    */
@@ -371,8 +549,8 @@ class LLMService {
     // GPT-4o pricing (as of 2024):
     // - Input: $2.50 per million tokens
     // - Output: $10 per million tokens
-    const inputCost = (usage.input_tokens / 1_000_000) * 2.5;
-    const outputCost = (usage.output_tokens / 1_000_000) * 10;
+    const inputCost = (usage.prompt_tokens / 1_000_000) * 2.5;
+    const outputCost = (usage.completion_tokens / 1_000_000) * 10;
     return inputCost + outputCost;
   }
 

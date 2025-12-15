@@ -9,6 +9,8 @@ export default function ConversationDetail() {
   const [conversation, setConversation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState(null);
 
   const formatTokenCount = (tokens) => {
     if (!tokens || tokens === 0) return '0';
@@ -21,14 +23,36 @@ export default function ConversationDetail() {
     fetchConversation();
   }, [id]);
 
-  const fetchConversation = async () => {
+  // Auto-refresh polling (every 5 seconds for active conversations)
+  useEffect(() => {
+    if (!autoRefresh || !conversation || conversation.status !== 'active') {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      fetchConversation(true); // Silent refresh (no loading state)
+    }, 5000); // 5 seconds
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, conversation?.status, id]);
+
+  const fetchConversation = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
     try {
       const response = await conversations.getById(id);
       setConversation(response.data);
+      setLastRefresh(new Date());
+      setError(null);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load conversation');
+      if (!silent) {
+        setError(err.response?.data?.error || 'Failed to load conversation');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -54,27 +78,82 @@ export default function ConversationDetail() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => navigate('/conversations')}
-          className="p-2 rounded-lg hover:bg-gray-100"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Conversation Details</h1>
-          <p className="text-gray-600 font-mono text-sm">{conversation.session_id}</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate('/conversations')}
+            className="p-2 rounded-lg hover:bg-gray-100"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Conversation Details</h1>
+            <p className="text-gray-600 font-mono text-sm">{conversation.session_id}</p>
+          </div>
+        </div>
+
+        {/* Auto-refresh toggle */}
+        <div className="flex items-center gap-3">
+          {lastRefresh && (
+            <span className="text-xs text-gray-500">
+              Updated {Math.floor((new Date() - lastRefresh) / 1000)}s ago
+            </span>
+          )}
+          <button
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            disabled={conversation.status !== 'active'}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              conversation.status !== 'active'
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : autoRefresh
+                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+            title={conversation.status !== 'active' ? 'Auto-refresh only available for active conversations' : ''}
+          >
+            <svg className={`w-4 h-4 ${autoRefresh && conversation.status === 'active' ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
+            {conversation.status !== 'active' && ' (Inactive)'}
+          </button>
+          <button
+            onClick={() => fetchConversation()}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh Now
+          </button>
         </div>
       </div>
 
       {/* Metadata */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <Card>
           <CardBody className="p-4">
             <p className="text-sm text-gray-500">Client</p>
             <p className="font-medium text-gray-900">{conversation.client_name || 'Unknown'}</p>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardBody className="p-4">
+            <p className="text-sm text-gray-500">Provider</p>
+            <p className="font-medium text-gray-900">
+              <Badge variant="outline" className="text-xs">
+                {conversation.llm_provider || 'ollama'}
+                {conversation.model_name && (
+                  <span className="ml-1 text-gray-500">
+                    - {conversation.model_name.length > 20 
+                      ? conversation.model_name.substring(0, 17) + '...' 
+                      : conversation.model_name}
+                  </span>
+                )}
+              </Badge>
+            </p>
           </CardBody>
         </Card>
         <Card>
@@ -159,6 +238,20 @@ export default function ConversationDetail() {
                       </div>
                     </div>
                     <p className="text-gray-700 whitespace-pre-wrap">{message.content}</p>
+                    {message.role === 'assistant' && message.tools_called && message.tools_called.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-gray-200">
+                        <span className="text-xs text-gray-500 font-medium">Tools Called: </span>
+                        <span className="text-xs text-gray-600">
+                          {message.tools_called.map((tool, idx) => (
+                            <span key={idx}>
+                              <Badge variant="info" className="text-xs mr-1">
+                                {tool}
+                              </Badge>
+                            </span>
+                          ))}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

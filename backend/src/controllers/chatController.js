@@ -22,10 +22,15 @@ export async function sendMessage(req, res) {
       userIdentifier
     } = req.body;
 
+    // Get client from API key (set by auth middleware)
+    const client = req.client;
+    
     logger.log('[ChatController] Received message request', { 
       message: message?.substring(0, 50), 
       sessionId,
-      clientId: req.client?.id 
+      clientId: client?.id,
+      llmProvider: client?.llm_provider || 'ollama',
+      modelName: client?.model_name || null
     });
 
     // Validation
@@ -41,12 +46,11 @@ export async function sendMessage(req, res) {
       });
     }
 
-    // Get client from API key (set by auth middleware)
-    const client = req.client;
-    
     logger.log('[ChatController] Processing message for client', { 
       clientId: client?.id, 
-      clientName: client?.name 
+      clientName: client?.name,
+      llmProvider: client?.llm_provider || 'ollama',
+      modelName: client?.model_name || null
     });
 
     if (!client) {
@@ -75,6 +79,7 @@ export async function sendMessage(req, res) {
     return res.json({
       response: result.response,
       conversationId: result.conversationId,
+      conversationEnded: result.conversationEnded || false,
       metadata: {
         toolsUsed: result.toolsUsed,
         tokensUsed: result.tokensUsed,
@@ -111,9 +116,13 @@ export async function getHistory(req, res) {
       // No conversation yet - return empty array (widget will show empty state with greeting)
       return res.json({
         sessionId,
-        messages: []
+        messages: [],
+        conversationEnded: false
       });
     }
+
+    // Check if conversation has ended
+    const conversationEnded = !!conversation.ended_at;
 
     // Get messages directly from database (not from getConversationContext)
     // This excludes system messages which are only for LLM context
@@ -136,7 +145,8 @@ export async function getHistory(req, res) {
 
     return res.json({
       sessionId,
-      messages: displayMessages
+      messages: displayMessages,
+      conversationEnded
     });
 
   } catch (error) {

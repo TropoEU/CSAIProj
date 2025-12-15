@@ -272,6 +272,7 @@ export default function Clients() {
             {...register('llmProvider')}
             options={[
               { value: 'ollama', label: 'Ollama (Local)' },
+              { value: 'groq', label: 'Groq (Fast & Free)' },
               { value: 'claude', label: 'Claude (Anthropic)' },
               { value: 'openai', label: 'OpenAI (ChatGPT)' },
             ]}

@@ -62,6 +62,17 @@ export class Client {
     }
 
     /**
+     * Find client by access code (for customer portal authentication)
+     */
+    static async findByAccessCode(accessCode) {
+        const result = await db.query(
+            'SELECT * FROM clients WHERE access_code = $1',
+            [accessCode]
+        );
+        return result.rows[0] || null;
+    }
+
+    /**
      * Get all clients
      */
     static async findAll(limit = 100, offset = 0) {
@@ -162,5 +173,66 @@ export class Client {
              GROUP BY plan_type`
         );
         return result.rows;
+    }
+
+    /**
+     * Generate a unique access code for customer dashboard (format: ABC123)
+     */
+    static generateAccessCode() {
+        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const digits = '0123456789';
+
+        let code = '';
+        // 3 random uppercase letters
+        for (let i = 0; i < 3; i++) {
+            code += letters.charAt(Math.floor(Math.random() * letters.length));
+        }
+        // 3 random digits
+        for (let i = 0; i < 3; i++) {
+            code += digits.charAt(Math.floor(Math.random() * digits.length));
+        }
+
+        return code;
+    }
+
+    /**
+     * Regenerate access code for a client
+     */
+    static async regenerateAccessCode(id) {
+        let attempts = 0;
+        const maxAttempts = 10;
+
+        while (attempts < maxAttempts) {
+            try {
+                const newAccessCode = this.generateAccessCode();
+                const result = await db.query(
+                    `UPDATE clients SET access_code = $1, updated_at = NOW()
+                     WHERE id = $2
+                     RETURNING *`,
+                    [newAccessCode, id]
+                );
+                return result.rows[0];
+            } catch (error) {
+                // If unique constraint violation, try again with new code
+                if (error.code === '23505') { // Unique violation
+                    attempts++;
+                    continue;
+                }
+                throw error;
+            }
+        }
+
+        throw new Error('Failed to generate unique access code after multiple attempts');
+    }
+
+    /**
+     * Find client by access code (for customer dashboard login)
+     */
+    static async findByAccessCode(accessCode) {
+        const result = await db.query(
+            'SELECT * FROM clients WHERE access_code = $1 AND status = $2',
+            [accessCode, 'active']
+        );
+        return result.rows[0] || null;
     }
 }

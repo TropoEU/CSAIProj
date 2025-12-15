@@ -38,8 +38,8 @@ class ToolManager {
       return provider === 'ollama' ? '' : [];
     }
 
-    // Use native function calling for Claude and OpenAI
-    if (llmService.supportsNativeFunctionCalling()) {
+    // Use native function calling for Claude, Groq, and OpenAI
+    if (llmService.supportsNativeFunctionCalling(provider)) {
       return this.formatForNativeFunctionCalling(tools, provider);
     }
 

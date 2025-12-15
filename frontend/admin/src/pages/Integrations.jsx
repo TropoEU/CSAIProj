@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { integrations, clients } from '../services/api';
+import { loadFilterState, saveFilterState, PAGE_KEYS } from '../utils/filterStorage';
 import {
   Card,
   CardBody,
@@ -31,8 +32,14 @@ const AUTH_METHODS = [
 
 export default function Integrations() {
   const [searchParams] = useSearchParams();
+
+  // Load filter state from localStorage
+  const initialFilters = loadFilterState(PAGE_KEYS.INTEGRATIONS, {
+    selectedClient: null,
+  });
+
   const [clientList, setClientList] = useState([]);
-  const [selectedClient, setSelectedClient] = useState(null);
+  const [selectedClient, setSelectedClient] = useState(initialFilters.selectedClient);
   const [integrationList, setIntegrationList] = useState([]);
   const [integrationTypes, setIntegrationTypes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,6 +56,13 @@ export default function Integrations() {
     setValue,
     formState: { errors, isSubmitting },
   } = useForm();
+
+  // Save filter state when it changes
+  useEffect(() => {
+    saveFilterState(PAGE_KEYS.INTEGRATIONS, {
+      selectedClient,
+    });
+  }, [selectedClient]);
 
   useEffect(() => {
     fetchClients();
@@ -89,7 +103,8 @@ export default function Integrations() {
       const clientIdFromQuery = searchParams.get('client');
       if (clientIdFromQuery && response.data.some(c => c.id === parseInt(clientIdFromQuery))) {
         setSelectedClient(parseInt(clientIdFromQuery));
-      } else if (response.data.length > 0) {
+      } else if (selectedClient === null && response.data.length > 0) {
+        // Only set default if no filter was loaded from localStorage
         setSelectedClient(response.data[0].id);
       }
     } catch (err) {

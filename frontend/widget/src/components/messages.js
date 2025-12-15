@@ -24,11 +24,12 @@ export class MessageList {
    * @param {string} message.role - 'user' or 'assistant'
    * @param {string} message.content - Message text
    * @param {Date} message.timestamp - Message timestamp
+   * @param {Boolean} isEnded - Whether conversation has ended
    */
-  addMessage(message) {
+  addMessage(message, isEnded = false) {
     this.messages.push(message);
 
-    const messageEl = this.createMessageElement(message);
+    const messageEl = this.createMessageElement(message, isEnded);
     this.element.appendChild(messageEl);
 
     this.scrollToBottom();
@@ -37,11 +38,17 @@ export class MessageList {
   /**
    * Create a message element
    * @param {Object} message - Message object
+   * @param {Boolean} isEnded - Whether conversation has ended (for styling)
    * @returns {HTMLElement}
    */
-  createMessageElement(message) {
+  createMessageElement(message, isEnded = false) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `csai-message ${message.role === 'user' ? 'user' : 'ai'}`;
+    
+    // Add ended class if conversation has ended
+    if (isEnded || message.isEnded) {
+      messageDiv.classList.add('csai-ended');
+    }
 
     const bubble = document.createElement('div');
     bubble.className = 'csai-message-bubble';
@@ -55,6 +62,16 @@ export class MessageList {
     messageDiv.appendChild(time);
 
     return messageDiv;
+  }
+
+  /**
+   * Mark all messages as ended (gray them out)
+   */
+  markAsEnded() {
+    const messages = this.element.querySelectorAll('.csai-message');
+    messages.forEach(msg => {
+      msg.classList.add('csai-ended');
+    });
   }
 
   /**

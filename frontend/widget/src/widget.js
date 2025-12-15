@@ -19,6 +19,7 @@ export class ChatWidget {
     this.bubble = null;
     this.window = null;
     this.pendingMessage = null;
+    this.endedSessionId = null; // Track ended session ID to clear on next message
 
     this.init();
   }
@@ -162,7 +163,8 @@ export class ChatWidget {
     this.window = new ChatWindow(
       this.config,
       () => this.handleClose(),
-      (message) => this.handleSend(message)
+      (message) => this.handleSend(message),
+      () => this.handleEndConversation()
     );
 
     // Append components to shadow DOM
@@ -174,6 +176,21 @@ export class ChatWidget {
     
     // Show bubble when window is closed, hide when open
     this.updateBubbleVisibility();
+  }
+
+  /**
+   * Start a new conversation session
+   * Clears old session data and generates a new session ID
+   */
+  startNewSession() {
+    console.log('ChatWidget: Starting new conversation session');
+    // Generate new session ID
+    this.sessionId = this.storage.generateSessionId();
+    this.storage.set('sessionId', this.sessionId);
+    // Clear cached messages
+    this.storage.saveMessages([]);
+    // Clear window messages
+    this.window.loadMessages([]);
   }
 
   /**
@@ -190,12 +207,26 @@ export class ChatWidget {
         );
         if (filteredMessages.length > 0) {
           this.window.loadMessages(filteredMessages);
+          // Still check with API to see if conversation ended
+          // (but don't wait for it - show cached messages immediately)
+          this.checkConversationStatus();
           return;
         }
       }
 
       // If no cached messages, try to fetch from API
-      const messages = await this.api.getHistory(this.sessionId);
+      const historyData = await this.api.getHistory(this.sessionId);
+      
+      // Check if conversation has ended
+      if (historyData.conversationEnded) {
+        console.log('ChatWidget: Previous conversation has ended, starting new session');
+        this.startNewSession();
+        // Show empty state with greeting for new conversation
+        this.window.loadMessages([]);
+        return;
+      }
+
+      const messages = historyData.messages || [];
       if (messages && messages.length > 0) {
         // Filter out system and tool messages (safety check)
         const filteredMessages = messages.filter(msg => 
@@ -219,6 +250,23 @@ export class ChatWidget {
       console.error('ChatWidget: Failed to load history', error);
       // Show empty state if history load fails
       this.window.loadMessages([]);
+    }
+  }
+
+  /**
+   * Check conversation status (if it has ended)
+   * Called asynchronously to verify cached messages are still valid
+   */
+  async checkConversationStatus() {
+    try {
+      const historyData = await this.api.getHistory(this.sessionId);
+      if (historyData.conversationEnded) {
+        console.log('ChatWidget: Conversation has ended, starting new session');
+        this.startNewSession();
+      }
+    } catch (error) {
+      // Silently fail - this is just a background check
+      console.debug('ChatWidget: Failed to check conversation status', error);
     }
   }
 
@@ -274,6 +322,51 @@ export class ChatWidget {
   }
 
   /**
+   * Mark conversation as ended visually
+   */
+  markConversationEnded() {
+    // Mark all existing messages as ended (gray them out)
+    this.window.markConversationEnded();
+    // Don't clear messages - just mark them as ended
+  }
+
+  /**
+   * Handle ending conversation
+   */
+  async handleEndConversation() {
+    try {
+      await this.api.endSession(this.sessionId);
+      console.log('ChatWidget: Conversation ended successfully');
+      
+      // Mark conversation as ended visually
+      this.markConversationEnded();
+      
+      // Start a new session for future messages (but don't clear current messages)
+      const oldSessionId = this.sessionId;
+      this.sessionId = this.storage.generateSessionId();
+      this.storage.set('sessionId', this.sessionId);
+      this.endedSessionId = oldSessionId;
+      
+      // Show a message to the user
+      const endMessage = {
+        role: 'assistant',
+        content: 'Conversation ended. How can I help you today?',
+        timestamp: new Date(),
+      };
+      this.window.addMessage(endMessage);
+      this.storage.saveMessages(this.window.getMessages());
+    } catch (error) {
+      console.error('ChatWidget: Failed to end conversation', error);
+      // Still mark as ended and start new session even if API call fails
+      this.markConversationEnded();
+      const oldSessionId = this.sessionId;
+      this.sessionId = this.storage.generateSessionId();
+      this.storage.set('sessionId', this.sessionId);
+      this.endedSessionId = oldSessionId;
+    }
+  }
+
+  /**
    * Handle sending a message
    * @param {string} messageText - User's message
    */
@@ -318,6 +411,20 @@ export class ChatWidget {
       const updatedMessages = this.window.getMessages();
       this.storage.saveMessages(updatedMessages);
 
+      // Check if conversation was ended automatically
+      if (response.conversationEnded) {
+        console.log('ChatWidget: Conversation ended automatically by AI');
+        // Mark conversation as ended visually (gray out old messages)
+        this.markConversationEnded();
+        // Start a new session for future messages (but don't clear current messages)
+        // Only clear when user sends a new message
+        const oldSessionId = this.sessionId;
+        this.sessionId = this.storage.generateSessionId();
+        this.storage.set('sessionId', this.sessionId);
+        // Store old session ID so we can clear it when user sends next message
+        this.endedSessionId = oldSessionId;
+      }
+
       // If window is closed, increment unread count
       if (!this.window.isOpen) {
         const currentUnread = this.storage.getUnreadCount();
@@ -334,6 +441,30 @@ export class ChatWidget {
 
       // Hide typing indicator
       this.window.hideTyping();
+
+      // Check if error indicates conversation ended (e.g., 404 or specific error message)
+      // If so, start a new session and retry
+      const errorMessage = error.message?.toLowerCase() || '';
+      if (errorMessage.includes('conversation ended') || errorMessage.includes('not found') || errorMessage.includes('404')) {
+        console.log('ChatWidget: Conversation appears to have ended, starting new session and retrying');
+        this.startNewSession();
+        // Retry sending the message with new session
+        try {
+          const retryResponse = await this.api.sendMessage(this.sessionId, messageText);
+          const aiMessage = {
+            role: 'assistant',
+            content: retryResponse.response,
+            timestamp: new Date(),
+          };
+          this.window.addMessage(aiMessage);
+          const updatedMessages = this.window.getMessages();
+          this.storage.saveMessages(updatedMessages);
+          this.pendingMessage = null;
+          return;
+        } catch (retryError) {
+          console.error('ChatWidget: Retry after new session also failed', retryError);
+        }
+      }
 
       // Show error with retry option
       this.window.showError(
@@ -378,8 +509,7 @@ export class ChatWidget {
    */
   clearHistory() {
     this.storage.clearAll();
-    this.sessionId = this.storage.getSessionId();
-    this.window.loadMessages([]);
+    this.startNewSession();
   }
 
   /**

@@ -16,6 +16,24 @@ export const PROVIDER_PRICING = {
     outputCostPer1M: 0,     // Free (local)
     description: 'Free local model',
   },
+  groq: {
+    name: 'Groq (Cloud)',
+    inputCostPer1M: 0,      // Free during beta
+    outputCostPer1M: 0,     // Free during beta
+    description: 'Extremely fast inference (free during beta)',
+  },
+  'llama-3.3-70b-versatile': {
+    name: 'Llama 3.3 70B (Groq)',
+    inputCostPer1M: 0,      // Free during beta
+    outputCostPer1M: 0,     // Free during beta
+    description: 'Best Groq model - versatile and powerful',
+  },
+  'llama-3.1-8b-instant': {
+    name: 'Llama 3.1 8B (Groq)',
+    inputCostPer1M: 0,      // Free during beta
+    outputCostPer1M: 0,     // Free during beta
+    description: 'Fastest Groq model - 131k context',
+  },
   'claude-3-5-sonnet': {
     name: 'Claude 3.5 Sonnet',
     inputCostPer1M: 3.00,   // Configure based on Anthropic pricing

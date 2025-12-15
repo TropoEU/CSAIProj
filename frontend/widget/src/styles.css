@@ -280,6 +280,15 @@
   border-bottom-left-radius: 4px;
 }
 
+/* Ended conversation messages - grayed out */
+.csai-message.csai-ended {
+  opacity: 0.6;
+}
+
+.csai-message.csai-ended .csai-message-bubble {
+  opacity: 0.7;
+}
+
 .csai-message-time {
   font-size: 11px;
   color: var(--text-light);
