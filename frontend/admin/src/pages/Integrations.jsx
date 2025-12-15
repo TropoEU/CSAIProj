@@ -185,12 +185,19 @@ export default function Integrations() {
     setTestResult(null);
     try {
       const response = await integrations.test(id);
-      setTestResult({ id, success: true, message: response.data.message || 'Connection successful' });
+      const result = response.data;
+      setTestResult({
+        id,
+        success: result.success,
+        message: result.message || (result.success ? 'Test successful' : 'Test failed'),
+        details: result, // Store full test results including schema
+      });
     } catch (err) {
       setTestResult({
         id,
         success: false,
-        message: err.response?.data?.error || 'Connection failed',
+        message: err.response?.data?.error || 'Test failed',
+        details: err.response?.data,
       });
     } finally {
       setTestingId(null);
@@ -296,18 +303,44 @@ export default function Integrations() {
                         </TableCell>
                         <TableCell>
                           {testResult?.id === integration.id ? (
-                            <Badge variant={testResult.success ? 'success' : 'danger'}>
-                              {testResult.success ? 'Connected' : 'Failed'}
-                            </Badge>
+                            <div className="flex flex-col gap-1">
+                              <Badge variant={testResult.success ? 'success' : 'danger'}>
+                                {testResult.success ? 'Connected' : 'Failed'}
+                              </Badge>
+                              {testResult.details?.responseTime && (
+                                <span className="text-xs text-gray-500">
+                                  {testResult.details.responseTime}ms
+                                </span>
+                              )}
+                              {!testResult.success && testResult.details?.error && (
+                                <span className="text-xs text-red-600">
+                                  {testResult.details.error}
+                                </span>
+                              )}
+                              {!testResult.success && testResult.details?.endpointTests && testResult.details.endpointTests.length > 0 && (
+                                <div className="text-xs text-red-600">
+                                  {testResult.details.endpointTests.filter(t => !t.success).map((t, i) => (
+                                    <div key={i}>• {t.endpoint}: {t.error}</div>
+                                  ))}
+                                </div>
+                              )}
+                              {testResult.details?.capturedSchema && Object.keys(testResult.details.capturedSchema).length > 0 && (
+                                <span className="text-xs text-green-600">
+                                  Schema captured ({Object.keys(testResult.details.capturedSchema).length} endpoints)
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <Badge
                               variant={
                                 integration.status === 'active' ? 'success' :
+                                integration.status === 'error' ? 'danger' :
                                 integration.status === 'not_configured' ? 'warning' :
                                 'warning'
                               }
                             >
                               {integration.status === 'active' ? 'Active' :
+                               integration.status === 'error' ? 'Error' :
                                integration.status === 'not_configured' ? 'Not Configured' :
                                integration.status === 'inactive' ? 'Inactive' :
                                'Unknown'}
@@ -315,9 +348,18 @@ export default function Integrations() {
                           )}
                         </TableCell>
                         <TableCell className="text-gray-500">
-                          {integration.last_tested_at
-                            ? new Date(integration.last_tested_at).toLocaleString()
-                            : 'Never'}
+                          <div className="flex flex-col">
+                            <span>
+                              {integration.last_sync_test
+                                ? new Date(integration.last_sync_test).toLocaleString()
+                                : 'Never'}
+                            </span>
+                            {integration.last_test_result?.capturedSchema && (
+                              <span className="text-xs text-gray-400">
+                                {Object.keys(integration.last_test_result.capturedSchema).length} endpoints mapped
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
@@ -382,18 +424,25 @@ export default function Integrations() {
         size="lg"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <Select
-            label="Integration Type"
-            {...register('integrationType', { required: 'Type is required' })}
-            error={errors.integrationType?.message}
-            options={[
-              { value: '', label: 'Select type...' },
-              ...integrationTypes.map((type) => ({
-                value: type.type,
-                label: `${type.name} - ${type.description}`
-              }))
-            ]}
-          />
+          <div>
+            <Input
+              label="Integration Type (Key)"
+              {...register('integrationType', { required: 'Type is required' })}
+              error={errors.integrationType?.message}
+              placeholder="e.g., order_api, email_api, inventory_api"
+            />
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded text-xs">
+              <p className="font-medium text-blue-900 mb-1">💡 Important:</p>
+              <p className="text-blue-800">
+                This should match the <code className="bg-blue-100 px-1 rounded">"key"</code> field
+                in your tool's <code className="bg-blue-100 px-1 rounded">required_integrations</code>.
+              </p>
+              <p className="text-blue-700 mt-2">
+                Example: If your tool has <code className="bg-blue-100 px-1 rounded">{`{"key": "order_api"}`}</code>,
+                enter "order_api" here.
+              </p>
+            </div>
+          </div>
 
           <Input
             label="Name"
@@ -407,9 +456,13 @@ export default function Integrations() {
             {...register('apiUrl')}
             placeholder="https://api.example.com"
           />
-          <p className="text-xs text-gray-500 -mt-3">
-            Base URL for the client's API. Tools will use this to make requests.
-          </p>
+          <div className="text-xs text-gray-600 -mt-3 space-y-1">
+            <p>Base URL for the client's API. Tools will use this to make requests.</p>
+            <p className="text-yellow-700">
+              ⚠️ For testing: Add a <code className="bg-gray-100 px-1 rounded">/health</code> endpoint
+              that returns 200 OK, or configure specific test endpoints after creation.
+            </p>
+          </div>
 
           <Input
             label="API Key"

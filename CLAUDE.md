@@ -93,8 +93,12 @@ The system uses 12 core tables:
 **Multi-Tenant Structure:**
 
 - `clients`: Business clients using the platform (identified by API key, includes `widget_config` JSON for customization)
-- `client_tools`: Which tools each client has enabled
+- `client_tools`: Which tools each client has enabled (includes `integration_mapping` for many-to-many relationships)
 - `client_integrations`: External system connections per client
+  - Includes `api_schema` JSONB: captured API structure from testing
+  - Includes `test_config` JSONB: test configuration for validation
+  - Includes `last_test_result` JSONB: comprehensive test results with schema capture
+  - Includes `status`: not_configured, active, inactive, error
 - `integration_endpoints`: n8n webhook URLs for each client's integrations
 
 **Conversation Tracking:**
@@ -105,8 +109,12 @@ The system uses 12 core tables:
 **Tool System:**
 
 - `tools`: Master catalog of available tools (e.g., "get_order_status", "book_appointment")
-  - Tools can specify `integration_type` to link with client integrations
-  - When tool has `integration_type`, backend automatically fetches matching client integration during execution
+  - Tools define `required_integrations` JSONB array (many-to-many relationship)
+  - Format: `[{"key": "order_api", "name": "Order API", "required": true, "description": "..."}]`
+  - Each tool can require multiple integrations simultaneously
+- `client_tools`: Junction table linking clients to enabled tools
+  - Includes `integration_mapping` JSONB: maps integration keys to client_integration IDs
+  - Format: `{"order_api": 5, "email_api": 8}` where values are `client_integrations.id`
 - `tool_executions`: Audit log of all tool calls
 - `api_usage`: Track LLM API consumption per client (conversation_count uses UPSERT with proper boolean-to-int conversion)
 
@@ -414,58 +422,93 @@ Widget configuration is stored in the `clients.widget_config` JSONB column and s
 - Outstanding payments tracking
 - Payment provider abstraction layer (ready for Stripe/PayPal)
 
-**Phases 7-9** (Not Started):
+**Phase 7** (✅ Complete - December 15, 2025):
 
-- Phase 7: Hebrew/RTL support
-- Phase 8: Advanced features (RAG, analytics, escalation)
-- Phase 9: Production deployment and DevOps
+- Customer Dashboard running on http://localhost:3004
+- React 18 + Vite + Tailwind CSS (purple theme)
+- JWT authentication with access code login
+- Dashboard pages: Overview, Conversations, Conversation Detail, Billing, Usage
+- 60-day conversation history with search and filters
+- Live updates (auto-refresh every 30 seconds with visual indicator)
+- Invoice PDF generation and download (client-side with @react-pdf/renderer)
+- Usage progress bars and trend visualization
+- Mobile-responsive design with sidebar navigation
+- Read-only access (no settings changes in MVP)
+- Test login: Access code `GAV091`
+
+**Phases 8-10** (Not Started):
+
+- Phase 8: Hebrew/RTL support
+- Phase 9: Advanced features (RAG, analytics, escalation)
+- Phase 10: Production deployment and DevOps
 
 **🚀 Upcoming Planned Features** (Priority for next development cycle):
 
-1. **Customer Dashboard** - Self-service portal for businesses using the widget (details TBD)
-2. **Hebrew Support & RTL** - Right-to-left layout for Hebrew across widget, admin, and customer dashboard
+1. **Hebrew Support & RTL** - Right-to-left layout for Hebrew across widget, admin, and customer dashboard
+2. **Production Deployment** - Deploy all components to hosting platforms with SSL
+3. **RAG Implementation** - Knowledge base integration with vector embeddings
 
 ## Important Implementation Patterns
 
 ### Adding a New Tool
 
-1. Create n8n workflow with webhook trigger (`http://localhost:5678/webhook/<tool_name>`)
-   - If tool needs client API credentials, workflow should read from `{{ $json._integration }}`
-2. Add tool definition to `tools` table (name, description, parameters schema, **integration_type**)
-3. Enable tool for client in `client_tools` table with webhook URL
-4. **If tool has `integration_type`**: Add matching integration for client in `client_integrations` table
-5. Tool Manager automatically loads and formats it for the LLM
-6. No code changes needed - the system dynamically loads tools from database
+The system now supports **many-to-many relationships** between tools and integrations:
 
-**Example SQL** (with integration):
+1. **Create n8n workflow** with webhook trigger (`http://localhost:5678/webhook/<tool_name>`)
+   - Workflow receives `{{ $json._integrations }}` object (plural) with multiple integrations
+   - Example: `{{ $json._integrations.order_api.apiUrl }}`, `{{ $json._integrations.email_api.apiKey }}`
 
+2. **Add tool to catalog** with `required_integrations` array:
 ```sql
--- Add tool to catalog (with integration_type)
-INSERT INTO tools (tool_name, description, parameters_schema, integration_type) VALUES (
-  'get_product_info',
-  'Get detailed information about a product',
-  '{"type": "object", "properties": {"productId": {"type": "string", "description": "Product ID"}}, "required": ["productId"]}',
-  'inventory_api'  -- Links to client integrations of type 'inventory_api'
-);
-
--- Enable tool for client
-INSERT INTO client_tools (client_id, tool_id, enabled, n8n_webhook_url) VALUES (
-  1,
-  (SELECT id FROM tools WHERE tool_name = 'get_product_info'),
-  true,
-  'http://localhost:5678/webhook/get_product_info'
-);
-
--- Add client's integration (required if tool has integration_type)
-INSERT INTO client_integrations (client_id, integration_type, name, connection_config) VALUES (
-  1,
-  'inventory_api',
-  'Bob\'s Inventory API',
-  '{"apiUrl": "https://api.bobshop.com", "apiKey": "sk-abc123", "authMethod": "bearer"}'::jsonb
+INSERT INTO tools (tool_name, description, parameters_schema, required_integrations) VALUES (
+  'send_order_confirmation',
+  'Send order confirmation email to customer',
+  '{"type": "object", "properties": {"orderId": {"type": "string"}}, "required": ["orderId"]}',
+  '[
+    {"key": "order_api", "name": "Order API", "required": true, "description": "Fetches order details"},
+    {"key": "email_api", "name": "Email Service", "required": true, "description": "Sends emails"}
+  ]'::jsonb
 );
 ```
 
-**See**: `INTEGRATION_SYSTEM_GUIDE.md` for complete integration setup guide
+3. **Add client integrations** (one for each integration type the client will use):
+```sql
+-- Order API integration
+INSERT INTO client_integrations (client_id, integration_type, name, connection_config, status) VALUES (
+  1,
+  'order_api',
+  'Client''s Order System',
+  '{"apiUrl": "https://api.client.com/orders", "apiKey": "key123", "authMethod": "bearer"}'::jsonb,
+  'active'
+);
+
+-- Email API integration
+INSERT INTO client_integrations (client_id, integration_type, name, connection_config, status) VALUES (
+  1,
+  'email_api',
+  'Client''s SendGrid',
+  '{"apiUrl": "https://api.sendgrid.com", "apiKey": "sg-key", "authMethod": "bearer"}'::jsonb,
+  'active'
+);
+```
+
+4. **Enable tool for client with integration mapping**:
+```sql
+INSERT INTO client_tools (client_id, tool_id, enabled, n8n_webhook_url, integration_mapping) VALUES (
+  1,
+  (SELECT id FROM tools WHERE tool_name = 'send_order_confirmation'),
+  true,
+  'http://localhost:5678/webhook/send_order_confirmation',
+  '{"order_api": 5, "email_api": 8}'::jsonb  -- Maps keys to client_integrations.id
+);
+```
+
+**When tool executes:**
+- Backend fetches all mapped integrations
+- n8n receives: `_integrations: { "order_api": {...}, "email_api": {...} }`
+- Workflow can use multiple APIs in one execution
+
+**See**: `INTEGRATION_REDESIGN_PROGRESS.md` for architecture details
 
 ### Adding a New Model
 
@@ -549,22 +592,38 @@ CSAIProj/
 │   │   │   └── demo.html      # Demo page
 │   │   ├── vite.config.js     # Build configuration
 │   │   └── package.json       # Widget dependencies
-│   └── admin/                 # Admin Dashboard (Phase 5)
+│   ├── admin/                 # Admin Dashboard (Phase 5)
+│   │   ├── src/
+│   │   │   ├── main.jsx       # React entry point
+│   │   │   ├── App.jsx        # Protected routes setup
+│   │   │   ├── context/       # Auth context
+│   │   │   ├── services/      # API client
+│   │   │   ├── pages/         # 12 Dashboard pages:
+│   │   │   │   │              #   Login, Dashboard, Clients, ClientDetail,
+│   │   │   │   │              #   Tools, Conversations, ConversationDetail,
+│   │   │   │   │              #   Integrations, TestChat, Billing, UsageReports, Plans
+│   │   │   ├── components/    # Reusable UI components
+│   │   │   └── index.css      # Tailwind CSS
+│   │   ├── index.html         # HTML entry point
+│   │   ├── vite.config.js     # Vite config with proxy
+│   │   ├── tailwind.config.js # Tailwind configuration
+│   │   └── package.json       # Admin dependencies
+│   └── customer/              # Customer Dashboard (Phase 7)
 │       ├── src/
 │       │   ├── main.jsx       # React entry point
 │       │   ├── App.jsx        # Protected routes setup
-│       │   ├── context/       # Auth context
+│       │   ├── context/       # Auth context (access code)
 │       │   ├── services/      # API client
-│       │   ├── pages/         # 12 Dashboard pages:
-│       │   │   │              #   Login, Dashboard, Clients, ClientDetail,
-│       │   │   │              #   Tools, Conversations, ConversationDetail,
-│       │   │   │              #   Integrations, TestChat, Billing, UsageReports, Plans
-│       │   ├── components/    # Reusable UI components
+│       │   ├── pages/         # 6 Dashboard pages:
+│       │   │              #   Login, Dashboard, Conversations,
+│       │   │              #   ConversationDetail, Billing, Usage
+│       │   ├── components/    # UI components + InvoicePDF
+│       │   │   └── layout/    # Header, Sidebar, Layout
 │       │   └── index.css      # Tailwind CSS
 │       ├── index.html         # HTML entry point
-│       ├── vite.config.js     # Vite config with proxy
-│       ├── tailwind.config.js # Tailwind configuration
-│       └── package.json       # Admin dependencies
+│       ├── vite.config.js     # Vite config with proxy (port 3004)
+│       ├── tailwind.config.js # Tailwind config (purple theme)
+│       └── package.json       # Customer dependencies
 ├── db/
 │   └── migrations/            # SQL migration files
 ├── docker/
@@ -639,6 +698,8 @@ Use this endpoint to verify all services are running correctly after startup.
 
 - Backend API: http://localhost:3000
 - Widget Dev Server: http://localhost:3001
+- Admin Dashboard: http://localhost:3002
+- Customer Dashboard: http://localhost:3004
 - n8n: http://localhost:5678
 - PostgreSQL: localhost:5432
 - Redis: localhost:6379

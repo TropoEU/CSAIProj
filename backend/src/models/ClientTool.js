@@ -2,16 +2,26 @@ import { db } from '../db.js';
 
 export class ClientTool {
     /**
-     * Enable a tool for a client
+     * Enable a tool for a client with integration mapping
+     * @param {number} clientId - Client ID
+     * @param {number} toolId - Tool ID
+     * @param {string} n8nWebhookUrl - n8n webhook URL
+     * @param {Object} integrationMapping - Maps integration keys to client_integration IDs
+     *   Example: {"order_api": 5, "email_api": 8}
+     * @param {Object} customConfig - Additional custom configuration (optional)
      */
-    static async enable(clientId, toolId, n8nWebhookUrl, customConfig = null) {
+    static async enable(clientId, toolId, n8nWebhookUrl, integrationMapping = null, customConfig = null) {
+        const formattedMapping = integrationMapping
+            ? (typeof integrationMapping === 'string' ? integrationMapping : JSON.stringify(integrationMapping))
+            : '{}';
+
         const result = await db.query(
-            `INSERT INTO client_tools (client_id, tool_id, enabled, n8n_webhook_url, custom_config)
-             VALUES ($1, $2, true, $3, $4)
+            `INSERT INTO client_tools (client_id, tool_id, enabled, n8n_webhook_url, integration_mapping, custom_config)
+             VALUES ($1, $2, true, $3, $4::jsonb, $5)
              ON CONFLICT (client_id, tool_id)
-             DO UPDATE SET enabled = true, n8n_webhook_url = $3, custom_config = $4, updated_at = NOW()
+             DO UPDATE SET enabled = true, n8n_webhook_url = $3, integration_mapping = $4::jsonb, custom_config = $5, updated_at = NOW()
              RETURNING *`,
-            [clientId, toolId, n8nWebhookUrl, customConfig]
+            [clientId, toolId, n8nWebhookUrl, formattedMapping, customConfig]
         );
         return result.rows[0];
     }
@@ -35,7 +45,7 @@ export class ClientTool {
      */
     static async getEnabledTools(clientId) {
         const result = await db.query(
-            `SELECT ct.*, t.tool_name, t.description, t.parameters_schema, t.category, t.integration_type
+            `SELECT ct.*, t.tool_name, t.description, t.parameters_schema, t.category, t.required_integrations, t.capabilities
              FROM client_tools ct
              JOIN tools t ON ct.tool_id = t.id
              WHERE ct.client_id = $1 AND ct.enabled = true
@@ -50,7 +60,7 @@ export class ClientTool {
      */
     static async getAllTools(clientId) {
         const result = await db.query(
-            `SELECT ct.*, t.tool_name, t.description, t.parameters_schema, t.category
+            `SELECT ct.*, t.tool_name, t.description, t.parameters_schema, t.category, t.required_integrations, t.capabilities
              FROM client_tools ct
              JOIN tools t ON ct.tool_id = t.id
              WHERE ct.client_id = $1
@@ -75,18 +85,24 @@ export class ClientTool {
     }
 
     /**
-     * Update webhook URL or custom config
+     * Update webhook URL, integration mapping, or custom config
      */
     static async update(clientId, toolId, updates) {
-        const allowedFields = ['n8n_webhook_url', 'custom_config', 'enabled'];
+        const allowedFields = ['n8n_webhook_url', 'integration_mapping', 'custom_config', 'enabled'];
         const fields = [];
         const values = [];
         let paramIndex = 1;
 
         for (const [key, value] of Object.entries(updates)) {
             if (allowedFields.includes(key)) {
-                fields.push(`${key} = $${paramIndex}`);
-                values.push(value);
+                // For JSONB fields, ensure proper formatting
+                if (key === 'integration_mapping' && value !== null) {
+                    fields.push(`${key} = $${paramIndex}::jsonb`);
+                    values.push(typeof value === 'string' ? value : JSON.stringify(value));
+                } else {
+                    fields.push(`${key} = $${paramIndex}`);
+                    values.push(value);
+                }
                 paramIndex++;
             }
         }

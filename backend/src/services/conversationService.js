@@ -807,57 +807,60 @@ class ConversationService {
           // Use normalized arguments for execution
           const finalArgs = normalizedArgs || toolArgs;
 
-          // Fetch integration credentials if tool requires one
-          let integration = null;
+          // Fetch integration credentials if tool requires any
+          let integrations = {};
           console.log(`\n========== TOOL EXECUTION DEBUG ==========`);
           console.log(`[Conversation] Processing tool: ${name}`);
-          console.log(`[Conversation] Tool integration_type:`, tool.integration_type || 'NULL');
+          console.log(`[Conversation] Tool required_integrations:`, tool.required_integrations || '[]');
+          console.log(`[Conversation] Integration mapping:`, tool.integration_mapping || '{}');
           console.log(`[Conversation] Client ID:`, client.id);
-          console.log(`[Conversation] Tool object keys:`, Object.keys(tool));
-          console.log(`[Conversation] Tool has integration_type property:`, 'integration_type' in tool);
-          console.log(`[Conversation] Tool integration_type value:`, tool.integration_type);
-          
-          if (tool.integration_type) {
-            console.log(`[Conversation] Fetching integration for type: ${tool.integration_type}`);
-            integration = await integrationService.getIntegrationForClient(
-              client.id, 
-              tool.integration_type
-            );
-            
-            if (!integration) {
-              console.error(`[Conversation] ❌ Tool ${name} requires '${tool.integration_type}' integration but client ${client.id} doesn't have one configured`);
-            } else {
-              console.log(`[Conversation] ✅ Found integration:`, {
-                type: integration.type,
-                apiUrl: integration.apiUrl,
-                hasApiKey: !!integration.apiKey,
-                authMethod: integration.authMethod
+
+          // Check if tool has required integrations (new architecture)
+          const requiredIntegrations = tool.required_integrations || [];
+          const integrationMapping = tool.integration_mapping || {};
+
+          if (requiredIntegrations.length > 0) {
+            try {
+              console.log(`[Conversation] Fetching ${requiredIntegrations.length} integrations for tool`);
+              integrations = await integrationService.getIntegrationsForTool(
+                client.id,
+                integrationMapping,
+                requiredIntegrations
+              );
+
+              const integrationCount = Object.keys(integrations).length;
+              console.log(`[Conversation] ✅ Loaded ${integrationCount} integrations:`, Object.keys(integrations).join(', '));
+              Object.entries(integrations).forEach(([key, int]) => {
+                console.log(`[Conversation] - ${key}:`, {
+                  type: int.type,
+                  apiUrl: int.apiUrl,
+                  hasApiKey: !!int.apiKey
+                });
               });
+            } catch (error) {
+              console.error(`[Conversation] ❌ Failed to load integrations:`, error.message);
+              // If required integrations are missing, skip this tool
+              messages.push({
+                role: 'tool',
+                content: `Error: ${error.message}. Please configure the required integrations in the admin panel.`,
+                tool_call_id: id
+              });
+              continue;
             }
           } else {
-            console.log(`[Conversation] ⚠️ Tool ${name} has NO integration_type property!`);
-            console.log(`[Conversation] Full tool object:`, JSON.stringify(tool, null, 2));
+            console.log(`[Conversation] ⚠️  Tool ${name} has no required integrations`);
           }
 
           // Execute via n8n (with integration credentials if available)
           const startTime = Date.now();
-          console.log(`[Conversation] Calling n8n with integration:`, integration ? 'YES' : 'NO');
-          if (integration) {
-            console.log(`[Conversation] Integration being sent:`, {
-              type: integration.type,
-              apiUrl: integration.apiUrl,
-              apiKey: integration.apiKey ? 'SET' : 'MISSING',
-              authMethod: integration.authMethod
-            });
-          } else {
-            console.error(`[Conversation] ❌ NO INTEGRATION TO SEND!`);
-          }
+          const integrationCount = Object.keys(integrations).length;
+          console.log(`[Conversation] Calling n8n with ${integrationCount} integrations`);
           console.log(`==========================================\n`);
-          
+
           const result = await n8nService.executeTool(
             tool.n8n_webhook_url,
             finalArgs,
-            { integration }
+            { integrations }
           );
 
           const executionTime = Date.now() - startTime;

@@ -14,6 +14,7 @@ import conversationService from '../services/conversationService.js';
 import toolManager from '../services/toolManager.js';
 import n8nService from '../services/n8nService.js';
 import integrationService from '../services/integrationService.js';
+import integrationTester from '../services/integrationTester.js';
 import { BillingService } from '../services/billingService.js';
 import { UsageTracker } from '../services/usageTracker.js';
 import { clearPlanCache } from '../config/planLimits.js';
@@ -419,18 +420,18 @@ router.get('/tools', async (req, res) => {
  */
 router.post('/tools', async (req, res) => {
   try {
-    const { toolName, description, parametersSchema, category, integrationType, capabilities } = req.body;
+    const { toolName, description, parametersSchema, category, requiredIntegrations, capabilities } = req.body;
 
     if (!toolName || !description) {
       return res.status(400).json({ error: 'Tool name and description are required' });
     }
 
     const tool = await Tool.create(
-      toolName, 
-      description, 
-      parametersSchema || {}, 
+      toolName,
+      description,
+      parametersSchema || {},
       category || null,
-      integrationType || null,
+      requiredIntegrations || [],
       capabilities || null
     );
     res.status(201).json(tool);
@@ -446,15 +447,15 @@ router.post('/tools', async (req, res) => {
  */
 router.put('/tools/:id', async (req, res) => {
   try {
-    const { toolName, description, parametersSchema, category, integrationType, capabilities } = req.body;
+    const { toolName, description, parametersSchema, category, requiredIntegrations, capabilities } = req.body;
     const updates = {};
 
     if (toolName) updates.tool_name = toolName;
     if (description) updates.description = description;
     if (parametersSchema) updates.parameters_schema = parametersSchema;
     if (category !== undefined) updates.category = category;
-    // Allow setting integration_type to null to remove it
-    if (integrationType !== undefined) updates.integration_type = integrationType;
+    // Allow setting required_integrations to empty array to remove all
+    if (requiredIntegrations !== undefined) updates.required_integrations = requiredIntegrations;
     // Allow setting capabilities to null to remove them
     if (capabilities !== undefined) updates.capabilities = capabilities;
 
@@ -504,11 +505,13 @@ router.get('/clients/:clientId/tools', async (req, res) => {
 
 /**
  * POST /admin/clients/:clientId/tools
- * Enable a tool for a client
+ * Enable a tool for a client with integration mapping
+ * Body: { toolId, webhookUrl, integrationMapping }
+ * integrationMapping: { "order_api": 5, "email_api": 8 }
  */
 router.post('/clients/:clientId/tools', async (req, res) => {
   try {
-    const { toolId, webhookUrl } = req.body;
+    const { toolId, webhookUrl, integrationMapping } = req.body;
 
     if (!toolId || !webhookUrl) {
       return res.status(400).json({ error: 'Tool ID and webhook URL are required' });
@@ -517,7 +520,9 @@ router.post('/clients/:clientId/tools', async (req, res) => {
     const clientTool = await ClientTool.enable(
       req.params.clientId,
       toolId,
-      webhookUrl
+      webhookUrl,
+      integrationMapping || {},
+      null // customConfig
     );
     res.status(201).json(clientTool);
   } catch (error) {
@@ -528,15 +533,16 @@ router.post('/clients/:clientId/tools', async (req, res) => {
 
 /**
  * PUT /admin/clients/:clientId/tools/:id
- * Update client tool configuration
+ * Update client tool configuration including integration mapping
  */
 router.put('/clients/:clientId/tools/:id', async (req, res) => {
   try {
-    const { webhookUrl, enabled } = req.body;
+    const { webhookUrl, enabled, integrationMapping } = req.body;
     const updates = {};
 
     if (webhookUrl !== undefined) updates.n8n_webhook_url = webhookUrl;
     if (enabled !== undefined) updates.enabled = enabled;
+    if (integrationMapping !== undefined) updates.integration_mapping = integrationMapping;
 
     const clientTool = await ClientTool.update(req.params.clientId, req.params.id, updates);
     if (!clientTool) {
@@ -994,7 +1000,11 @@ router.delete('/integrations/:id', async (req, res) => {
 
 /**
  * POST /admin/integrations/:id/test
- * Test integration connection (tests actual API endpoint, not just n8n webhook)
+ * Test integration with comprehensive schema capture
+ * Body (optional): {
+ *   endpoints: [{path: '/orders/123', method: 'GET', description: '...'}],
+ *   captureSchema: true
+ * }
  */
 router.post('/integrations/:id/test', async (req, res) => {
   try {
@@ -1003,19 +1013,22 @@ router.post('/integrations/:id/test', async (req, res) => {
       return res.status(404).json({ error: 'Integration not found' });
     }
 
-    // Test the API URL
+    // Test the API URL with comprehensive testing
     const apiUrl = integration.connection_config?.api_url || integration.connection_config?.apiUrl;
     if (!apiUrl) {
-      return res.json({ 
-        message: 'No API URL configured to test', 
+      return res.json({
+        message: 'No API URL configured to test',
         success: false,
         error: 'This integration requires an API URL to be configured before it can be tested'
       });
     }
 
-    const result = await integrationService.testIntegration(req.params.id);
+    // Use new integrationTester service for comprehensive testing
+    const testConfig = req.body || null;
+    const result = await integrationTester.testIntegration(req.params.id, testConfig);
+
     return res.json({
-      message: result.success ? 'API connection successful' : 'API connection failed',
+      message: result.success ? 'Integration test successful' : 'Integration test failed',
       ...result
     });
   } catch (error) {

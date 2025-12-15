@@ -20,11 +20,13 @@ class N8nService {
    * @param {Object} parameters - Tool parameters from AI
    * @param {Object} options - Execution options
    * @param {Number} options.timeout - Timeout in milliseconds (default 30s)
-   * @param {Object} options.integration - Client integration config (optional)
+   * @param {Object} options.integrations - Multiple client integrations (new format)
+   *   Example: { "order_api": {...}, "email_api": {...} }
+   * @param {Object} options.integration - Single client integration (legacy support)
    * @returns {Object} { success, data, executionTimeMs, error }
    */
   async executeTool(webhookUrl, parameters = {}, options = {}) {
-    const { timeout = DEFAULT_TIMEOUT, integration = null } = 
+    const { timeout = DEFAULT_TIMEOUT, integrations = null, integration = null } =
       typeof options === 'number' ? { timeout: options } : options;
     const startTime = Date.now();
 
@@ -35,37 +37,50 @@ class N8nService {
       console.log(`\n========== N8N REQUEST DEBUG ==========`);
       console.log(`[n8n] Calling webhook: ${fullUrl}`);
       console.log(`[n8n] Parameters:`, JSON.stringify(parameters, null, 2));
-      console.log(`[n8n] Integration provided:`, integration ? 'YES' : 'NO');
-      if (integration) {
-        console.log(`[n8n] Integration details:`, {
-          type: integration.type,
-          apiUrl: integration.apiUrl,
-          hasApiKey: !!integration.apiKey,
-          authMethod: integration.authMethod
+
+      // Support both new (integrations) and legacy (integration) format
+      const integrationsToUse = integrations || (integration ? { default: integration } : {});
+      const integrationCount = Object.keys(integrationsToUse).length;
+
+      console.log(`[n8n] Integrations provided: ${integrationCount}`);
+      if (integrationCount > 0) {
+        console.log(`[n8n] Integration keys:`, Object.keys(integrationsToUse).join(', '));
+        Object.entries(integrationsToUse).forEach(([key, int]) => {
+          console.log(`[n8n] - ${key}:`, {
+            type: int.type,
+            apiUrl: int.apiUrl,
+            hasApiKey: !!int.apiKey,
+            authMethod: int.authMethod
+          });
         });
       } else {
-        console.error(`[n8n] ❌ NO INTEGRATION PROVIDED!`);
+        console.warn(`[n8n] ⚠️  NO INTEGRATIONS PROVIDED`);
       }
 
       // Build request body - include integration credentials if provided
       const requestBody = {
         ...parameters,
-        // Add integration config under _integration key for n8n to use
-        ...(integration && {
-          _integration: {
-            type: integration.type,
-            apiUrl: integration.apiUrl,
-            apiKey: integration.apiKey,
-            apiSecret: integration.apiSecret,
-            authMethod: integration.authMethod,
-            headers: integration.headers,
-            config: integration.config
-          }
+        // Add integrations under _integrations key for n8n to use
+        ...(integrationCount > 0 && {
+          _integrations: Object.fromEntries(
+            Object.entries(integrationsToUse).map(([key, int]) => [
+              key,
+              {
+                type: int.type,
+                apiUrl: int.apiUrl,
+                apiKey: int.apiKey,
+                apiSecret: int.apiSecret,
+                authMethod: int.authMethod,
+                headers: int.headers,
+                config: int.config
+              }
+            ])
+          )
         })
       };
-      
-      console.log(`[n8n] Request body being sent:`, JSON.stringify(requestBody, null, 2));
-      console.log(`[n8n] Has _integration in body:`, !!requestBody._integration);
+
+      console.log(`[n8n] Request body keys:`, Object.keys(requestBody).join(', '));
+      console.log(`[n8n] Has _integrations in body:`, !!requestBody._integrations);
       console.log(`==========================================\n`);
 
       // Create abort controller for timeout

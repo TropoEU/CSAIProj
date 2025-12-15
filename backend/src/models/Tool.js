@@ -7,23 +7,27 @@ export class Tool {
      * @param {string} description - Tool description
      * @param {Object} parametersSchema - JSON schema for parameters
      * @param {string} category - Tool category (optional)
-     * @param {string} integrationType - Integration type this tool requires (optional, e.g., 'inventory_api')
+     * @param {Array} requiredIntegrations - Array of integration requirements (optional)
+     *   Format: [{"key": "order_api", "name": "Order API", "required": true, "description": "..."}]
      * @param {Array} capabilities - Array of capability descriptions (optional)
      */
-    static async create(toolName, description, parametersSchema = null, category = null, integrationType = null, capabilities = null) {
+    static async create(toolName, description, parametersSchema = null, category = null, requiredIntegrations = null, capabilities = null) {
         // Format JSONB fields properly - ensure arrays/objects are JSON strings
-        const formattedParams = parametersSchema 
+        const formattedParams = parametersSchema
             ? (typeof parametersSchema === 'string' ? parametersSchema : JSON.stringify(parametersSchema))
             : null;
-        const formattedCapabilities = capabilities 
+        const formattedCapabilities = capabilities
             ? (Array.isArray(capabilities) ? JSON.stringify(capabilities) : (typeof capabilities === 'string' ? capabilities : JSON.stringify(capabilities)))
             : null;
-        
+        const formattedIntegrations = requiredIntegrations
+            ? (Array.isArray(requiredIntegrations) ? JSON.stringify(requiredIntegrations) : (typeof requiredIntegrations === 'string' ? requiredIntegrations : JSON.stringify(requiredIntegrations)))
+            : '[]';
+
         const result = await db.query(
-            `INSERT INTO tools (tool_name, description, parameters_schema, category, integration_type, capabilities)
-             VALUES ($1, $2, $3::jsonb, $4, $5, $6::jsonb)
+            `INSERT INTO tools (tool_name, description, parameters_schema, category, required_integrations, capabilities)
+             VALUES ($1, $2, $3::jsonb, $4, $5::jsonb, $6::jsonb)
              RETURNING *`,
-            [toolName, description, formattedParams, category, integrationType, formattedCapabilities]
+            [toolName, description, formattedParams, category, formattedIntegrations, formattedCapabilities]
         );
         return result.rows[0];
     }
@@ -75,7 +79,7 @@ export class Tool {
      * Update tool
      */
     static async update(id, updates) {
-        const allowedFields = ['tool_name', 'description', 'parameters_schema', 'category', 'integration_type', 'capabilities'];
+        const allowedFields = ['tool_name', 'description', 'parameters_schema', 'category', 'required_integrations', 'capabilities'];
         const fields = [];
         const values = [];
         let paramIndex = 1;
@@ -83,10 +87,10 @@ export class Tool {
         for (const [key, value] of Object.entries(updates)) {
             if (allowedFields.includes(key)) {
                 // For JSONB fields, ensure proper JSON formatting
-                if (key === 'capabilities') {
+                if (key === 'capabilities' || key === 'required_integrations') {
                     // If it's an array, stringify it; if null, keep as null
                     fields.push(`${key} = $${paramIndex}::jsonb`);
-                    values.push(value === null ? null : JSON.stringify(value));
+                    values.push(value === null ? null : (typeof value === 'string' ? value : JSON.stringify(value)));
                 } else if (key === 'parameters_schema' && value !== null) {
                     // Ensure parameters_schema is also properly formatted
                     fields.push(`${key} = $${paramIndex}::jsonb`);
@@ -127,26 +131,29 @@ export class Tool {
     }
 
     /**
-     * Get tools that require a specific integration type
+     * Get tools that require a specific integration key
      */
-    static async findByIntegrationType(integrationType) {
+    static async findByIntegrationKey(integrationKey) {
         const result = await db.query(
-            'SELECT * FROM tools WHERE integration_type = $1 ORDER BY tool_name',
-            [integrationType]
+            `SELECT * FROM tools
+             WHERE required_integrations @> $1::jsonb
+             ORDER BY tool_name`,
+            [JSON.stringify([{ key: integrationKey }])]
         );
         return result.rows;
     }
 
     /**
-     * Get available integration types from existing tools
+     * Get all unique integration keys used across all tools
      */
-    static async getUsedIntegrationTypes() {
+    static async getUsedIntegrationKeys() {
         const result = await db.query(
-            `SELECT DISTINCT integration_type 
-             FROM tools 
-             WHERE integration_type IS NOT NULL 
-             ORDER BY integration_type`
+            `SELECT DISTINCT jsonb_array_elements(required_integrations)->>'key' as integration_key
+             FROM tools
+             WHERE required_integrations IS NOT NULL
+             AND jsonb_array_length(required_integrations) > 0
+             ORDER BY integration_key`
         );
-        return result.rows.map(r => r.integration_type);
+        return result.rows.map(r => r.integration_key);
     }
 }

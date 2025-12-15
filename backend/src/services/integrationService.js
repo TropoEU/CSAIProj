@@ -2,19 +2,77 @@ import { ClientIntegration } from '../models/ClientIntegration.js';
 
 /**
  * Integration Service
- * 
+ *
  * Manages client integrations and provides credentials for tool execution.
  * This service bridges the gap between tools and client-specific API configurations.
- * 
+ *
  * Flow:
- * 1. Tool specifies it needs integration_type = 'inventory_api'
- * 2. When executing tool for a client, we fetch their 'inventory_api' integration
- * 3. Integration credentials are passed to n8n along with tool parameters
- * 4. n8n uses these credentials to call the client's API
+ * 1. Tool specifies required_integrations: [{"key": "order_api", ...}, {"key": "email_api", ...}]
+ * 2. Client enables tool and maps integration keys to their specific integrations
+ * 3. When executing tool, we fetch all mapped integrations
+ * 4. Integration credentials are passed to n8n as _integrations object
+ * 5. n8n uses these credentials to call the client's APIs
  */
 class IntegrationService {
   /**
-   * Get integration credentials for a client and integration type
+   * Get multiple integrations for a tool execution based on integration mapping
+   * @param {number} clientId - Client ID
+   * @param {Object} integrationMapping - Maps integration keys to client_integration IDs
+   *   Example: {"order_api": 5, "email_api": 8}
+   * @param {Array} requiredIntegrations - Tool's required integrations config
+   *   Example: [{"key": "order_api", "required": true}, {"key": "email_api", "required": false}]
+   * @returns {Object} Object with integration key -> formatted config mapping
+   */
+  async getIntegrationsForTool(clientId, integrationMapping = {}, requiredIntegrations = []) {
+    const integrations = {};
+    const errors = [];
+
+    for (const reqInt of requiredIntegrations) {
+      const { key, required } = reqInt;
+      const integrationId = integrationMapping[key];
+
+      if (!integrationId) {
+        if (required) {
+          errors.push(`Required integration '${key}' is not mapped`);
+        }
+        continue;
+      }
+
+      try {
+        const integration = await ClientIntegration.findById(integrationId);
+
+        if (!integration) {
+          if (required) {
+            errors.push(`Integration ${integrationId} not found for key '${key}'`);
+          }
+          continue;
+        }
+
+        if (!integration.enabled) {
+          if (required) {
+            errors.push(`Integration '${key}' is disabled`);
+          }
+          continue;
+        }
+
+        integrations[key] = this.formatIntegrationForTool(integration);
+      } catch (error) {
+        console.error(`[Integration] Error fetching integration ${integrationId}:`, error);
+        if (required) {
+          errors.push(`Failed to load integration '${key}': ${error.message}`);
+        }
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new Error(`Integration errors: ${errors.join(', ')}`);
+    }
+
+    return integrations;
+  }
+
+  /**
+   * Get integration credentials for a client and integration type (legacy method)
    * @param {number} clientId - Client ID
    * @param {string} integrationType - Type of integration (e.g., 'inventory_api')
    * @returns {Object|null} Integration config or null if not found

@@ -98,19 +98,24 @@ export default function Tools() {
       const parametersSchema = data.parametersSchema
         ? JSON.parse(data.parametersSchema)
         : {};
-      
+
       // Parse capabilities from newline-separated string to array
       const capabilities = data.capabilities
         ? data.capabilities.split('\n').map(c => c.trim()).filter(c => c.length > 0)
         : null;
 
-      await toolsApi.create({ ...data, parametersSchema, capabilities });
+      // Parse required integrations JSON
+      const requiredIntegrations = data.requiredIntegrations
+        ? JSON.parse(data.requiredIntegrations)
+        : [];
+
+      await toolsApi.create({ ...data, parametersSchema, capabilities, requiredIntegrations });
       setIsCreateModalOpen(false);
       reset();
       fetchData();
     } catch (err) {
       if (err instanceof SyntaxError) {
-        setError('Invalid JSON in parameters schema');
+        setError('Invalid JSON in parameters schema or required integrations');
       } else {
         setError(err.response?.data?.error || 'Failed to create tool');
       }
@@ -151,9 +156,9 @@ export default function Tools() {
     editForm.reset({
       toolName: tool.tool_name,
       description: tool.description,
-      integrationType: tool.integration_type || '',
+      requiredIntegrations: JSON.stringify(tool.required_integrations || [], null, 2),
       parametersSchema: JSON.stringify(tool.parameters_schema || {}, null, 2),
-      capabilities: Array.isArray(tool.capabilities) 
+      capabilities: Array.isArray(tool.capabilities)
         ? tool.capabilities.join('\n')
         : '',
     });
@@ -167,11 +172,15 @@ export default function Tools() {
       const capabilities = data.capabilities
         ? data.capabilities.split('\n').map(c => c.trim()).filter(c => c.length > 0)
         : null;
-      
+      // Parse required integrations JSON
+      const requiredIntegrations = data.requiredIntegrations
+        ? JSON.parse(data.requiredIntegrations)
+        : [];
+
       await toolsApi.update(editingTool.id, {
         toolName: data.toolName,
         description: data.description,
-        integrationType: data.integrationType || null,
+        requiredIntegrations,
         parametersSchema,
         capabilities,
       });
@@ -181,7 +190,7 @@ export default function Tools() {
       fetchData();
     } catch (err) {
       if (err instanceof SyntaxError) {
-        setError('Invalid JSON in parameters schema');
+        setError('Invalid JSON in parameters schema or required integrations');
       } else {
         setError(err.response?.data?.error || 'Failed to update tool');
       }
@@ -254,7 +263,7 @@ export default function Tools() {
               <TableRow>
                 <TableHeader>Tool Name</TableHeader>
                 <TableHeader>Description</TableHeader>
-                <TableHeader>Integration Type</TableHeader>
+                <TableHeader>Required Integrations</TableHeader>
                 <TableHeader>Parameters</TableHeader>
                 <TableHeader>Usage (Today)</TableHeader>
                 <TableHeader>Actions</TableHeader>
@@ -271,10 +280,20 @@ export default function Tools() {
                       {tool.description}
                     </TableCell>
                     <TableCell>
-                      {tool.integration_type ? (
-                        <Badge variant="primary">{tool.integration_type}</Badge>
+                      {tool.required_integrations && tool.required_integrations.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {tool.required_integrations.map((int, idx) => (
+                            <Badge
+                              key={idx}
+                              variant={int.required ? 'primary' : 'info'}
+                              title={int.description || int.name}
+                            >
+                              {int.key}{int.required ? '*' : ''}
+                            </Badge>
+                          ))}
+                        </div>
                       ) : (
-                        <span className="text-xs text-gray-400">None (n8n only)</span>
+                        <span className="text-xs text-gray-400">None</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -381,25 +400,39 @@ export default function Tools() {
             </p>
           </div>
 
-          <Select
-            label="Integration Type"
-            {...register('integrationType')}
-            options={[
-              { value: '', label: 'None (n8n handles everything)' },
-              ...integrationTypes.map(type => ({
-                value: type.type,
-                label: `${type.name} - ${type.description}`
-              }))
-            ]}
-          />
-          {integrationTypes.length === 0 && (
-            <p className="text-xs text-yellow-600 mt-1">
-              No integration types loaded. Check console for errors.
-            </p>
-          )}
-          <p className="text-xs text-gray-500 -mt-3">
-            If set, the tool will fetch API credentials from the client's matching integration.
-          </p>
+          <div>
+            <label className="label">Required Integrations (JSON Array)</label>
+            <textarea
+              {...register('requiredIntegrations')}
+              className="input font-mono text-sm min-h-[140px]"
+              placeholder={`[
+  {
+    "key": "order_api",
+    "name": "Order Management API",
+    "required": true,
+    "description": "Fetches order details and status"
+  },
+  {
+    "key": "email_api",
+    "name": "Email Service",
+    "required": false,
+    "description": "Sends notification emails"
+  }
+]`}
+            />
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded text-xs">
+              <p className="font-medium text-blue-900 mb-2">📘 How this works:</p>
+              <ul className="space-y-1 text-blue-800">
+                <li><strong>"key"</strong>: A unique identifier (e.g., "order_api") - clients will map this to their actual integration</li>
+                <li><strong>"name"</strong>: Human-readable name shown in the admin UI</li>
+                <li><strong>"required"</strong>: true = must be configured, false = optional</li>
+                <li><strong>"description"</strong>: Explains what this integration is used for</li>
+              </ul>
+              <p className="mt-2 text-blue-700">
+                💡 The "key" should match the <code className="bg-blue-100 px-1 rounded">integration_type</code> of client integrations (e.g., if key is "order_api", clients need an integration with type "order_api")
+              </p>
+            </div>
+          </div>
 
           <div>
             <label className="label">Parameters Schema (JSON)</label>
@@ -552,25 +585,29 @@ export default function Tools() {
             </p>
           </div>
 
-          <Select
-            label="Integration Type"
-            {...editForm.register('integrationType')}
-            options={[
-              { value: '', label: 'None (n8n handles everything)' },
-              ...integrationTypes.map(type => ({
-                value: type.type,
-                label: `${type.name} - ${type.description}`
-              }))
-            ]}
-          />
-          {integrationTypes.length === 0 && (
-            <p className="text-xs text-yellow-600 mt-1">
-              No integration types loaded. Check console for errors.
-            </p>
-          )}
-          <p className="text-xs text-gray-500 -mt-3">
-            If set, the tool will fetch API credentials from the client's matching integration.
-          </p>
+          <div>
+            <label className="label">Required Integrations (JSON Array)</label>
+            <textarea
+              {...editForm.register('requiredIntegrations')}
+              className="input font-mono text-sm min-h-[140px]"
+              placeholder={`[
+  {
+    "key": "order_api",
+    "name": "Order Management API",
+    "required": true,
+    "description": "Fetches order details"
+  }
+]`}
+            />
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded text-xs">
+              <p className="font-medium text-blue-900 mb-2">📘 How this works:</p>
+              <ul className="space-y-1 text-blue-800">
+                <li><strong>"key"</strong>: Unique ID (e.g., "order_api") - must match client integration's <code className="bg-blue-100 px-1">integration_type</code></li>
+                <li><strong>"name"</strong>: Display name for admin UI</li>
+                <li><strong>"required"</strong>: true = mandatory, false = optional</li>
+              </ul>
+            </div>
+          </div>
 
           <div>
             <label className="label">Parameters Schema (JSON)</label>

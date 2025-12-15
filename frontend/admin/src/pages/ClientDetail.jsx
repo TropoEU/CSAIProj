@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { clients, tools as toolsApi, plans as plansApi } from '../services/api';
+import { clients, tools as toolsApi, plans as plansApi, integrations } from '../services/api';
 import {
   Card,
   CardBody,
@@ -62,6 +62,9 @@ export default function ClientDetail() {
   const [showWidgetPreview, setShowWidgetPreview] = useState(false);
   const [copiedEmbed, setCopiedEmbed] = useState(false);
   const [availablePlans, setAvailablePlans] = useState([]);
+  const [clientIntegrations, setClientIntegrations] = useState([]);
+  const [selectedToolForEnable, setSelectedToolForEnable] = useState(null);
+  const [integrationMapping, setIntegrationMapping] = useState({});
   const previewRef = useRef(null);
 
   const testToolForm = useForm();
@@ -174,14 +177,16 @@ export default function ClientDetail() {
 
   const fetchClientData = async () => {
     try {
-      const [clientRes, toolsRes, allToolsRes] = await Promise.all([
+      const [clientRes, toolsRes, allToolsRes, integrationsRes] = await Promise.all([
         clients.getById(id),
         toolsApi.getByClient(id),
         toolsApi.getAll(),
+        integrations.getByClient(id),
       ]);
       setClient(clientRes.data);
       setClientTools(toolsRes.data);
       setAllTools(allToolsRes.data);
+      setClientIntegrations(integrationsRes.data || []);
       reset(clientRes.data);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load client');
@@ -253,9 +258,16 @@ export default function ClientDetail() {
 
   const handleEnableTool = async (data) => {
     try {
-      await toolsApi.enableForClient(id, data);
+      // Include integration mapping if tool requires integrations
+      const payload = {
+        ...data,
+        integrationMapping: integrationMapping
+      };
+      await toolsApi.enableForClient(id, payload);
       setIsToolModalOpen(false);
       toolForm.reset();
+      setSelectedToolForEnable(null);
+      setIntegrationMapping({});
       fetchClientData();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to enable tool');
@@ -267,6 +279,8 @@ export default function ClientDetail() {
     editToolForm.reset({
       webhookUrl: tool.n8n_webhook_url || '',
     });
+    // Load current integration mapping
+    setIntegrationMapping(tool.integration_mapping || {});
     setIsEditToolModalOpen(true);
   };
 
@@ -274,9 +288,11 @@ export default function ClientDetail() {
     try {
       await toolsApi.updateForClient(id, editingTool.tool_id, {
         webhookUrl: data.webhookUrl,
+        integrationMapping: integrationMapping
       });
       setIsEditToolModalOpen(false);
       setEditingTool(null);
+      setIntegrationMapping({});
       editToolForm.reset();
       fetchClientData();
     } catch (err) {
@@ -1294,8 +1310,11 @@ export default function ClientDetail() {
         onClose={() => {
           setIsToolModalOpen(false);
           toolForm.reset();
+          setSelectedToolForEnable(null);
+          setIntegrationMapping({});
         }}
         title="Enable Tool"
+        size="lg"
       >
         <form onSubmit={toolForm.handleSubmit(handleEnableTool)} className="space-y-4">
           <Select
@@ -1309,7 +1328,73 @@ export default function ClientDetail() {
                 label: tool.tool_name,
               })),
             ]}
+            onChange={(e) => {
+              const tool = allTools.find(t => t.id === parseInt(e.target.value));
+              setSelectedToolForEnable(tool);
+              setIntegrationMapping({});
+            }}
           />
+
+          {/* Show required integrations if tool has any */}
+          {selectedToolForEnable?.required_integrations && selectedToolForEnable.required_integrations.length > 0 && (
+            <div className="border border-indigo-200 rounded-lg p-4 bg-indigo-50">
+              <h4 className="font-medium text-indigo-900 mb-3">Required Integrations</h4>
+              <p className="text-sm text-indigo-700 mb-4">
+                This tool needs the following integrations. Map each to your client's configured integrations:
+              </p>
+              <div className="space-y-3">
+                {selectedToolForEnable.required_integrations.map((reqInt, idx) => (
+                  <div key={idx} className="bg-white p-3 rounded border border-indigo-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-gray-900">
+                        {reqInt.name || reqInt.key}
+                        {reqInt.required && <span className="text-red-500 ml-1">*</span>}
+                      </span>
+                      {!reqInt.required && (
+                        <span className="text-xs text-gray-500">Optional</span>
+                      )}
+                    </div>
+                    {reqInt.description && (
+                      <p className="text-xs text-gray-600 mb-2">{reqInt.description}</p>
+                    )}
+                    <Select
+                      label=""
+                      value={integrationMapping[reqInt.key] || ''}
+                      onChange={(e) => setIntegrationMapping({
+                        ...integrationMapping,
+                        [reqInt.key]: e.target.value ? parseInt(e.target.value) : null
+                      })}
+                      options={[
+                        { value: '', label: reqInt.required ? 'Select integration...' : 'None (skip this integration)' },
+                        ...clientIntegrations
+                          .filter(int => int.status === 'active')
+                          .map(int => ({
+                            value: int.id,
+                            label: `${int.name} (${int.integration_type})`
+                          }))
+                      ]}
+                    />
+                    {reqInt.required && !integrationMapping[reqInt.key] && (
+                      <p className="text-xs text-red-600 mt-1">
+                        This integration is required. {clientIntegrations.length === 0 ? 'Please add an integration for this client first.' : 'Please select an integration.'}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {clientIntegrations.length === 0 && (
+                <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                  <p className="text-sm text-yellow-800">
+                    This client has no integrations configured. Add integrations on the{' '}
+                    <Link to={`/integrations?client=${id}`} className="underline font-medium">
+                      Integrations page
+                    </Link>
+                    {' '}before enabling this tool.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           <Input
             label="Webhook URL"
@@ -1325,11 +1410,21 @@ export default function ClientDetail() {
               onClick={() => {
                 setIsToolModalOpen(false);
                 toolForm.reset();
+                setSelectedToolForEnable(null);
+                setIntegrationMapping({});
               }}
             >
               Cancel
             </Button>
-            <Button type="submit" loading={toolForm.formState.isSubmitting}>
+            <Button
+              type="submit"
+              loading={toolForm.formState.isSubmitting}
+              disabled={
+                selectedToolForEnable?.required_integrations?.some(
+                  reqInt => reqInt.required && !integrationMapping[reqInt.key]
+                )
+              }
+            >
               Enable Tool
             </Button>
           </div>
@@ -1342,9 +1437,11 @@ export default function ClientDetail() {
         onClose={() => {
           setIsEditToolModalOpen(false);
           setEditingTool(null);
+          setIntegrationMapping({});
           editToolForm.reset();
         }}
         title="Edit Tool Configuration"
+        size="lg"
       >
         {editingTool && (
           <form onSubmit={editToolForm.handleSubmit(handleUpdateTool)} className="space-y-4">
@@ -1352,6 +1449,48 @@ export default function ClientDetail() {
               <p className="text-sm font-medium text-gray-900">{editingTool.tool_name}</p>
               <p className="text-xs text-gray-600 mt-1">{editingTool.description}</p>
             </div>
+
+            {/* Show integration mapping if tool requires integrations */}
+            {editingTool.required_integrations && editingTool.required_integrations.length > 0 && (
+              <div className="border border-indigo-200 rounded-lg p-4 bg-indigo-50">
+                <h4 className="font-medium text-indigo-900 mb-3">Integration Mapping</h4>
+                <div className="space-y-3">
+                  {editingTool.required_integrations.map((reqInt, idx) => (
+                    <div key={idx} className="bg-white p-3 rounded border border-indigo-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-gray-900">
+                          {reqInt.name || reqInt.key}
+                          {reqInt.required && <span className="text-red-500 ml-1">*</span>}
+                        </span>
+                        {!reqInt.required && (
+                          <span className="text-xs text-gray-500">Optional</span>
+                        )}
+                      </div>
+                      {reqInt.description && (
+                        <p className="text-xs text-gray-600 mb-2">{reqInt.description}</p>
+                      )}
+                      <Select
+                        label=""
+                        value={integrationMapping[reqInt.key] || ''}
+                        onChange={(e) => setIntegrationMapping({
+                          ...integrationMapping,
+                          [reqInt.key]: e.target.value ? parseInt(e.target.value) : null
+                        })}
+                        options={[
+                          { value: '', label: reqInt.required ? 'Select integration...' : 'None (skip this integration)' },
+                          ...clientIntegrations
+                            .filter(int => int.status === 'active')
+                            .map(int => ({
+                              value: int.id,
+                              label: `${int.name} (${int.integration_type})`
+                            }))
+                        ]}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <Input
               label="Webhook URL"
@@ -1367,12 +1506,21 @@ export default function ClientDetail() {
                 onClick={() => {
                   setIsEditToolModalOpen(false);
                   setEditingTool(null);
+                  setIntegrationMapping({});
                   editToolForm.reset();
                 }}
               >
                 Cancel
               </Button>
-              <Button type="submit" loading={editToolForm.formState.isSubmitting}>
+              <Button
+                type="submit"
+                loading={editToolForm.formState.isSubmitting}
+                disabled={
+                  editingTool?.required_integrations?.some(
+                    reqInt => reqInt.required && !integrationMapping[reqInt.key]
+                  )
+                }
+              >
                 Save Changes
               </Button>
             </div>

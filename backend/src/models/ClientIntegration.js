@@ -3,13 +3,19 @@ import { db } from '../db.js';
 export class ClientIntegration {
     /**
      * Create a new integration for a client
+     * @param {number} clientId - Client ID
+     * @param {string} integrationType - Integration type key
+     * @param {Object} connectionConfig - Connection configuration (API URL, keys, etc.)
+     * @param {string} name - Integration name (optional)
+     * @param {string} description - Integration description (optional)
      */
-    static async create(clientId, integrationType, connectionConfig) {
+    static async create(clientId, integrationType, connectionConfig, name = null, description = null) {
+        const integrationName = name || `${integrationType} Integration`;
         const result = await db.query(
-            `INSERT INTO client_integrations (client_id, integration_type, connection_config, enabled)
-             VALUES ($1, $2, $3, true)
+            `INSERT INTO client_integrations (client_id, integration_type, name, description, connection_config, enabled, status)
+             VALUES ($1, $2, $3, $4, $5, true, 'not_configured')
              RETURNING *`,
-            [clientId, integrationType, connectionConfig]
+            [clientId, integrationType, integrationName, description, connectionConfig]
         );
         return result.rows[0];
     }
@@ -77,31 +83,78 @@ export class ClientIntegration {
     }
 
     /**
-     * Update integration config
+     * Update integration
+     */
+    static async update(id, updates) {
+        const allowedFields = ['name', 'description', 'connection_config', 'api_schema', 'test_config', 'status', 'enabled'];
+        const fields = [];
+        const values = [];
+        let paramIndex = 1;
+
+        for (const [key, value] of Object.entries(updates)) {
+            if (allowedFields.includes(key)) {
+                // For JSONB fields, ensure proper formatting
+                if (['api_schema', 'test_config'].includes(key) && value !== null) {
+                    fields.push(`${key} = $${paramIndex}::jsonb`);
+                    values.push(typeof value === 'string' ? value : JSON.stringify(value));
+                } else {
+                    fields.push(`${key} = $${paramIndex}`);
+                    values.push(value);
+                }
+                paramIndex++;
+            }
+        }
+
+        if (fields.length === 0) {
+            throw new Error('No valid fields to update');
+        }
+
+        fields.push(`updated_at = NOW()`);
+        values.push(id);
+
+        const query = `
+            UPDATE client_integrations
+            SET ${fields.join(', ')}
+            WHERE id = $${paramIndex}
+            RETURNING *
+        `;
+
+        const result = await db.query(query, values);
+        return result.rows[0];
+    }
+
+    /**
+     * Update integration config (legacy method, use update() instead)
      */
     static async updateConfig(id, connectionConfig) {
+        return this.update(id, { connection_config: connectionConfig });
+    }
+
+    /**
+     * Update last sync test timestamp and result
+     */
+    static async updateTestResult(id, testResult) {
+        const formattedResult = typeof testResult === 'string' ? testResult : JSON.stringify(testResult);
+        const newStatus = testResult.success ? 'active' : 'error';
+
         const result = await db.query(
             `UPDATE client_integrations
-             SET connection_config = $2, updated_at = NOW()
+             SET last_sync_test = NOW(),
+                 last_test_result = $2::jsonb,
+                 status = $3,
+                 updated_at = NOW()
              WHERE id = $1
              RETURNING *`,
-            [id, connectionConfig]
+            [id, formattedResult, newStatus]
         );
         return result.rows[0];
     }
 
     /**
-     * Update last sync test timestamp
+     * Update last sync test timestamp (legacy method)
      */
     static async updateSyncTest(id, success = true) {
-        const result = await db.query(
-            `UPDATE client_integrations
-             SET last_sync_test = NOW(), updated_at = NOW()
-             WHERE id = $1
-             RETURNING *`,
-            [id]
-        );
-        return result.rows[0];
+        return this.updateTestResult(id, { success, timestamp: new Date().toISOString() });
     }
 
     /**
