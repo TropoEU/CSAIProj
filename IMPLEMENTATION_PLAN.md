@@ -6,22 +6,24 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 
 ---
 
-## Completed Phases (Summary)
+## ✅ Completed Phases
 
-### ✅ Phase 1: Foundation & Database (Complete)
+### Phase 1: Foundation & Database
 - 12 database tables with normalized schema
 - Redis caching (conversation context, rate limiting, response caching, session locks)
 - All models and migration system implemented
 - Multi-tenant architecture with plan-based limits
 
-### ✅ Phase 2: AI Engine (Complete)
-- Multi-provider LLM support (Ollama for dev, Claude for prod)
-- OpenAI/Groq placeholder (ready to implement)
+### Phase 2: AI Engine
+- Multi-provider LLM support (Ollama, Claude, OpenAI, Groq)
 - Token tracking and cost calculation
 - Conversation management with context window limits
 - System prompts and client-specific customization
+- Per-client LLM provider/model selection
+- Dynamic model dropdown with provider-specific models
+- Native function calling for all providers (Claude, OpenAI, Groq)
 
-### ✅ Phase 3: Tool Execution System (Complete)
+### Phase 3: Tool Execution System
 - n8n integration for tool execution via webhooks
 - **Generic Tools Architecture**: Reusable tool templates with `required_integrations`
 - **Integration Types**: Category-based system (e.g., `order_api`, `inventory_api`)
@@ -31,21 +33,25 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 - Chat API with authentication and rate limiting
 - **See**: `docs/TOOLS_INTEGRATIONS_ARCHITECTURE.md` for complete architecture documentation
 
-### ✅ Phase 4: Chat Widget (Complete)
+### Phase 4: Chat Widget
 - Vanilla JS + Vite + Shadow DOM (full CSS isolation)
 - Mobile responsive, loads in <1 second
 - Conversation persistence via localStorage
 - 14 customizable color options + position/text settings
 - Embed code generator with one-click copy
 
-### ✅ Phase 5: Admin Dashboard (Complete)
+### Phase 5: Admin Dashboard
 - React 18 + Tailwind + JWT authentication
-- 12 pages: Dashboard, Clients, Tools, Conversations, Integrations, Billing, Usage Reports, Plans, Test Chat, etc.
+- 12 pages: Dashboard, Clients, Tools, Conversations, Integrations, Billing, Usage Reports, Plans, Test Chat
 - Full CRUD for clients, tools, integrations, invoices
 - Analytics with charts and export functionality
+- Real-time auto-refresh on 5 pages (Dashboard, Conversations, UsageReports, Billing, ConversationDetail)
+- Filter persistence across 5 pages (Conversations, Integrations, UsageReports, Billing, TestChat)
+- Access code generation per client for customer dashboard login
+- Provider/model display in conversation views
 - Login: `admin` / `admin123`
 
-### ✅ Phase 6: Billing Infrastructure (Complete)
+### Phase 6: Billing Infrastructure
 - Database-driven plan management (Plans admin page)
 - Invoice generation with prorating logic
 - Usage tracking and analytics per client
@@ -53,20 +59,30 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 - Payment provider abstraction layer (ready for Stripe/PayPal)
 - Mock data generators for testing
 
+### Phase 7: Customer Dashboard
+- Self-service portal for businesses using the widget
+- Access code authentication with JWT
+- Dashboard overview with usage stats and recent conversations
+- Conversation history with search and filters (60-day default)
+- Conversation detail view with tool executions
+- Billing page with PDF invoice generation and download
+- Usage analytics with progress bars and trends
+- Live updates (auto-refresh every 30 seconds)
+- Mobile-responsive design with purple theme
+- **Access**: http://localhost:3003 (Login with access code, e.g., `GAV091`)
+- **See**: `docs/CUSTOMER_DASHBOARD_COMPLETE.md` for complete implementation details
+
 **See `CLAUDE.md` for detailed technical documentation**
 
 ---
 
-## Incomplete/Optional Features (From Completed Phases)
+## 🔄 Optional Features (From Completed Phases)
 
 **Phase 1:**
 - [ ] Data retention/cleanup scripts (auto-delete old messages/tool executions)
 - [ ] Seed data for testing
 
 **Phase 2:**
-- [x] Groq provider implementation (✅ Complete - December 2025)
-- [x] OpenAI provider implementation (✅ Complete - December 2025)
-- [x] Per-client LLM provider/model selection (✅ Complete)
 - [ ] Streaming responses (prepared but not active)
 
 **Phase 4:**
@@ -75,243 +91,80 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 - [ ] WordPress/Wix/Shopify testing
 
 **Phase 6:**
-- [ ] Stripe/PayPal integration (abstraction ready - see `PAYMENT_PROVIDER_INTEGRATION.md`)
+- [ ] Stripe/PayPal integration (abstraction ready - see `docs/PAYMENT_PROVIDER_INTEGRATION.md`)
 - [ ] Automated billing (scheduled invoice generation)
-- [ ] Per-client LLM provider selection
 
 ---
 
-## Phase 7: Customer Dashboard ✅ COMPLETE (December 15, 2025)
+## 📋 Upcoming Phases
 
-**Goal**: Self-service portal for businesses using the widget
-
-- ✅ Access code authentication with JWT
-- ✅ Dashboard overview with usage stats and recent conversations
-- ✅ Conversation history with search and filters (60-day default)
-- ✅ Conversation detail view with tool executions
-- ✅ Billing page with PDF invoice generation and download
-- ✅ Usage analytics with progress bars and trends
-- ✅ Live updates (auto-refresh every 30 seconds)
-- ✅ Mobile-responsive design with purple theme
-
-**Access**: http://localhost:3003 (Login with access code, e.g., `GAV091`)
-
-**See**: `docs/CUSTOMER_DASHBOARD_COMPLETE.md` for complete implementation details
-
----
-
-## Phase 8: Hebrew Support & RTL (Not Started)
+### Phase 8: Hebrew Support & RTL
 
 **Goal**: Full Hebrew language support for Israeli market
 
-### 8.1 Widget RTL Support
-- [ ] Detect Hebrew messages (auto-detect language)
-- [ ] Apply RTL text direction dynamically
-- [ ] Fix UI layout for RTL (flip alignment, scrollbars)
-- [ ] Test with mixed Hebrew/English conversations
-
-### 8.2 Admin Dashboard RTL
-- [ ] RTL layout for all admin pages
-- [ ] Hebrew UI labels
-- [ ] Date/number formatting for Hebrew locale
-
-### 8.3 Customer Dashboard RTL
-- [ ] RTL layout for customer dashboard pages
-- [ ] Hebrew UI labels and translations
-
-### 8.4 Hebrew Prompts
-- [ ] Create Hebrew system prompt variations
-- [ ] Test Hebrew comprehension and responses
-- [ ] Optimize for Israeli businesses (ILS currency, culture)
+- [ ] Widget RTL support (detect Hebrew, apply RTL dynamically, fix UI layout)
+- [ ] Admin Dashboard RTL (layout, Hebrew UI labels, date/number formatting)
+- [ ] Customer Dashboard RTL (layout, Hebrew UI labels)
+- [ ] Hebrew prompts (system prompt variations, test comprehension, optimize for Israeli businesses)
 
 **Estimated Time**: 16-24 hours
 
 ---
 
-## Phase 9: Advanced Features (Not Started)
+### Phase 9: Advanced Features
 
 **Goal**: Competitive enterprise features
 
-### 9.1 RAG (Retrieval-Augmented Generation)
-- [ ] Implement vector embeddings (OpenAI or local)
-- [ ] Store embeddings in Postgres (pgvector) or Pinecone
-- [ ] Semantic search over knowledge base
-- [ ] Inject relevant context before LLM call
-
-### 9.2 Enhanced Analytics
-- [ ] Conversation satisfaction scoring (sentiment analysis)
-- [ ] Advanced charts and reports
-- [ ] Real-time dashboard updates
-
-### 9.3 Escalation to Human
-- [ ] Detect when AI is stuck
-- [ ] Trigger "talk to human" option
-- [ ] Send notification to client
-- [ ] Handoff conversation transcript
-
-### 9.4 Multi-Channel Support
-- [ ] WhatsApp integration (via n8n)
-- [ ] Facebook Messenger
-- [ ] Email support
-- [ ] SMS via Twilio
+- [ ] **RAG (Retrieval-Augmented Generation)**: Vector embeddings, semantic search, knowledge base integration
+- [ ] **Enhanced Analytics**: Conversation satisfaction scoring, advanced charts, real-time updates
+- [ ] **Escalation to Human**: Detect when AI is stuck, trigger "talk to human", send notifications
+- [ ] **Multi-Channel Support**: 
+  - [ ] Gmail integration (platform emails, access keys, invoices)
+  - [ ] Email monitoring (read customer emails, AI replies)
+  - [ ] WhatsApp integration (alternative to widget)
+  - [ ] Facebook Messenger
+  - [ ] SMS via Twilio
 
 **Estimated Time**: 40-60 hours
 
 ---
 
-## Phase 10: Production Deployment (Not Started)
+### Phase 10: Production Deployment
 
 **Goal**: Production-ready infrastructure
 
-### 10.1 Backend Deployment
-- [ ] Dockerize backend app
-- [ ] Deploy to Railway/Render/DigitalOcean
-- [ ] Set up environment variables
-- [ ] Configure SSL/HTTPS
-
-### 10.2 Database & Redis Hosting
-- [ ] Deploy Postgres (Supabase or managed DB)
-- [ ] Set up backups and connection pooling
-- [ ] Deploy Redis (Upstash or Redis Cloud)
-
-### 10.3 n8n Hosting
-- [ ] Deploy n8n on separate VM (Contabo/Hetzner)
-- [ ] Secure with authentication
-- [ ] Set up webhook endpoints with proper URLs
-
-### 10.4 Widget CDN
-- [ ] Host widget on Cloudflare/Vercel edge
-- [ ] Enable caching
-- [ ] Global CDN distribution
-
-### 10.5 Monitoring
-- [ ] Set up error tracking (Sentry)
-- [ ] Add logging (Winston)
-- [ ] Uptime monitoring
-- [ ] Alert system for failures
+- [ ] **Backend**: Dockerize, deploy to Railway/Render/DigitalOcean, SSL/HTTPS
+- [ ] **Database & Redis**: Deploy Postgres (Supabase/managed DB), Redis (Upstash/Redis Cloud), backups
+- [ ] **n8n**: Deploy on separate VM (Contabo/Hetzner), secure with authentication
+- [ ] **Widget CDN**: Host on Cloudflare/Vercel edge, enable caching, global distribution
+- [ ] **Monitoring**: Error tracking (Sentry), logging (Winston), uptime monitoring, alerts
 
 **Estimated Time**: 8-16 hours
 
 ---
 
-## 🚀 Upcoming Planned Features (Priority)
-
-### 1. Admin Panel Improvements ✅ COMPLETE (December 2025)
-- [x] Preserve client filter on page refresh (5 pages: Conversations, Integrations, UsageReports, Billing, TestChat)
-- [x] Live data updates (real-time auto-refresh on 5 pages: Dashboard, Conversations, UsageReports, Billing, ConversationDetail)
-- [x] Generate access code per client for customer dashboard login
-- [x] Dynamic LLM model selection based on provider (prevents model mismatch errors)
-- [x] Provider/model display in conversation views
-- **Archived**: `ADMIN_PANEL_IMPROVEMENTS_COMPLETE.md` (merged into plan)
-
-### 2. Conversation Management ✅ COMPLETE (December 2025)
-- [x] Auto-end inactive conversations (15-minute timeout, configurable)
-- [x] Widget conversation end detection with automatic session restart
-- [x] Manual "End Conversation" button in widget
-- [x] AI-driven conversation end detection (30+ ending phrases)
-- [x] Tool execution improvements (duplicate prevention, smart result formatting)
-- [x] Groq tool calling fixes (native function calling with proper result handling)
-- **See**: `CONVERSATION_AUTO_END_AND_WIDGET_DETECTION.md` for complete documentation
-
-### 3. OpenAI/Groq Integration ✅ COMPLETE (December 2025)
-- [x] Groq provider implementation (llama-3.3-70b-versatile, mixtral, gemma2)
-- [x] OpenAI provider implementation (gpt-4o, gpt-4-turbo, gpt-3.5-turbo)
-- [x] Per-client LLM provider selection (Ollama/Claude/Groq/OpenAI)
-- [x] Dynamic model dropdown with provider-specific models
-- [x] Tool calling support for all providers (native + prompt engineering)
-- [x] Fixed tool result formatting for native function calling providers
-- **Groq API**: Free tier available for development/testing
-- **Archived**: `GROQ_INTEGRATION_COMPLETE.md` (merged into plan)
-
-### 4. Customer Dashboard ✅ COMPLETE (December 2025)
-
-**Goal**: Self-service portal for businesses using the widget
-
-#### 4.1 Authentication & Access ✅
-- [x] Login with access code (generated per client)
-- [x] Session management with JWT
-- [x] "Remember me" functionality (7 days default, 30 days with checkbox)
-- [x] Client info stored in localStorage for persistence
-
-#### 4.2 Dashboard Pages ✅
-- [x] **Overview**: Account status, current plan, usage summary with 60-day activity
-- [x] **Conversations**: Full conversation history with search, filters, and pagination (60-day default)
-- [x] **Conversation Detail**: Complete message history with tool executions and metadata
-- [x] **Billing**: View/download invoices as PDF with professional formatting
-- [x] **Usage**: Track conversations, tokens, tool calls vs. plan limits with progress bars
-- [x] Live updates (auto-refresh every 30 seconds on Dashboard and Conversations pages)
-
-#### 4.3 Technical Implementation ✅
-- [x] New React app in `frontend/customer/` (port 3003)
-- [x] API routes: `/api/customer/*` (authenticated with JWT bearer tokens)
-- [x] Responsive mobile-first design with Tailwind CSS
-- [x] Purple color scheme (different from admin's blue)
-- [x] Similar UI/UX to admin panel with sidebar navigation
-
-#### 4.4 Features (MVP) ✅
-- [x] Read-only access (no settings changes)
-- [x] View/download invoices as PDF (client-side generation with @react-pdf/renderer)
-- [x] Usage progress bars and trend visualization
-- [x] Live update indicators with spinning animation
-- [x] Provider and model display in conversation views
-- [x] Tool execution logs with input/output display
-
-**Additional Features Implemented**:
-- Real-time "Updating..." indicator during auto-refresh
-- Safe field handling for backend API responses (provider/model/amount/period)
-- Professional invoice PDFs with status badges and payment notifications
-- Mobile-responsive tables and layouts
-- Auto-refresh with visual feedback
-
-**Time Taken**: ~8 hours (faster than estimated due to reusing admin patterns)
-
-**Access**: http://localhost:3003 (Login with access code: GAV091 for testing)
-
-### 5. Hebrew Support & RTL
-- See Phase 8 above
-- RTL support for widget, admin dashboard, customer dashboard
-- Hebrew prompts and localization
-- Mixed Hebrew/English content handling
-
-### 6. Gmail & WhatsApp Integrations
-- [ ] Gmail integration for platform emails (access keys, invoices, etc.)
-- [ ] Email monitoring (read designated customer emails, AI replies)
-- [ ] WhatsApp integration (alternative to widget)
-- [ ] Multi-channel support (web chat, email, WhatsApp)
-
----
-
-## Current Status
+## 🚀 Current Status
 
 **🎉 PLATFORM COMPLETE - PRODUCTION-READY**
 
 **What Works Now:**
-- ✅ Multi-provider LLM support (Ollama, Claude, OpenAI, Groq)
+- ✅ Multi-provider LLM support (Ollama, Claude, OpenAI, Groq) with per-client selection
 - ✅ Client management with widget customization (14 color options)
 - ✅ AI chat with native tool calling for all providers
 - ✅ Billing and usage tracking with database-driven plans
-- ✅ 12 admin dashboard pages with real-time updates
+- ✅ 12 admin dashboard pages with real-time updates and filter persistence
+- ✅ Customer dashboard with PDF invoices and live updates
 - ✅ Complete onboarding workflow with access code generation
-- ✅ Conversation management (auto-end, manual end, AI-detected end)
+- ✅ Conversation management (auto-end after 15min inactivity, manual end, AI-detected end with 30+ phrases)
 - ✅ Smart tool result formatting for optimal LLM performance
-
-**Recent Additions (December 2025):**
-- ✅ Groq integration with native function calling
-- ✅ OpenAI integration (GPT-4o, GPT-4 Turbo, GPT-3.5)
-- ✅ Per-client LLM provider/model selection
-- ✅ Dynamic model dropdowns based on provider
-- ✅ Filter persistence across admin pages
-- ✅ Real-time auto-refresh on 5 critical pages
-- ✅ Fixed Groq tool calling with intelligent field extraction
-- ✅ **Customer Dashboard** - Complete self-service portal with PDF invoices and live updates
-
-**Recommended Next Steps:**
-1. **Hebrew Support** (Phase 8) - RTL and localization for Israeli market
-2. **Production Deployment** (Phase 10) - Deploy to hosting platforms
-3. **Gmail/WhatsApp Integration** - Multi-channel support
-4. **RAG Implementation** (Phase 9.1) - Knowledge base integration
+- ✅ Groq integration with free tier for development/testing
 
 **Platform can accept production clients now. All core features complete.**
+
+**Next Priority Phases:**
+- **Phase 8**: Hebrew Support & RTL (16-24 hours)
+- **Phase 10**: Production Deployment (8-16 hours)
+- **Phase 9**: Advanced Features (40-60 hours)
 
 ---
 
@@ -336,22 +189,21 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 
 ---
 
-## Documentation Reference
+## Documentation
 
-**Active Documentation:**
+**Core Documentation:**
 - **`CLAUDE.md`** - Complete technical documentation, architecture, and patterns
 - **`README.md`** - Quick start guide and development commands
-- **`IMPLEMENTATION_PLAN.md`** - This file - complete implementation roadmap
-- **`CLIENT_ONBOARDING_GUIDE.md`** - Step-by-step client setup process
-- **`docs/TOOLS_INTEGRATIONS_ARCHITECTURE.md`** - Tools & Integrations architecture (generic tools + integration types)
-- **`PAYMENT_PROVIDER_INTEGRATION.md`** - Stripe/PayPal integration guide
-- **`ADMIN_DASHBOARD_GUIDE.md`** - Admin panel usage instructions
-- **`CONVERSATION_AUTO_END_AND_WIDGET_DETECTION.md`** - Conversation management features
-- **`BUG_FIXES.md`** - Historical bug fixes documentation
-- **`EDGE_CASES_AND_IMPROVEMENTS.md`** - Recommended improvements
+- **`IMPLEMENTATION_PLAN.md`** - This file - implementation roadmap
 
-**Archived Documentation (Merged into Plan):**
-- ~~`ADMIN_PANEL_IMPROVEMENTS_COMPLETE.md`~~ - Merged into this plan (Section 1)
-- ~~`GROQ_INTEGRATION_COMPLETE.md`~~ - Merged into this plan (Section 3)
+**Feature Documentation:**
+- **`docs/CLIENT_ONBOARDING_GUIDE.md`** - Step-by-step client setup process
+- **`docs/TOOLS_INTEGRATIONS_ARCHITECTURE.md`** - Tools & Integrations architecture
+- **`docs/CUSTOMER_DASHBOARD_COMPLETE.md`** - Customer Dashboard implementation
+- **`docs/PAYMENT_PROVIDER_INTEGRATION.md`** - Stripe/PayPal integration guide
+
+**Workflow Documentation:**
+- **`n8n-workflows/README.md`** - n8n workflow setup and configuration
+- **`n8n-workflows/TROUBLESHOOTING.md`** - n8n troubleshooting guide
 
 ---
