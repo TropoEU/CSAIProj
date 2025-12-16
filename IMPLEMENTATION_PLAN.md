@@ -23,10 +23,13 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 
 ### ✅ Phase 3: Tool Execution System (Complete)
 - n8n integration for tool execution via webhooks
-- Dynamic tool loading from database per client
-- Integration service (auto-fetches client API credentials)
+- **Generic Tools Architecture**: Reusable tool templates with `required_integrations`
+- **Integration Types**: Category-based system (e.g., `order_api`, `inventory_api`)
+- **Client Tools**: Maps generic tools to client-specific integrations via `integration_mapping`
+- Integration service (auto-fetches client API credentials based on mapping)
 - 3 demo workflows (order status, appointments, inventory)
 - Chat API with authentication and rate limiting
+- **See**: `docs/TOOLS_INTEGRATIONS_ARCHITECTURE.md` for complete architecture documentation
 
 ### ✅ Phase 4: Chat Widget (Complete)
 - Vanilla JS + Vite + Shadow DOM (full CSS isolation)
@@ -78,22 +81,45 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 
 ---
 
-## Phase 7: Hebrew Support & RTL (Not Started)
+## Phase 7: Customer Dashboard ✅ COMPLETE (December 15, 2025)
+
+**Goal**: Self-service portal for businesses using the widget
+
+- ✅ Access code authentication with JWT
+- ✅ Dashboard overview with usage stats and recent conversations
+- ✅ Conversation history with search and filters (60-day default)
+- ✅ Conversation detail view with tool executions
+- ✅ Billing page with PDF invoice generation and download
+- ✅ Usage analytics with progress bars and trends
+- ✅ Live updates (auto-refresh every 30 seconds)
+- ✅ Mobile-responsive design with purple theme
+
+**Access**: http://localhost:3004 (Login with access code, e.g., `GAV091`)
+
+**See**: `docs/CUSTOMER_DASHBOARD_COMPLETE.md` for complete implementation details
+
+---
+
+## Phase 8: Hebrew Support & RTL (Not Started)
 
 **Goal**: Full Hebrew language support for Israeli market
 
-### 7.1 Widget RTL Support
+### 8.1 Widget RTL Support
 - [ ] Detect Hebrew messages (auto-detect language)
 - [ ] Apply RTL text direction dynamically
 - [ ] Fix UI layout for RTL (flip alignment, scrollbars)
 - [ ] Test with mixed Hebrew/English conversations
 
-### 7.2 Admin Dashboard RTL
+### 8.2 Admin Dashboard RTL
 - [ ] RTL layout for all admin pages
 - [ ] Hebrew UI labels
 - [ ] Date/number formatting for Hebrew locale
 
-### 7.3 Hebrew Prompts
+### 8.3 Customer Dashboard RTL
+- [ ] RTL layout for customer dashboard pages
+- [ ] Hebrew UI labels and translations
+
+### 8.4 Hebrew Prompts
 - [ ] Create Hebrew system prompt variations
 - [ ] Test Hebrew comprehension and responses
 - [ ] Optimize for Israeli businesses (ILS currency, culture)
@@ -102,28 +128,28 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 
 ---
 
-## Phase 8: Advanced Features (Not Started)
+## Phase 9: Advanced Features (Not Started)
 
 **Goal**: Competitive enterprise features
 
-### 8.1 RAG (Retrieval-Augmented Generation)
+### 9.1 RAG (Retrieval-Augmented Generation)
 - [ ] Implement vector embeddings (OpenAI or local)
 - [ ] Store embeddings in Postgres (pgvector) or Pinecone
 - [ ] Semantic search over knowledge base
 - [ ] Inject relevant context before LLM call
 
-### 8.2 Enhanced Analytics
+### 9.2 Enhanced Analytics
 - [ ] Conversation satisfaction scoring (sentiment analysis)
 - [ ] Advanced charts and reports
 - [ ] Real-time dashboard updates
 
-### 8.3 Escalation to Human
+### 9.3 Escalation to Human
 - [ ] Detect when AI is stuck
 - [ ] Trigger "talk to human" option
 - [ ] Send notification to client
 - [ ] Handoff conversation transcript
 
-### 8.4 Multi-Channel Support
+### 9.4 Multi-Channel Support
 - [ ] WhatsApp integration (via n8n)
 - [ ] Facebook Messenger
 - [ ] Email support
@@ -133,32 +159,32 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 
 ---
 
-## Phase 9: Production Deployment (Not Started)
+## Phase 10: Production Deployment (Not Started)
 
 **Goal**: Production-ready infrastructure
 
-### 9.1 Backend Deployment
+### 10.1 Backend Deployment
 - [ ] Dockerize backend app
 - [ ] Deploy to Railway/Render/DigitalOcean
 - [ ] Set up environment variables
 - [ ] Configure SSL/HTTPS
 
-### 9.2 Database & Redis Hosting
+### 10.2 Database & Redis Hosting
 - [ ] Deploy Postgres (Supabase or managed DB)
 - [ ] Set up backups and connection pooling
 - [ ] Deploy Redis (Upstash or Redis Cloud)
 
-### 9.3 n8n Hosting
+### 10.3 n8n Hosting
 - [ ] Deploy n8n on separate VM (Contabo/Hetzner)
 - [ ] Secure with authentication
 - [ ] Set up webhook endpoints with proper URLs
 
-### 9.4 Widget CDN
+### 10.4 Widget CDN
 - [ ] Host widget on Cloudflare/Vercel edge
 - [ ] Enable caching
 - [ ] Global CDN distribution
 
-### 9.5 Monitoring
+### 10.5 Monitoring
 - [ ] Set up error tracking (Sentry)
 - [ ] Add logging (Winston)
 - [ ] Uptime monitoring
@@ -242,7 +268,7 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 **Access**: http://localhost:3004 (Login with access code: GAV091 for testing)
 
 ### 5. Hebrew Support & RTL
-- See Phase 7 above
+- See Phase 8 above
 - RTL support for widget, admin dashboard, customer dashboard
 - Hebrew prompts and localization
 - Mixed Hebrew/English content handling
@@ -280,10 +306,10 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 - ✅ **Customer Dashboard** - Complete self-service portal with PDF invoices and live updates
 
 **Recommended Next Steps:**
-1. **Hebrew Support** (Phase 7) - RTL and localization for Israeli market
-2. **Production Deployment** (Phase 9) - Deploy to hosting platforms
+1. **Hebrew Support** (Phase 8) - RTL and localization for Israeli market
+2. **Production Deployment** (Phase 10) - Deploy to hosting platforms
 3. **Gmail/WhatsApp Integration** - Multi-channel support
-4. **RAG Implementation** (Phase 8.1) - Knowledge base integration
+4. **RAG Implementation** (Phase 9.1) - Knowledge base integration
 
 **Platform can accept production clients now. All core features complete.**
 
@@ -305,8 +331,8 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 | Admin           | React 18 + Tailwind + JWT     | ✅ Complete    |
 | Customer Portal | React 18 + Tailwind + JWT     | ✅ Complete    |
 | Billing         | Invoice + tracking + prorating| ✅ Complete    |
-| Deployment      | Railway/Vercel + Contabo      | ⏳ Phase 9     |
-| Hebrew/RTL      | N/A                           | ⏳ Phase 7     |
+| Deployment      | Railway/Vercel + Contabo      | ⏳ Phase 10    |
+| Hebrew/RTL      | N/A                           | ⏳ Phase 8     |
 
 ---
 
@@ -317,7 +343,7 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 - **`README.md`** - Quick start guide and development commands
 - **`IMPLEMENTATION_PLAN.md`** - This file - complete implementation roadmap
 - **`CLIENT_ONBOARDING_GUIDE.md`** - Step-by-step client setup process
-- **`INTEGRATION_SYSTEM_GUIDE.md`** - Integration + tool setup guide
+- **`docs/TOOLS_INTEGRATIONS_ARCHITECTURE.md`** - Tools & Integrations architecture (generic tools + integration types)
 - **`PAYMENT_PROVIDER_INTEGRATION.md`** - Stripe/PayPal integration guide
 - **`ADMIN_DASHBOARD_GUIDE.md`** - Admin panel usage instructions
 - **`CONVERSATION_AUTO_END_AND_WIDGET_DETECTION.md`** - Conversation management features

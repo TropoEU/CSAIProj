@@ -240,7 +240,7 @@ The tool execution system is fully operational and enables the AI to perform rea
 - Batch execution (parallel tool calls)
 - Response formatting for LLM
 - Health checks and webhook connectivity testing
-- **Integration support**: Automatically passes client integration credentials to n8n via `_integration` object
+- **Integration support**: Automatically passes client integration credentials to n8n via `_integrations` object (plural)
 
 **Integration Service** (`backend/src/services/integrationService.js`):
 
@@ -277,8 +277,8 @@ The tool execution system is fully operational and enables the AI to perform rea
 2. Load client's enabled tools
 3. Call LLM with tools available
 4. Detect tool calls in response
-5. **If tool has `integration_type`**: Fetch client's matching integration credentials
-6. Execute tools via n8n webhooks (with `_integration` object if available)
+5. **If tool has `required_integrations`**: Fetch client's matching integration credentials via `integration_mapping`
+6. Execute tools via n8n webhooks (with `_integrations` object containing mapped credentials)
 7. n8n workflow uses integration credentials to call client's API dynamically
 8. Log executions to `tool_executions` table
 9. Feed results back to LLM
@@ -377,10 +377,12 @@ Widget configuration is stored in the `clients.widget_config` JSONB column and s
 
 - ✅ Integration Service (`backend/src/services/integrationService.js`) - **FULLY IMPLEMENTED**
   - Tools and integrations work together in a complete flow
-  - When tool specifies `integration_type`, backend automatically fetches client's matching integration
-  - Integration credentials are passed to n8n workflows via `_integration` object
+  - Generic tools specify `required_integrations` (integration types like "order_api")
+  - Client integrations define `integration_type` to match tool requirements
+  - Client tools use `integration_mapping` to map tool requirements to specific client integrations
+  - Integration credentials are passed to n8n workflows via `_integrations` object (plural)
   - Enables one generic n8n workflow per tool type, reusable across all clients
-  - See `INTEGRATION_SYSTEM_GUIDE.md` for complete documentation
+  - See `docs/TOOLS_INTEGRATIONS_ARCHITECTURE.md` for complete documentation
 
 **Advanced tool features** (Optional):
 - Tool chaining, conditional execution, result caching
