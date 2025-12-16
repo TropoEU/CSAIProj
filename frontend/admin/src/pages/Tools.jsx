@@ -237,6 +237,19 @@ export default function Tools() {
         </Button>
       </div>
 
+      {/* How it works */}
+      <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg">
+        <h3 className="font-semibold text-purple-900 mb-2">Generic Tools</h3>
+        <div className="text-sm text-purple-800 space-y-1">
+          <p><strong>Tools are templates</strong> that define what actions the AI can perform (check orders, book appointments, etc.)</p>
+          <p><strong>Required Integrations</strong> specify what TYPE of API the tool needs (e.g., "order_api") - NOT specific client APIs</p>
+          <p><strong>Client Setup:</strong> Each client enables tools and maps them to THEIR specific integrations in their Client page</p>
+        </div>
+        <p className="text-xs text-purple-600 mt-2">
+          One tool + different client integrations = same functionality for all clients
+        </p>
+      </div>
+
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
           {error}

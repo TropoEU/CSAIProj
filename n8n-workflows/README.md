@@ -12,29 +12,46 @@ This directory contains n8n workflows that support the **Integration System** - 
 │  Backend receives tool call from AI                                          │
 │           │                                                                  │
 │           ▼                                                                  │
-│  Checks if tool has integration_type (e.g., "inventory_api")                │
+│  Gets tool's required_integrations (e.g., ["order_api"])                    │
 │           │                                                                  │
 │           ▼                                                                  │
-│  Fetches client's integration credentials from database                      │
+│  Gets client_tool's integration_mapping (e.g., {"order_api": 39})           │
+│           │                                                                  │
+│           ▼                                                                  │
+│  Fetches integration credentials from database                               │
 │           │                                                                  │
 │           ▼                                                                  │
 │  Calls n8n webhook with:                                                     │
 │  {                                                                           │
-│    productName: "pepperoni",          // AI's request                        │
-│    _integration: {                    // Client's API credentials            │
-│      apiUrl: "https://api.client.com",                                       │
-│      apiKey: "client_api_key",                                               │
-│      authMethod: "bearer"                                                    │
+│    orderNumber: "ORD-001",              // Tool parameters                   │
+│    _integrations: {                     // Client's API credentials          │
+│      "order_api": {                     // Keyed by integration type         │
+│        apiUrl: "https://api.client.com/orders/{orderNumber}/status",        │
+│        apiKey: "client_api_key",                                            │
+│        method: "GET",                                                        │
+│        authMethod: "bearer"                                                  │
+│      }                                                                       │
 │    }                                                                         │
 │  }                                                                           │
 │           │                                                                  │
 │           ▼                                                                  │
 │  n8n workflow:                                                               │
-│  - If _integration present → calls real client API                           │
-│  - If not present → uses mock data (for testing)                            │
+│  - Gets integration by key: _integrations.order_api                          │
+│  - Replaces URL placeholders: {orderNumber} → ORD-001                        │
+│  - Calls the client's API with their credentials                             │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+## Key Concepts
+
+### Integration URLs
+Each integration stores the **FULL endpoint URL** with optional placeholders:
+- `http://api.example.com/orders/{orderNumber}/status` (GET)
+- `http://api.example.com/inventory/check` (POST)
+- `http://api.example.com/bookings` (POST)
+
+The n8n workflow replaces placeholders like `{orderNumber}` with actual values.
 
 ## 📁 Available Workflows
 

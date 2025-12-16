@@ -1450,10 +1450,23 @@ export default function ClientDetail() {
               <p className="text-xs text-gray-600 mt-1">{editingTool.description}</p>
             </div>
 
-            {/* Show integration mapping if tool requires integrations */}
-            {editingTool.required_integrations && editingTool.required_integrations.length > 0 && (
-              <div className="border border-indigo-200 rounded-lg p-4 bg-indigo-50">
-                <h4 className="font-medium text-indigo-900 mb-3">Integration Mapping</h4>
+            {/* Integration Mapping Section - Always visible */}
+            <div className="border border-indigo-200 rounded-lg p-4 bg-indigo-50">
+              <h4 className="font-medium text-indigo-900 mb-2">Integration Mapping</h4>
+              <p className="text-xs text-indigo-700 mb-3">
+                Connect this tool to your client's integrations. The tool will use these APIs when executed.
+              </p>
+
+              {(!editingTool.required_integrations || editingTool.required_integrations.length === 0) ? (
+                <div className="bg-white p-3 rounded border border-indigo-200">
+                  <p className="text-sm text-gray-500 italic">
+                    This tool has no required integrations defined.
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    To add integration requirements, edit the generic tool in the Tools page.
+                  </p>
+                </div>
+              ) : (
                 <div className="space-y-3">
                   {editingTool.required_integrations.map((reqInt, idx) => (
                     <div key={idx} className="bg-white p-3 rounded border border-indigo-200">
@@ -1462,9 +1475,9 @@ export default function ClientDetail() {
                           {reqInt.name || reqInt.key}
                           {reqInt.required && <span className="text-red-500 ml-1">*</span>}
                         </span>
-                        {!reqInt.required && (
-                          <span className="text-xs text-gray-500">Optional</span>
-                        )}
+                        <span className="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded">
+                          key: {reqInt.key}
+                        </span>
                       </div>
                       {reqInt.description && (
                         <p className="text-xs text-gray-600 mb-2">{reqInt.description}</p>
@@ -1477,20 +1490,31 @@ export default function ClientDetail() {
                           [reqInt.key]: e.target.value ? parseInt(e.target.value) : null
                         })}
                         options={[
-                          { value: '', label: reqInt.required ? 'Select integration...' : 'None (skip this integration)' },
+                          { value: '', label: reqInt.required ? 'Select an integration...' : 'None (optional)' },
                           ...clientIntegrations
                             .filter(int => int.status === 'active')
                             .map(int => ({
                               value: int.id,
-                              label: `${int.name} (${int.integration_type})`
+                              label: `${int.name} (type: ${int.integration_type})`
                             }))
                         ]}
                       />
+                      {reqInt.required && !integrationMapping[reqInt.key] && (
+                        <p className="text-xs text-amber-600 mt-1">
+                          This integration is required for the tool to work
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+
+              {clientIntegrations.filter(int => int.status === 'active').length === 0 && (
+                <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
+                  No active integrations found. Create integrations in the Integrations page first.
+                </div>
+              )}
+            </div>
 
             <Input
               label="Webhook URL"

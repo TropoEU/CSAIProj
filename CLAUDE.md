@@ -244,7 +244,8 @@ The tool execution system is fully operational and enables the AI to perform rea
 
 **Integration Service** (`backend/src/services/integrationService.js`):
 
-- Fetches client integration credentials based on tool's `integration_type`
+- Fetches client integration credentials based on tool's integration requirements
+- Supports many-to-many tool-integration relationships via `integration_mapping`
 - Formats integration config for n8n consumption
 - Supports multiple auth methods (bearer, api_key, basic, custom)
 - Enables reusable n8n workflows across all clients
@@ -283,12 +284,12 @@ The tool execution system is fully operational and enables the AI to perform rea
 9. Feed results back to LLM
 10. Return final AI response with tool data
 
-**Integration-Tool Architecture**:
-- Tools define `integration_type` (e.g., "inventory_api", "order_api")
-- Integrations store client-specific API credentials per integration type
-- Backend automatically bridges tools and integrations during execution
-- One generic n8n workflow per tool type works for all clients
-- See `INTEGRATION_SYSTEM_GUIDE.md` for complete flow documentation
+**Integration-Tool Architecture** (Many-to-Many):
+- **Generic Tools** define `required_integrations` - what TYPES of integrations they need (e.g., "order_api", "email_api")
+- **Client Integrations** define `integration_type` - a category matching tool requirements
+- **Client Tools** define `integration_mapping` - maps tool's required keys to specific client integration IDs
+- This architecture allows ONE generic tool to work with different client APIs
+- See `docs/TOOLS_INTEGRATIONS_ARCHITECTURE.md` for comprehensive documentation with examples
 
 ### Phase 4: Chat Widget (✅ COMPLETE)
 

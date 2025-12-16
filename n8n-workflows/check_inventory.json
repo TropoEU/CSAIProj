@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// n8n webhook may put POST body in $json.body or at root level\nconst data = $json.body || $json;\nconst integration = data._integration;\n\nif (!integration || !integration.apiUrl) {\n  return {\n    _error: true,\n    success: false,\n    message: 'No API integration configured for this client. Please set up an inventory_api integration in the admin panel.'\n  };\n}\n\n// Prepare API call config\nreturn {\n  productName: data.productName,\n  productSku: data.productSku,\n  quantity: data.quantity || 1,\n  _apiConfig: {\n    url: integration.apiUrl + '/inventory/check',\n    key: integration.apiKey,\n    authMethod: integration.authMethod || 'bearer'\n  }\n};"
+        "jsCode": "// n8n webhook may put POST body in $json.body or at root level\nconst data = $json.body || $json;\n\n// Validate required parameters\nif (!data.productName && !data.productSku) {\n  return {\n    _error: true,\n    success: false,\n    message: 'Please provide either productName or productSku to check inventory.',\n    requiredParameters: {\n      productName: { type: 'string', description: 'Product name to search for (e.g., \"pepperoni pizza\")' },\n      productSku: { type: 'string', description: 'Product SKU code (e.g., \"PIZZA-001\")' },\n      quantity: { type: 'number', description: 'Quantity to check availability for (optional, default: 1)' }\n    },\n    example: { productName: 'pepperoni pizza', quantity: 2 }\n  };\n}\n\n// Get integration from _integrations object (keyed by integration type)\nconst integrations = data._integrations || {};\nconst integration = integrations.inventory_api;\n\nif (!integration || !integration.apiUrl) {\n  return {\n    _error: true,\n    success: false,\n    message: 'No API integration configured for this client. Please set up an inventory_api integration in the admin panel.',\n    debug: { hasIntegrations: !!data._integrations, keys: Object.keys(integrations) }\n  };\n}\n\n// Use full URL from integration (no path appending needed)\n// Replace any placeholders if present\nlet apiUrl = integration.apiUrl;\napiUrl = apiUrl.replace('{productName}', encodeURIComponent(data.productName || ''));\napiUrl = apiUrl.replace('{productSku}', encodeURIComponent(data.productSku || ''));\n\n// Prepare API call config\nreturn {\n  productName: data.productName,\n  productSku: data.productSku,\n  quantity: data.quantity || 1,\n  _apiConfig: {\n    url: apiUrl,\n    key: integration.apiKey,\n    method: integration.method || 'POST',\n    authMethod: integration.authMethod || 'bearer'\n  }\n};"
       },
       "id": "prepare-request",
       "name": "Prepare API Request",
@@ -44,7 +44,7 @@
     },
     {
       "parameters": {
-        "method": "POST",
+        "method": "={{ $json._apiConfig.method }}",
         "url": "={{ $json._apiConfig.url }}",
         "sendHeaders": true,
         "headerParameters": {

@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// n8n webhook may put POST body in $json.body or at root level\nconst data = $json.body || $json;\nconst integration = data._integration;\n\nif (!data.date || !data.time) {\n  return {\n    _error: true,\n    success: false,\n    message: 'Date and time are required for booking. Please provide when you would like to make a reservation.'\n  };\n}\n\nif (!integration || !integration.apiUrl) {\n  return {\n    _error: true,\n    success: false,\n    message: 'No API integration configured for this client. Please set up a booking_api integration in the admin panel.'\n  };\n}\n\n// Prepare API call config\nreturn {\n  date: data.date,\n  time: data.time,\n  serviceType: data.serviceType || 'Table Reservation',\n  customerName: data.customerName || 'Guest',\n  customerEmail: data.customerEmail || '',\n  customerPhone: data.customerPhone || '',\n  partySize: data.partySize || 2,\n  notes: data.notes || '',\n  _apiConfig: {\n    url: integration.apiUrl + '/bookings',\n    key: integration.apiKey,\n    authMethod: integration.authMethod || 'bearer'\n  }\n};"
+        "jsCode": "// n8n webhook may put POST body in $json.body or at root level\nconst data = $json.body || $json;\n\n// Get integration from _integrations object (keyed by integration type)\nconst integrations = data._integrations || {};\nconst integration = integrations.booking_api;\n\nif (!data.date || !data.time) {\n  return {\n    _error: true,\n    success: false,\n    message: 'Date and time are required for booking. Please provide when you would like to make a reservation.'\n  };\n}\n\nif (!integration || !integration.apiUrl) {\n  return {\n    _error: true,\n    success: false,\n    message: 'No API integration configured for this client. Please set up a booking_api integration in the admin panel.',\n    debug: { hasIntegrations: !!data._integrations, keys: Object.keys(integrations) }\n  };\n}\n\n// Use full URL from integration (no path appending needed)\nlet apiUrl = integration.apiUrl;\n\n// Prepare API call config\nreturn {\n  date: data.date,\n  time: data.time,\n  serviceType: data.serviceType || 'Table Reservation',\n  customerName: data.customerName || 'Guest',\n  customerEmail: data.customerEmail || '',\n  customerPhone: data.customerPhone || '',\n  partySize: data.partySize || 2,\n  notes: data.notes || '',\n  _apiConfig: {\n    url: apiUrl,\n    key: integration.apiKey,\n    method: integration.method || 'POST',\n    authMethod: integration.authMethod || 'bearer'\n  }\n};"
       },
       "id": "prepare-request",
       "name": "Prepare API Request",
@@ -44,7 +44,7 @@
     },
     {
       "parameters": {
-        "method": "POST",
+        "method": "={{ $json._apiConfig.method }}",
         "url": "={{ $json._apiConfig.url }}",
         "sendHeaders": true,
         "headerParameters": {

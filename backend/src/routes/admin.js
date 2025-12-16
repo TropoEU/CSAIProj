@@ -562,10 +562,10 @@ router.put('/clients/:clientId/tools/:id', async (req, res) => {
  */
 router.post('/clients/:clientId/tools/:id/test', async (req, res) => {
   try {
-    const { clientId, id: toolId } = req.params; // Rename id to toolId for clarity
+    const { clientId, id: toolId } = req.params;
     let { parameters } = req.body;
 
-    // Get the client tool configuration
+    // Get the client tool configuration (includes integration_mapping)
     const clientTool = await ClientTool.find(clientId, toolId);
     if (!clientTool) {
       return res.status(404).json({ error: 'Tool not found for this client' });
@@ -573,6 +573,12 @@ router.post('/clients/:clientId/tools/:id/test', async (req, res) => {
 
     if (!clientTool.n8n_webhook_url) {
       return res.status(400).json({ error: 'Tool has no webhook URL configured' });
+    }
+
+    // Get the tool definition to get required_integrations
+    const tool = await Tool.findById(toolId);
+    if (!tool) {
+      return res.status(404).json({ error: 'Tool definition not found' });
     }
 
     // Parse parameters if it's a string
@@ -584,11 +590,34 @@ router.post('/clients/:clientId/tools/:id/test', async (req, res) => {
       }
     }
 
-    // Execute the tool via n8n webhook
+    // Fetch integration credentials based on tool requirements and client mapping
+    let integrations = {};
+    const requiredIntegrations = tool.required_integrations || [];
+    const integrationMapping = clientTool.integration_mapping || {};
+
+    if (requiredIntegrations.length > 0) {
+      try {
+        integrations = await integrationService.getIntegrationsForTool(
+          clientId,
+          integrationMapping,
+          requiredIntegrations
+        );
+        console.log(`[Admin] Loaded ${Object.keys(integrations).length} integrations for tool test`);
+      } catch (intError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Integration error',
+          message: intError.message,
+          hint: 'Make sure all required integrations are mapped in the client tool settings'
+        });
+      }
+    }
+
+    // Execute the tool via n8n webhook with integrations
     const result = await n8nService.executeTool(
       clientTool.n8n_webhook_url,
       parameters || {},
-      clientId
+      { integrations }
     );
 
     res.json({
@@ -596,6 +625,7 @@ router.post('/clients/:clientId/tools/:id/test', async (req, res) => {
       message: 'Tool test successful',
       tool: clientTool.tool_name,
       webhook: clientTool.n8n_webhook_url,
+      integrationsLoaded: Object.keys(integrations),
       result: result,
     });
   } catch (error) {
@@ -906,7 +936,7 @@ router.get('/clients/:clientId/integrations', async (req, res) => {
  */
 router.post('/clients/:clientId/integrations', async (req, res) => {
   try {
-    const { integrationType, name, apiUrl, apiKey, apiSecret, authMethod, config } = req.body;
+    const { integrationType, name, apiUrl, httpMethod, apiKey, apiSecret, authMethod, config } = req.body;
 
     if (!integrationType || !name) {
       return res.status(400).json({ error: 'Integration type and name are required' });
@@ -915,6 +945,7 @@ router.post('/clients/:clientId/integrations', async (req, res) => {
     const connectionConfig = {
       name,
       api_url: apiUrl || null,
+      method: httpMethod || 'GET',  // HTTP method for the endpoint
       api_key: apiKey || null,
       api_secret: apiSecret || null,
       auth_method: authMethod || 'bearer',
@@ -940,7 +971,7 @@ router.post('/clients/:clientId/integrations', async (req, res) => {
  */
 router.put('/integrations/:id', async (req, res) => {
   try {
-    const { integrationType, name, apiUrl, apiKey, apiSecret, authMethod, config } = req.body;
+    const { integrationType, name, apiUrl, httpMethod, apiKey, apiSecret, authMethod, config } = req.body;
 
     const existingIntegration = await ClientIntegration.findById(req.params.id);
     if (!existingIntegration) {
@@ -951,6 +982,7 @@ router.put('/integrations/:id', async (req, res) => {
       ...existingIntegration.connection_config,
       ...(name && { name }),
       ...(apiUrl !== undefined && { api_url: apiUrl }),
+      ...(httpMethod !== undefined && { method: httpMethod }),
       ...(apiKey && { api_key: apiKey }),
       ...(apiSecret && { api_secret: apiSecret }),
       ...(authMethod && { auth_method: authMethod }),

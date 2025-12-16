@@ -94,7 +94,7 @@ export class ClientIntegration {
         for (const [key, value] of Object.entries(updates)) {
             if (allowedFields.includes(key)) {
                 // For JSONB fields, ensure proper formatting
-                if (['api_schema', 'test_config'].includes(key) && value !== null) {
+                if (['connection_config', 'api_schema', 'test_config'].includes(key) && value !== null) {
                     fields.push(`${key} = $${paramIndex}::jsonb`);
                     values.push(typeof value === 'string' ? value : JSON.stringify(value));
                 } else {

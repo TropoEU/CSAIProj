@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// n8n webhook may put POST body in $json.body or at root level\nconst data = $json.body || $json;\nconst integration = data._integration;\nconst orderNumber = data.orderNumber;\n\nif (!orderNumber) {\n  return {\n    _error: true,\n    success: false,\n    message: 'Order number is required. Please provide the order number to check.'\n  };\n}\n\nif (!integration || !integration.apiUrl) {\n  return {\n    _error: true,\n    success: false,\n    message: 'No API integration configured for this client. Please set up an order_api integration in the admin panel.'\n  };\n}\n\n// Prepare API call config\nreturn {\n  orderNumber: orderNumber,\n  _apiConfig: {\n    url: integration.apiUrl + '/orders/' + orderNumber + '/status',\n    key: integration.apiKey,\n    authMethod: integration.authMethod || 'bearer'\n  }\n};"
+        "jsCode": "// n8n webhook may put POST body in $json.body or at root level\nconst data = $json.body || $json;\n\n// Get integration from _integrations object (keyed by integration type)\nconst integrations = data._integrations || {};\nconst integration = integrations.order_api;\nconst orderNumber = data.orderNumber;\n\nif (!orderNumber) {\n  return {\n    _error: true,\n    success: false,\n    message: 'Order number is required. Please provide the order number to check.'\n  };\n}\n\nif (!integration || !integration.apiUrl) {\n  return {\n    _error: true,\n    success: false,\n    message: 'No API integration configured for this client. Please set up an order_api integration in the admin panel.',\n    debug: { hasIntegrations: !!data._integrations, keys: Object.keys(integrations) }\n  };\n}\n\n// Replace placeholders in URL with actual values\nlet apiUrl = integration.apiUrl;\napiUrl = apiUrl.replace('{orderNumber}', orderNumber);\napiUrl = apiUrl.replace('{orderId}', orderNumber);\n\n// Prepare API call config\nreturn {\n  orderNumber: orderNumber,\n  _apiConfig: {\n    url: apiUrl,\n    key: integration.apiKey,\n    method: integration.method || 'GET',\n    authMethod: integration.authMethod || 'bearer'\n  }\n};"
       },
       "id": "prepare-request",
       "name": "Prepare API Request",
@@ -44,7 +44,7 @@
     },
     {
       "parameters": {
-        "method": "GET",
+        "method": "={{ $json._apiConfig.method }}",
         "url": "={{ $json._apiConfig.url }}",
         "sendHeaders": true,
         "headerParameters": {

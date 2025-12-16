@@ -71,6 +71,7 @@ class N8nService {
                 apiKey: int.apiKey,
                 apiSecret: int.apiSecret,
                 authMethod: int.authMethod,
+                method: int.method || 'GET',
                 headers: int.headers,
                 config: int.config
               }

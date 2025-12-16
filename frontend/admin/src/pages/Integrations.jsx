@@ -148,12 +148,13 @@ export default function Integrations() {
     setValue('integrationType', integration.integration_type);
     setValue('name', integration.name);
     setValue('apiUrl', integration.connection_config?.api_url || '');
+    setValue('httpMethod', integration.connection_config?.method || 'GET');
     setValue('apiKey', ''); // Don't show existing API key
     setValue('apiSecret', '');
     setValue('authMethod', integration.connection_config?.auth_method || 'bearer');
 
     // Extract extra config (everything except standard fields)
-    const { name, api_url, api_key, api_secret, auth_method, headers, ...extraConfig } = integration.connection_config || {};
+    const { name, api_url, api_key, api_secret, auth_method, headers, method, ...extraConfig } = integration.connection_config || {};
     setValue('config', Object.keys(extraConfig).length > 0 ? JSON.stringify(extraConfig, null, 2) : '');
     setIsModalOpen(true);
   };
@@ -207,7 +208,8 @@ export default function Integrations() {
   const openCreateModal = () => {
     setEditingIntegration(null);
     reset({
-      authMethod: 'bearer' // Set default auth method
+      authMethod: 'bearer', // Set default auth method
+      httpMethod: 'GET'     // Set default HTTP method
     });
     setIsModalOpen(true);
   };
@@ -233,6 +235,19 @@ export default function Integrations() {
           </svg>
           Add Integration
         </Button>
+      </div>
+
+      {/* How it works */}
+      <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+        <h3 className="font-semibold text-blue-900 mb-2">How Integrations Work</h3>
+        <div className="text-sm text-blue-800 space-y-1">
+          <p><strong>1. Create Integration:</strong> Connect to a client's external API (Shopify, custom system, etc.)</p>
+          <p><strong>2. Set Integration Type:</strong> Use a category like "order_api" or "inventory_api" - this is how tools find the right integration</p>
+          <p><strong>3. Map to Tools:</strong> In the Client page, enable tools and select which integration each tool should use</p>
+        </div>
+        <p className="text-xs text-blue-600 mt-2">
+          See <Link to="/docs" className="underline hover:text-blue-800">docs/TOOLS_INTEGRATIONS_ARCHITECTURE.md</Link> for full details
+        </p>
       </div>
 
       {error && (
@@ -307,6 +322,11 @@ export default function Integrations() {
                               <Badge variant={testResult.success ? 'success' : 'danger'}>
                                 {testResult.success ? 'Connected' : 'Failed'}
                               </Badge>
+                              {testResult.details?.testBaseUrl && (
+                                <span className="text-xs text-gray-500">
+                                  Tested: {testResult.details.testBaseUrl}
+                                </span>
+                              )}
                               {testResult.details?.responseTime && (
                                 <span className="text-xs text-gray-500">
                                   {testResult.details.responseTime}ms
@@ -452,17 +472,35 @@ export default function Integrations() {
           />
 
           <Input
-            label="API URL"
+            label="API Endpoint URL (Full)"
             {...register('apiUrl')}
-            placeholder="https://api.example.com"
+            placeholder="https://api.example.com/orders/{orderNumber}/status"
           />
-          <div className="text-xs text-gray-600 -mt-3 space-y-1">
-            <p>Base URL for the client's API. Tools will use this to make requests.</p>
-            <p className="text-yellow-700">
-              ⚠️ For testing: Add a <code className="bg-gray-100 px-1 rounded">/health</code> endpoint
-              that returns 200 OK, or configure specific test endpoints after creation.
+          <div className="text-xs text-gray-600 -mt-3 space-y-2">
+            <p><strong>Full endpoint URL</strong> including the path. Use placeholders for dynamic values.</p>
+            <div className="bg-gray-50 p-2 rounded border text-gray-700">
+              <p className="font-medium mb-1">Examples:</p>
+              <code className="block">http://api.example.com/orders/{'{orderNumber}'}/status</code>
+              <code className="block">http://api.example.com/inventory/check</code>
+              <code className="block">http://api.example.com/bookings</code>
+            </div>
+            <p className="text-gray-500">
+              Placeholders like <code className="bg-gray-100 px-1 rounded">{'{orderNumber}'}</code> will be replaced
+              with actual values when the tool executes.
             </p>
           </div>
+
+          <Select
+            label="HTTP Method"
+            {...register('httpMethod')}
+            options={[
+              { value: 'GET', label: 'GET - Retrieve data' },
+              { value: 'POST', label: 'POST - Send data / Create' },
+              { value: 'PUT', label: 'PUT - Replace / Update' },
+              { value: 'PATCH', label: 'PATCH - Partial update' },
+              { value: 'DELETE', label: 'DELETE - Remove' },
+            ]}
+          />
 
           <Input
             label="API Key"

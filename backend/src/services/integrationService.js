@@ -115,6 +115,7 @@ class IntegrationService {
       apiKey: config.api_key || config.apiKey || config.key || null,
       apiSecret: config.api_secret || config.apiSecret || config.secret || null,
       authMethod: config.auth_method || config.authMethod || 'bearer',
+      method: config.method || 'GET', // HTTP method for the endpoint
       headers: config.headers || {},
       // Include full config for complex cases
       config: config

@@ -55,11 +55,26 @@ class IntegrationTester {
       headers['Content-Type'] = 'application/json';
       headers['Accept'] = 'application/json';
 
+      // Parse the API URL to extract origin (base URL) for testing
+      // Integration URLs are now FULL endpoint URLs like:
+      // http://host.docker.internal:3000/mock-api/bobs-pizza/orders/{orderNumber}/status
+      // For testing, we extract the origin: http://host.docker.internal:3000
+      let testBaseUrl;
+      let fullEndpointUrl = apiUrl;
+
+      try {
+        const parsedUrl = new URL(apiUrl);
+        testBaseUrl = parsedUrl.origin; // Just protocol + host + port
+      } catch (e) {
+        testBaseUrl = apiUrl;
+      }
+
       const startTime = Date.now();
       const testResults = {
         success: false,
         timestamp: new Date().toISOString(),
-        baseUrl: apiUrl,
+        configuredUrl: fullEndpointUrl,
+        testBaseUrl: testBaseUrl,
         authMethod: config.auth_method || config.authMethod || 'bearer',
         endpointTests: [],
         capturedSchema: {},
@@ -67,16 +82,34 @@ class IntegrationTester {
         error: null
       };
 
-      // Use test config if provided, otherwise do basic connectivity test
-      const endpointsToTest = testConfig?.endpoints || [
-        { path: '', method: 'GET', description: 'Base URL connectivity test' }
-      ];
+      // Determine endpoints to test
+      // Since integrations now store FULL endpoint URLs, we test the API server
+      // by checking health endpoints at the origin (base URL)
+      let endpointsToTest;
 
-      let allTestsPassed = true;
+      if (testConfig?.endpoints && testConfig.endpoints.length > 0) {
+        // Use explicitly provided test endpoints (full URLs supported)
+        endpointsToTest = testConfig.endpoints;
+      } else if (integration.test_config?.endpoints) {
+        // Use saved test endpoints from integration config
+        endpointsToTest = integration.test_config.endpoints;
+      } else {
+        // Smart endpoint discovery at the BASE URL (origin)
+        // We test common health endpoints to verify the API server is reachable
+        endpointsToTest = [
+          { path: '/health', method: 'GET', description: 'Health check endpoint' },
+          { path: '/ping', method: 'GET', description: 'Ping endpoint' },
+          { path: '/', method: 'GET', description: 'Root endpoint' },
+          { path: '', method: 'GET', description: 'Base URL' }
+        ];
+      }
+
+      let anyTestPassed = false;
+      const isSmartDiscovery = !testConfig?.endpoints && !integration.test_config?.endpoints;
 
       for (const endpoint of endpointsToTest) {
         const endpointResult = await this.testEndpoint(
-          apiUrl,
+          testBaseUrl,  // Use extracted base URL (origin) for testing
           endpoint,
           headers,
           testConfig?.captureSchema !== false
@@ -84,19 +117,38 @@ class IntegrationTester {
 
         testResults.endpointTests.push(endpointResult);
 
-        if (!endpointResult.success) {
-          allTestsPassed = false;
-        }
-
         // Capture schema if successful
-        if (endpointResult.success && endpointResult.responseSchema) {
-          const schemaKey = `${endpoint.method} ${endpoint.path || '/'}`;
-          testResults.capturedSchema[schemaKey] = endpointResult.responseSchema;
+        if (endpointResult.success) {
+          anyTestPassed = true;
+          if (endpointResult.responseSchema) {
+            const schemaKey = `${endpoint.method} ${endpoint.path || '/'}`;
+            testResults.capturedSchema[schemaKey] = endpointResult.responseSchema;
+          }
+
+          // For smart discovery, stop after first successful endpoint
+          if (isSmartDiscovery) {
+            testResults.discoveredEndpoint = endpoint.path || '/';
+            break;
+          }
         }
       }
 
       testResults.responseTime = Date.now() - startTime;
-      testResults.success = allTestsPassed;
+
+      // For smart discovery, success if ANY endpoint worked
+      // For explicit tests, ALL must pass
+      testResults.success = isSmartDiscovery ? anyTestPassed : testResults.endpointTests.every(t => t.success);
+
+      // If smart discovery found a working endpoint, add suggestion
+      if (isSmartDiscovery && anyTestPassed && testResults.discoveredEndpoint) {
+        testResults.suggestion = `Found working endpoint: ${testResults.discoveredEndpoint}. Consider adding it to the integration config as 'test_endpoint'.`;
+      }
+
+      // If nothing worked, give helpful error
+      if (!anyTestPassed) {
+        testResults.error = 'No API endpoints responded successfully';
+        testResults.suggestion = 'Configure a valid test endpoint in the integration settings, or ensure your API has a /health or root endpoint.';
+      }
 
       // Generate recommendations based on test results
       testResults.recommendations = this.generateRecommendations(testResults);
