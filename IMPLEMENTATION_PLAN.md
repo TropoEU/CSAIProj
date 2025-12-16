@@ -94,7 +94,7 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 - ✅ Live updates (auto-refresh every 30 seconds)
 - ✅ Mobile-responsive design with purple theme
 
-**Access**: http://localhost:3004 (Login with access code, e.g., `GAV091`)
+**Access**: http://localhost:3003 (Login with access code, e.g., `GAV091`)
 
 **See**: `docs/CUSTOMER_DASHBOARD_COMPLETE.md` for complete implementation details
 
@@ -242,7 +242,7 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 - [x] Live updates (auto-refresh every 30 seconds on Dashboard and Conversations pages)
 
 #### 4.3 Technical Implementation ✅
-- [x] New React app in `frontend/customer/` (port 3004)
+- [x] New React app in `frontend/customer/` (port 3003)
 - [x] API routes: `/api/customer/*` (authenticated with JWT bearer tokens)
 - [x] Responsive mobile-first design with Tailwind CSS
 - [x] Purple color scheme (different from admin's blue)
@@ -265,7 +265,7 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 
 **Time Taken**: ~8 hours (faster than estimated due to reusing admin patterns)
 
-**Access**: http://localhost:3004 (Login with access code: GAV091 for testing)
+**Access**: http://localhost:3003 (Login with access code: GAV091 for testing)
 
 ### 5. Hebrew Support & RTL
 - See Phase 8 above

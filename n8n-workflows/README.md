@@ -283,4 +283,4 @@ To add a new tool with integration support:
 - [n8n Documentation](https://docs.n8n.io/)
 - [n8n Webhook Trigger](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.webhook/)
 - [n8n HTTP Request Node](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.httprequest/)
-- [INTEGRATION_SYSTEM_GUIDE.md](../INTEGRATION_SYSTEM_GUIDE.md) - Full integration system documentation
+- [docs/TOOLS_INTEGRATIONS_ARCHITECTURE.md](../docs/TOOLS_INTEGRATIONS_ARCHITECTURE.md) - Tools & Integrations architecture documentation

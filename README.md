@@ -30,7 +30,7 @@ CSAI is a **multi-tenant AI customer service platform** that provides businesses
 - 🛠️ **Flexible Tool System** - Generic tools with client-specific integration mapping
 - 🎨 **Customizable Widget** - White-label chat widget with visual editor
 - 📊 **Admin Dashboard** - Complete management interface (port 3002)
-- 👥 **Customer Dashboard** - Self-service portal for businesses (port 3004)
+- 👥 **Customer Dashboard** - Self-service portal for businesses (port 3003)
 - 💰 **Billing & Analytics** - Invoice generation, usage tracking, plan management
 - 🔐 **Multi-tenant Architecture** - Isolated data per client
 - 🔄 **Real-time Integrations** - Connect to Shopify, Gmail, CRMs, databases via n8n
@@ -81,13 +81,13 @@ CSAI is a **multi-tenant AI customer service platform** that provides businesses
    ```bash
    npm run widget      # Widget dev server (port 3001)
    npm run admin       # Admin dashboard (port 3002)
-   cd frontend/customer && npm run dev  # Customer dashboard (port 3004)
+   cd frontend/customer && npm run dev  # Customer dashboard (port 3003)
    ```
 
 5. **Access dashboards**
 
    - **Admin**: http://localhost:3002 (username: `admin`, password: `admin123`)
-   - **Customer**: http://localhost:3004 (login with access code, e.g., `GAV091`)
+   - **Customer**: http://localhost:3003 (login with access code, e.g., `GAV091`)
 
 ### Verify Installation
 
@@ -147,7 +147,7 @@ npm run migrate        # Run database migrations
 # Frontend
 npm run widget         # Widget dev server (port 3001)
 npm run admin          # Admin dashboard (port 3002)
-cd frontend/customer && npm run dev  # Customer dashboard (port 3004)
+cd frontend/customer && npm run dev  # Customer dashboard (port 3003)
 
 # Docker
 npm run dockerup       # Start containers
@@ -248,7 +248,7 @@ Self-service portal for businesses to monitor their AI chat widget usage:
 - 💰 **Billing** - View and download invoices as PDF
 - 📈 **Usage Analytics** - Current usage vs limits, tool breakdown, trends
 
-**Access**: http://localhost:3004 (login with access code)
+**Access**: http://localhost:3003 (login with access code)
 
 See [docs/CUSTOMER_DASHBOARD_COMPLETE.md](docs/CUSTOMER_DASHBOARD_COMPLETE.md) for details.
 

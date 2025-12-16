@@ -10,7 +10,7 @@
 
 Self-service portal for businesses using the AI chat widget. Provides read-only access to conversations, usage statistics, billing information, and invoice management.
 
-**Access**: http://localhost:3004
+**Access**: http://localhost:3003
 **Test Login**: Access code `GAV091` (Bob's Pizza Shop)
 
 ---
@@ -78,7 +78,7 @@ Self-service portal for businesses using the AI chat widget. Provides read-only 
 ### Frontend Application
 
 **Location**: `frontend/customer/`
-**Port**: 3004
+**Port**: 3003
 **Tech Stack**: React 18, Vite, Tailwind CSS, React Router, @react-pdf/renderer
 
 #### Pages Implemented
@@ -258,7 +258,7 @@ frontend/customer/
 │       ├── Billing.jsx               # Invoices with PDF download
 │       └── Usage.jsx                 # Usage stats and trends
 ├── index.html
-├── vite.config.js                    # Vite config (port 3004)
+├── vite.config.js                    # Vite config (port 3003)
 ├── tailwind.config.js                # Purple theme colors
 ├── postcss.config.js
 └── package.json                      # Dependencies
@@ -411,7 +411,7 @@ backend/src/
 cd frontend/customer
 npm install
 npm run dev
-# Runs on http://localhost:3004
+# Runs on http://localhost:3003
 ```
 
 ### Production Build
@@ -429,7 +429,7 @@ For production, update `vite.config.js`:
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 3004,
+    port: 3003,
   },
   define: {
     'import.meta.env.VITE_API_URL': JSON.stringify('https://api.yourapp.com')

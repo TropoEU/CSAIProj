@@ -427,7 +427,7 @@ Widget configuration is stored in the `clients.widget_config` JSONB column and s
 
 **Phase 7** (✅ Complete - December 15, 2025):
 
-- Customer Dashboard running on http://localhost:3004
+- Customer Dashboard running on http://localhost:3003
 - React 18 + Vite + Tailwind CSS (purple theme)
 - JWT authentication with access code login
 - Dashboard pages: Overview, Conversations, Conversation Detail, Billing, Usage
@@ -511,7 +511,7 @@ INSERT INTO client_tools (client_id, tool_id, enabled, n8n_webhook_url, integrat
 - n8n receives: `_integrations: { "order_api": {...}, "email_api": {...} }`
 - Workflow can use multiple APIs in one execution
 
-**See**: `INTEGRATION_REDESIGN_PROGRESS.md` for architecture details
+**See**: `docs/TOOLS_INTEGRATIONS_ARCHITECTURE.md` for architecture details
 
 ### Adding a New Model
 
@@ -624,7 +624,7 @@ CSAIProj/
 │       │   │   └── layout/    # Header, Sidebar, Layout
 │       │   └── index.css      # Tailwind CSS
 │       ├── index.html         # HTML entry point
-│       ├── vite.config.js     # Vite config with proxy (port 3004)
+│       ├── vite.config.js     # Vite config with proxy (port 3003)
 │       ├── tailwind.config.js # Tailwind config (purple theme)
 │       └── package.json       # Customer dependencies
 ├── db/
@@ -702,7 +702,7 @@ Use this endpoint to verify all services are running correctly after startup.
 - Backend API: http://localhost:3000
 - Widget Dev Server: http://localhost:3001
 - Admin Dashboard: http://localhost:3002
-- Customer Dashboard: http://localhost:3004
+- Customer Dashboard: http://localhost:3003
 - n8n: http://localhost:5678
 - PostgreSQL: localhost:5432
 - Redis: localhost:6379
