@@ -538,3 +538,69 @@
 .csai-hidden {
   display: none !important;
 }
+
+/* ==================== RTL Support ==================== */
+
+/* RTL container direction */
+:host(.rtl),
+.csai-rtl {
+  direction: rtl;
+  text-align: right;
+}
+
+/* RTL chat window header */
+.csai-rtl .csai-window-header {
+  flex-direction: row-reverse;
+}
+
+.csai-rtl .csai-header-actions {
+  flex-direction: row-reverse;
+}
+
+/* RTL messages */
+.csai-rtl .csai-message.user {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.csai-rtl .csai-message.ai {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.csai-rtl .csai-message.user .csai-message-bubble {
+  border-bottom-right-radius: 12px;
+  border-bottom-left-radius: 4px;
+}
+
+.csai-rtl .csai-message.ai .csai-message-bubble {
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 4px;
+}
+
+/* RTL typing indicator */
+.csai-rtl .csai-typing-indicator {
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 4px;
+}
+
+/* RTL input area */
+.csai-rtl .csai-input-area {
+  flex-direction: row-reverse;
+}
+
+.csai-rtl .csai-input {
+  text-align: right;
+}
+
+/* RTL error message */
+.csai-rtl .csai-error-message {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+/* RTL unread badge position (flip for RTL) */
+.csai-rtl .csai-unread-badge {
+  left: -5px;
+  right: auto;
+}

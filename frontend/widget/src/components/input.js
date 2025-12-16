@@ -6,6 +6,8 @@ export class InputArea {
   constructor(onSend, config = {}) {
     this.onSend = onSend;
     this.config = config;
+    this.translations = config.translations || {};
+    this.isRTL = config.isRTL || false;
     this.isLoading = false;
     this.element = this.create();
     this.input = this.element.querySelector('.csai-input');
@@ -19,17 +21,25 @@ export class InputArea {
    */
   create() {
     const container = document.createElement('div');
-    container.className = 'csai-input-area';
+    const rtlClass = this.isRTL ? ' csai-rtl' : '';
+    container.className = `csai-input-area${rtlClass}`;
+
+    const placeholder = this.translations.inputPlaceholder || 'Type your message...';
+    const sendLabel = this.translations.sendButton || 'Send message';
+
+    // For RTL, flip the send icon direction
+    const sendIconTransform = this.isRTL ? 'style="transform: scaleX(-1)"' : '';
 
     container.innerHTML = `
       <textarea
         class="csai-input"
-        placeholder="Type your message..."
+        placeholder="${placeholder}"
         rows="1"
         aria-label="Message input"
+        dir="${this.isRTL ? 'rtl' : 'ltr'}"
       ></textarea>
-      <button class="csai-send-button" aria-label="Send message">
-        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <button class="csai-send-button" aria-label="${sendLabel}">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" ${sendIconTransform}>
           <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
         </svg>
       </button>

@@ -45,3 +45,29 @@
     @apply card p-6;
   }
 }
+
+/* RTL Support for Admin Dashboard */
+/* Basic RTL layout support for viewing Hebrew content */
+[dir="rtl"] {
+  direction: rtl;
+}
+
+[dir="rtl"] .text-left {
+  text-align: right;
+}
+
+[dir="rtl"] .text-right {
+  text-align: left;
+}
+
+/* RTL support for tables with Hebrew content */
+[dir="rtl"] table {
+  direction: rtl;
+}
+
+/* Hebrew content styling - applies to specific elements showing Hebrew */
+.hebrew-content {
+  direction: rtl;
+  text-align: right;
+  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+}

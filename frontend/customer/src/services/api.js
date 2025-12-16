@@ -63,4 +63,10 @@ export const usage = {
   getTools: () => api.get('/usage/tools'),
 };
 
+// Settings endpoints
+export const settings = {
+  get: () => api.get('/settings'),
+  update: (data) => api.put('/settings', data),
+};
+
 export default api;

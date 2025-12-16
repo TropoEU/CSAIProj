@@ -68,6 +68,7 @@ class CustomerController {
           name: client.name,
           plan: client.plan_type,
           status: client.status,
+          language: client.language || 'en',
           // Mask access code for security
           accessCode: accessCode.substring(0, 3) + '***' + accessCode.substring(accessCode.length - 3)
         }
@@ -155,7 +156,8 @@ class CustomerController {
         account: {
           name: client.name,
           plan: client.plan_type,
-          status: client.status
+          status: client.status,
+          language: client.language || 'en'
         },
         usage: {
           conversations: parseInt(usage?.total_conversations) || 0,
@@ -598,6 +600,78 @@ class CustomerController {
         error: 'Failed to load tool usage',
         message: 'An error occurred while loading tool usage data',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Get current settings
+   * GET /api/customer/settings
+   */
+  async getSettings(req, res) {
+    try {
+      const client = req.client;
+
+      res.json({
+        language: client.language || 'en',
+        name: client.name,
+        email: client.email
+      });
+    } catch (error) {
+      console.error('[CustomerController] Get settings error:', error);
+      res.status(500).json({
+        error: 'Failed to load settings',
+        message: 'An error occurred while loading your settings'
+      });
+    }
+  }
+
+  /**
+   * Update settings
+   * PUT /api/customer/settings
+   */
+  async updateSettings(req, res) {
+    try {
+      const clientId = req.clientId;
+      const { language } = req.body;
+
+      // Validate language
+      const validLanguages = ['en', 'he'];
+      if (language && !validLanguages.includes(language)) {
+        return res.status(400).json({
+          error: 'Invalid language',
+          message: 'Language must be one of: ' + validLanguages.join(', ')
+        });
+      }
+
+      // Build update object
+      const updates = {};
+      if (language) updates.language = language;
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({
+          error: 'No updates provided',
+          message: 'Please provide at least one field to update'
+        });
+      }
+
+      // Update client
+      const updatedClient = await Client.update(clientId, updates);
+
+      // Update stored client info in request for future middleware
+      req.client = updatedClient;
+
+      res.json({
+        success: true,
+        settings: {
+          language: updatedClient.language || 'en'
+        }
+      });
+    } catch (error) {
+      console.error('[CustomerController] Update settings error:', error);
+      res.status(500).json({
+        error: 'Failed to update settings',
+        message: 'An error occurred while updating your settings'
       });
     }
   }

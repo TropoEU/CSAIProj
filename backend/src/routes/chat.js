@@ -1,5 +1,5 @@
 import express from 'express';
-import { sendMessage, getHistory, endSession } from '../controllers/chatController.js';
+import { sendMessage, getHistory, endSession, getWidgetConfig } from '../controllers/chatController.js';
 import { authenticateClient } from '../middleware/auth.js';
 import { checkPlanLimits, addUsageHeaders } from '../middleware/planLimits.js';
 
@@ -10,6 +10,9 @@ router.use(authenticateClient);
 
 // Add usage headers to all responses (shows remaining limits)
 router.use(addUsageHeaders());
+
+// GET /chat/config - Get widget configuration (language, theme, etc.)
+router.get('/config', getWidgetConfig);
 
 // POST /chat/message - Send a message and get AI response
 // Plan limits are checked but with strict: false (logs warnings, doesn't block)

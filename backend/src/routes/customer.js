@@ -88,4 +88,20 @@ router.get('/usage/trends', customerController.getUsageTrends);
  */
 router.get('/usage/tools', customerController.getToolUsage);
 
+// ==================== Settings ====================
+
+/**
+ * Get current settings
+ * GET /api/customer/settings
+ * Returns: language preference and other settings
+ */
+router.get('/settings', customerController.getSettings);
+
+/**
+ * Update settings
+ * PUT /api/customer/settings
+ * Body: { language }
+ */
+router.put('/settings', customerController.updateSettings);
+
 export default router;

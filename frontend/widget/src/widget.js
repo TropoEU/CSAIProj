@@ -2,6 +2,7 @@ import { ChatAPI } from './api.js';
 import { WidgetStorage } from './storage.js';
 import { ChatBubble } from './components/bubble.js';
 import { ChatWindow } from './components/window.js';
+import { t, isRTL, getTranslations } from './i18n/translations.js';
 import styles from './styles.css?inline';
 
 /**
@@ -20,6 +21,8 @@ export class ChatWidget {
     this.window = null;
     this.pendingMessage = null;
     this.endedSessionId = null; // Track ended session ID to clear on next message
+    this.language = 'en'; // Default language
+    this.translations = getTranslations('en');
 
     this.init();
   }
@@ -63,7 +66,10 @@ export class ChatWidget {
   /**
    * Initialize the widget
    */
-  init() {
+  async init() {
+    // Fetch server config to get language preference
+    await this.loadServerConfig();
+
     this.createContainer();
     this.createShadowDOM();
     this.injectStyles();
@@ -74,7 +80,38 @@ export class ChatWidget {
     console.log('ChatWidget: Initialized', {
       sessionId: this.sessionId,
       config: this.config,
+      language: this.language,
     });
+  }
+
+  /**
+   * Load configuration from server (including language preference)
+   */
+  async loadServerConfig() {
+    try {
+      const serverConfig = await this.api.getConfig();
+
+      // Set language from server
+      if (serverConfig.language) {
+        this.language = serverConfig.language;
+        this.translations = getTranslations(this.language);
+
+        // Update config with translated defaults if not already set
+        if (!this.config.title || this.config.title === 'Chat Support') {
+          this.config.title = this.translations.title;
+        }
+        if (!this.config.subtitle || this.config.subtitle === 'We typically reply instantly') {
+          this.config.subtitle = this.translations.subtitle;
+        }
+        if (!this.config.greeting || this.config.greeting === 'Hi! How can I help you today?') {
+          this.config.greeting = this.translations.greeting;
+        }
+      }
+
+      console.log('ChatWidget: Loaded server config', { language: this.language });
+    } catch (error) {
+      console.warn('ChatWidget: Could not load server config, using defaults', error);
+    }
   }
 
   /**
@@ -82,11 +119,17 @@ export class ChatWidget {
    */
   createContainer() {
     this.container = document.createElement('div');
-    this.container.className = `csai-widget-container position-${this.config.position}`;
+    const rtlClass = isRTL(this.language) ? ' rtl' : '';
+    this.container.className = `csai-widget-container position-${this.config.position}${rtlClass}`;
     // Ensure container is fixed and doesn't scroll with page
     this.container.style.position = 'fixed';
     this.container.style.zIndex = '999999';
-    
+
+    // Set direction attribute for RTL support
+    if (isRTL(this.language)) {
+      this.container.setAttribute('dir', 'rtl');
+    }
+
     // Explicitly set positioning to ensure it works (CSS classes should handle this, but this is a fallback)
     const position = this.config.position || 'bottom-right';
     if (position.includes('bottom')) {
@@ -156,12 +199,20 @@ export class ChatWidget {
    * Create widget components
    */
   createComponents() {
+    // Add language and translations to config for components
+    const componentConfig = {
+      ...this.config,
+      language: this.language,
+      translations: this.translations,
+      isRTL: isRTL(this.language)
+    };
+
     // Create chat bubble
-    this.bubble = new ChatBubble(() => this.toggleWindow(), this.config);
+    this.bubble = new ChatBubble(() => this.toggleWindow(), componentConfig);
 
     // Create chat window
     this.window = new ChatWindow(
-      this.config,
+      componentConfig,
       () => this.handleClose(),
       (message) => this.handleSend(message),
       () => this.handleEndConversation()
@@ -173,7 +224,7 @@ export class ChatWidget {
 
     // Initialize window
     this.window.init();
-    
+
     // Show bubble when window is closed, hide when open
     this.updateBubbleVisibility();
   }
@@ -350,7 +401,7 @@ export class ChatWidget {
       // Show a message to the user
       const endMessage = {
         role: 'assistant',
-        content: 'Conversation ended. How can I help you today?',
+        content: this.translations.conversationEnded || 'Conversation ended. How can I help you today?',
         timestamp: new Date(),
       };
       this.window.addMessage(endMessage);
@@ -467,8 +518,9 @@ export class ChatWidget {
       }
 
       // Show error with retry option
+      const errorMsg = this.translations.errorSend || 'Failed to send message. Please try again.';
       this.window.showError(
-        'Failed to send message. Please try again.',
+        errorMsg,
         () => this.retryLastMessage()
       );
     } finally {

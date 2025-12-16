@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { dashboard } from '../services/api';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Dashboard() {
+  const { t, isRTL, formatNumber, formatDate } = useLanguage();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -61,42 +63,42 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+      <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+        <div className={isRTL ? 'text-right' : ''}>
+          <h1 className="text-3xl font-bold text-gray-900">{t('dashboard.title')}</h1>
           <p className="text-gray-600 mt-1">
-            Welcome back! Here's an overview of your account activity.
+            {t('dashboard.welcome')}! {t('dashboard.overview')}
           </p>
         </div>
-        <div className="text-right">
-          <div className="flex items-center gap-2 justify-end">
+        <div className={isRTL ? 'text-left' : 'text-right'}>
+          <div className={`flex items-center gap-2 ${isRTL ? 'justify-start' : 'justify-end'}`}>
             {refreshing && (
-              <span className="flex items-center gap-1 text-xs text-primary-600">
+              <span className={`flex items-center gap-1 text-xs text-primary-600 ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Updating...
+                {t('common.loading')}
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-500 mt-1">Last updated</p>
+          <p className="text-xs text-gray-500 mt-1">{t('header.lastUpdated')}</p>
           <p className="text-sm text-gray-700 font-medium">
-            {lastUpdate.toLocaleTimeString()}
+            {lastUpdate.toLocaleTimeString(isRTL ? 'he-IL' : 'en-US')}
           </p>
         </div>
       </div>
 
       {/* Account Overview */}
       <div className="card p-6">
-        <h2 className="text-lg font-semibold mb-4">Account Information</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <h2 className={`text-lg font-semibold mb-4 ${isRTL ? 'text-right' : ''}`}>{t('dashboard.accountInfo') || 'Account Information'}</h2>
+        <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${isRTL ? 'text-right' : ''}`}>
           <div>
-            <p className="text-sm text-gray-600">Account Name</p>
+            <p className="text-sm text-gray-600">{t('dashboard.accountName') || 'Account Name'}</p>
             <p className="text-lg font-medium text-gray-900">{account?.name || 'N/A'}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-600">Plan</p>
+            <p className="text-sm text-gray-600">{t('dashboard.plan')}</p>
             <p className="text-lg font-medium">
               <span className="inline-block px-3 py-1 rounded-full bg-primary-100 text-primary-700 capitalize">
                 {account?.plan || 'N/A'}
@@ -104,14 +106,14 @@ export default function Dashboard() {
             </p>
           </div>
           <div>
-            <p className="text-sm text-gray-600">Status</p>
+            <p className="text-sm text-gray-600">{t('dashboard.status')}</p>
             <p className="text-lg font-medium">
               <span className={`inline-block px-3 py-1 rounded-full ${
                 account?.status === 'active'
                   ? 'bg-green-100 text-green-700'
                   : 'bg-gray-100 text-gray-700'
               } capitalize`}>
-                {account?.status || 'N/A'}
+                {account?.status === 'active' ? t('dashboard.active') : t('dashboard.inactive')}
               </span>
             </p>
           </div>
@@ -121,15 +123,15 @@ export default function Dashboard() {
       {/* Usage Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="stat-card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Conversations</p>
+          <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <div className={isRTL ? 'text-right' : ''}>
+              <p className="text-sm text-gray-600">{t('dashboard.conversations')}</p>
               <p className="text-3xl font-bold text-gray-900 mt-1">
-                {usage?.conversations || 0}
+                {formatNumber(usage?.conversations || 0)}
               </p>
               {limits?.conversations && (
                 <p className="text-xs text-gray-500 mt-1">
-                  of {limits.conversations} limit
+                  {t('usage.of')} {formatNumber(limits.conversations)}
                 </p>
               )}
             </div>
@@ -142,15 +144,15 @@ export default function Dashboard() {
         </div>
 
         <div className="stat-card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Tokens Used</p>
+          <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <div className={isRTL ? 'text-right' : ''}>
+              <p className="text-sm text-gray-600">{t('dashboard.tokens')}</p>
               <p className="text-3xl font-bold text-gray-900 mt-1">
-                {(usage?.tokens || 0).toLocaleString()}
+                {formatNumber(usage?.tokens || 0)}
               </p>
               {limits?.tokens && (
                 <p className="text-xs text-gray-500 mt-1">
-                  of {limits.tokens.toLocaleString()} limit
+                  {t('usage.of')} {formatNumber(limits.tokens)}
                 </p>
               )}
             </div>
@@ -163,15 +165,15 @@ export default function Dashboard() {
         </div>
 
         <div className="stat-card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Tool Calls</p>
+          <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <div className={isRTL ? 'text-right' : ''}>
+              <p className="text-sm text-gray-600">{t('dashboard.toolCalls')}</p>
               <p className="text-3xl font-bold text-gray-900 mt-1">
-                {usage?.toolCalls || 0}
+                {formatNumber(usage?.toolCalls || 0)}
               </p>
               {limits?.toolCalls && (
                 <p className="text-xs text-gray-500 mt-1">
-                  of {limits.toolCalls} limit
+                  {t('usage.of')} {formatNumber(limits.toolCalls)}
                 </p>
               )}
             </div>
@@ -188,23 +190,23 @@ export default function Dashboard() {
       {/* Today's Activity */}
       {stats && (
         <div className="card p-6">
-          <h2 className="text-lg font-semibold mb-4">Today's Activity</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <h2 className={`text-lg font-semibold mb-4 ${isRTL ? 'text-right' : ''}`}>{t('dashboard.todayActivity')}</h2>
+          <div className={`grid grid-cols-2 md:grid-cols-4 gap-4 ${isRTL ? 'text-right' : ''}`}>
             <div>
-              <p className="text-sm text-gray-600">Conversations</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.conversationsToday || 0}</p>
+              <p className="text-sm text-gray-600">{t('dashboard.conversations')}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.conversationsToday || 0)}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Messages</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.messagesToday || 0}</p>
+              <p className="text-sm text-gray-600">{t('dashboard.messages')}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.messagesToday || 0)}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Tokens</p>
-              <p className="text-2xl font-bold text-gray-900">{(stats.tokensToday || 0).toLocaleString()}</p>
+              <p className="text-sm text-gray-600">{t('dashboard.tokens')}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.tokensToday || 0)}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Tool Calls</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.toolCallsToday || 0}</p>
+              <p className="text-sm text-gray-600">{t('dashboard.toolCalls')}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.toolCallsToday || 0)}</p>
             </div>
           </div>
         </div>
@@ -212,10 +214,10 @@ export default function Dashboard() {
 
       {/* Recent Conversations (Last 60 Days) */}
       <div className="card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Recent Activity (Last 60 Days)</h2>
+        <div className={`flex items-center justify-between mb-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <h2 className="text-lg font-semibold">{t('dashboard.recentActivity')}</h2>
           <Link to="/conversations" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
-            View All →
+            {t('dashboard.viewAll')} {isRTL ? '←' : '→'}
           </Link>
         </div>
 
@@ -227,15 +229,15 @@ export default function Dashboard() {
                 to={`/conversations/${conv.id}`}
                 className="block p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
+                <div className={`flex items-start justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
                     <p className="text-sm font-medium text-gray-900 line-clamp-1">
-                      {conv.firstMessage || 'No message'}
+                      {conv.firstMessage || t('conversations.noResults')}
                     </p>
-                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                      <span>{new Date(conv.startedAt).toLocaleDateString()}</span>
-                      <span>{conv.messageCount} messages</span>
-                      <span>{conv.tokensTotal.toLocaleString()} tokens</span>
+                    <div className={`flex items-center gap-4 mt-2 text-xs text-gray-500 ${isRTL ? 'flex-row-reverse justify-end' : ''}`}>
+                      <span>{formatDate(conv.startedAt)}</span>
+                      <span>{formatNumber(conv.messageCount)} {t('conversations.messages')}</span>
+                      <span>{formatNumber(conv.tokensTotal)} {t('dashboard.tokens').toLowerCase()}</span>
                     </div>
                   </div>
                   <span className={`px-2 py-1 text-xs rounded-full ${
@@ -243,7 +245,7 @@ export default function Dashboard() {
                       ? 'bg-gray-200 text-gray-700'
                       : 'bg-green-100 text-green-700'
                   }`}>
-                    {conv.endedAt ? 'Ended' : 'Active'}
+                    {conv.endedAt ? t('conversations.ended') : t('conversations.active')}
                   </span>
                 </div>
               </Link>
@@ -254,7 +256,7 @@ export default function Dashboard() {
             <svg className="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
-            <p>No conversations in the last 60 days</p>
+            <p>{t('dashboard.noConversations60')}</p>
           </div>
         )}
       </div>

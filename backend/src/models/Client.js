@@ -87,7 +87,7 @@ export class Client {
      * Update client
      */
     static async update(id, updates) {
-        const allowedFields = ['name', 'domain', 'plan_type', 'status', 'email', 'llm_provider', 'model_name', 'system_prompt', 'widget_config'];
+        const allowedFields = ['name', 'domain', 'plan_type', 'status', 'email', 'llm_provider', 'model_name', 'system_prompt', 'widget_config', 'language'];
         const fields = [];
         const values = [];
         let paramIndex = 1;

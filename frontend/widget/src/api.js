@@ -9,6 +9,31 @@ export class ChatAPI {
   }
 
   /**
+   * Get widget configuration from server
+   * @returns {Promise<Object>} Configuration with language, widgetConfig, clientName
+   */
+  async getConfig() {
+    try {
+      const response = await fetch(`${this.baseUrl}/chat/config`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('ChatAPI: Failed to get config', error);
+      throw error;
+    }
+  }
+
+  /**
    * Send a message to the AI and get a response
    * @param {string} sessionId - Unique session identifier
    * @param {string} message - User's message

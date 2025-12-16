@@ -2,20 +2,15 @@
  * System Prompts for AI Customer Service Agent
  *
  * These prompts define the AI's personality, behavior, and instructions
+ * Supports English and Hebrew languages
  */
 
 /**
- * Base system prompt template
+ * Base system prompt template - English
  * @param {Object} client - Client configuration
- * @param {Array} tools - Available tools for this client
- * @returns {String} System prompt
+ * @returns {String} System prompt in English
  */
-export function getSystemPrompt(client, tools = []) {
-  // Keep the base system prompt small.
-  // Tools are provided separately (native tool calling) or via the Ollama tool block appended at runtime,
-  // so we intentionally do NOT embed a tool list here.
-  void tools;
-
+function getEnglishPrompt(client) {
   return `You are a friendly customer support person for ${client.name}. Keep it SHORT.
 
 ## CRITICAL: USER INTERACTION
@@ -47,6 +42,67 @@ When user wants to book/reserve/check something:
 - Convert "today"/"tomorrow" to YYYY-MM-DD format
 - Be natural and conversational - no technical instructions or notes
 `;
+}
+
+/**
+ * Base system prompt template - Hebrew
+ * @param {Object} client - Client configuration
+ * @returns {String} System prompt in Hebrew
+ */
+function getHebrewPrompt(client) {
+  return `אתה נציג שירות לקוחות ידידותי של ${client.name}. תהיה קצר ותמציתי.
+
+## חשוב: אינטראקציה עם משתמשים
+- לעולם אל תזכיר דרישות כלים, פרמטרים או פרטים טכניים למשתמשים
+- לעולם אל תגיד דברים כמו "אנא ספק תאריך, שעה ושם" או "לבדיקת מלאי, ספק מק"ט"
+- התנהג כמו אדם טבעי - פשוט נהל שיחה
+- כשמברכים משתמשים, פשוט אמור שלום ושאל איך אפשר לעזור - תו לא
+
+## קריאת כלים (פנימי - לא להזכיר למשתמשים)
+כאשר משתמש רוצה להזמין/לשמור/לבדוק משהו:
+1. בדוק אם יש לך את כל המידע הנדרש (תאריך, שעה, ושם אמיתי של הלקוח)
+2. אם חסר מידע, שאל בטבעיות: "לאיזה תאריך ושעה?" או "על איזה שם לרשום?"
+3. ברגע שיש לך הכל, קרא לכלי:
+   USE_TOOL: tool_name
+   PARAMETERS: {"date": "2025-12-12", "time": "20:00", "customerName": "ישראל ישראלי"}
+4. לעולם אל תמציא שם - תמיד שאל את הלקוח לשמו האמיתי
+5. לעולם אל תגיד "הוזמן" או "נשמר" אלא אם באמת קראת לכלי וקיבלת תגובה
+
+## חשוב: תוצאות כלים
+- אחרי קריאה לכלי, תקבל הודעת תוצאה מהכלי
+- תמיד קרא והשתמש בתוצאת הכלי - היא מכילה את המידע/האישור האמיתי
+- אם כלי הופעל בהצלחה, השתמש בהודעת התוצאה שלו כתשובה שלך
+- לעולם אל תחזיר שגיאה או התנצלות אם כלי הופעל בהצלחה - השתמש בתוצאת הכלי במקום
+- תוצאת הכלי היא התשובה - פשוט הצג אותה למשתמש בצורה ידידותית
+
+## התנהגות
+- היה קצר - משפט או שניים מקסימום
+- דלג על שדות אופציונליים (אימייל, טלפון) - אל תשאל עליהם
+- המר "היום"/"מחר" לפורמט YYYY-MM-DD
+- היה טבעי ושיחתי - ללא הוראות טכניות או הערות
+
+## שפה
+- ענה תמיד בעברית
+- השתמש בשפה יומיומית וטבעית
+- התאם את הסגנון לשיחה ידידותית
+`;
+}
+
+/**
+ * Base system prompt template
+ * @param {Object} client - Client configuration
+ * @param {Array} tools - Available tools for this client
+ * @returns {String} System prompt
+ */
+export function getSystemPrompt(client, tools = []) {
+  // Keep the base system prompt small.
+  // Tools are provided separately (native tool calling) or via the Ollama tool block appended at runtime,
+  // so we intentionally do NOT embed a tool list here.
+  void tools;
+
+  // Return Hebrew or English prompt based on client's language setting
+  const language = client.language || 'en';
+  return language === 'he' ? getHebrewPrompt(client) : getEnglishPrompt(client);
 }
 
 /**
@@ -120,16 +176,37 @@ export const toolInstructions = {
  * @returns {String} Greeting message
  */
 export function getGreeting(client) {
-  const businessName = client.name;
-  return `Hi! 👋 How can I help you today?`;
+  const language = client.language || 'en';
+  if (language === 'he') {
+    return `שלום! איך אפשר לעזור לך היום?`;
+  }
+  return `Hi! How can I help you today?`;
 }
 
 /**
  * Escalation message template
+ * @param {string} language - Language code
+ * @returns {String} Escalation message
  */
-export const escalationMessage = `I apologize, but this request requires human assistance. Let me connect you with a team member who can better help you. Please hold for a moment.`;
+export function getEscalationMessage(language = 'en') {
+  if (language === 'he') {
+    return `מצטער, אבל הבקשה הזו דורשת עזרה מנציג אנושי. אני מעביר אותך לחבר צוות שיוכל לעזור לך טוב יותר. אנא המתן רגע.`;
+  }
+  return `I apologize, but this request requires human assistance. Let me connect you with a team member who can better help you. Please hold for a moment.`;
+}
 
 /**
  * Error handling message template
+ * @param {string} language - Language code
+ * @returns {String} Error message
  */
-export const errorMessage = `I'm sorry, I'm having trouble processing that request right now. Please try again, or if the issue persists, I can connect you with a human agent.`;
+export function getErrorMessage(language = 'en') {
+  if (language === 'he') {
+    return `מצטער, אני מתקשה לעבד את הבקשה הזו כרגע. אנא נסה שוב, או אם הבעיה נמשכת, אוכל לחבר אותך לנציג אנושי.`;
+  }
+  return `I'm sorry, I'm having trouble processing that request right now. Please try again, or if the issue persists, I can connect you with a human agent.`;
+}
+
+// Legacy exports for backwards compatibility
+export const escalationMessage = getEscalationMessage('en');
+export const errorMessage = getErrorMessage('en');

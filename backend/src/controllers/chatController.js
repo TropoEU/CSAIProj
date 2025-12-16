@@ -159,6 +159,35 @@ export async function getHistory(req, res) {
 }
 
 /**
+ * GET /chat/config
+ * Get widget configuration for the authenticated client
+ * Returns language preference and widget customization settings
+ */
+export async function getWidgetConfig(req, res) {
+  try {
+    const client = req.client;
+
+    if (!client) {
+      return res.status(401).json({ error: 'Invalid API key' });
+    }
+
+    // Return widget configuration including language
+    return res.json({
+      language: client.language || 'en',
+      widgetConfig: client.widget_config || {},
+      clientName: client.name
+    });
+
+  } catch (error) {
+    console.error('[ChatController] Error getting widget config:', error);
+    return res.status(500).json({
+      error: 'Failed to get widget configuration',
+      message: error.message
+    });
+  }
+}
+
+/**
  * POST /chat/end
  * End a conversation session
  */

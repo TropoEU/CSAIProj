@@ -562,6 +562,14 @@ export default function ClientDetail() {
                 </dd>
               </div>
               <div>
+                <dt className="text-sm font-medium text-gray-500">Language</dt>
+                <dd className="mt-1">
+                  <Badge variant="info">
+                    {client.language === 'he' ? 'Hebrew (עברית)' : 'English'}
+                  </Badge>
+                </dd>
+              </div>
+              <div>
                 <dt className="text-sm font-medium text-gray-500">Created</dt>
                 <dd className="mt-1 text-gray-900">
                   {new Date(client.created_at).toLocaleString()}
@@ -1283,6 +1291,15 @@ export default function ClientDetail() {
               placeholder="Custom instructions for this client's AI assistant..."
             />
           </div>
+
+          <Select
+            label="Language"
+            {...register('language')}
+            options={[
+              { value: 'en', label: 'English' },
+              { value: 'he', label: 'Hebrew (עברית)' },
+            ]}
+          />
 
           <div className="flex justify-end gap-3 mt-6">
             <Button

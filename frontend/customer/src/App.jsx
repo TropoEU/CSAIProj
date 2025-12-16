@@ -7,6 +7,7 @@ import Conversations from './pages/Conversations';
 import ConversationDetail from './pages/ConversationDetail';
 import Billing from './pages/Billing';
 import Usage from './pages/Usage';
+import Settings from './pages/Settings';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -41,6 +42,7 @@ function App() {
                 <Route path="/conversations/:id" element={<ConversationDetail />} />
                 <Route path="/billing" element={<Billing />} />
                 <Route path="/usage" element={<Usage />} />
+                <Route path="/settings" element={<Settings />} />
               </Routes>
             </Layout>
           </ProtectedRoute>

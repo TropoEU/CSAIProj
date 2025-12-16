@@ -305,6 +305,15 @@ export default function Clients() {
             ]}
           />
 
+          <Select
+            label="Language"
+            {...register('language')}
+            options={[
+              { value: 'en', label: 'English' },
+              { value: 'he', label: 'Hebrew (עברית)' },
+            ]}
+          />
+
           <div className="flex justify-end gap-3 mt-6">
             <Button
               type="button"

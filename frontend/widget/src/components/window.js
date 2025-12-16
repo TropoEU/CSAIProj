@@ -11,8 +11,10 @@ export class ChatWindow {
     this.onClose = onClose;
     this.onSend = onSend;
     this.onEndConversation = onEndConversation;
+    this.translations = config.translations || {};
+    this.isRTL = config.isRTL || false;
     this.element = this.create();
-    this.messageList = new MessageList();
+    this.messageList = new MessageList(config);
     this.inputArea = new InputArea((message) => this.handleSend(message), config);
     this.isOpen = false;
   }
@@ -23,7 +25,13 @@ export class ChatWindow {
    */
   create() {
     const window = document.createElement('div');
-    window.className = 'csai-chat-window csai-hidden';
+    const rtlClass = this.isRTL ? ' csai-rtl' : '';
+    window.className = `csai-chat-window csai-hidden${rtlClass}`;
+
+    // Set direction for RTL support
+    if (this.isRTL) {
+      window.setAttribute('dir', 'rtl');
+    }
 
     const header = this.createHeader();
     window.appendChild(header);
@@ -86,7 +94,9 @@ export class ChatWindow {
       const endBtn = header.querySelector('.csai-end-conversation-button');
       if (endBtn) {
         endBtn.addEventListener('click', () => {
-          if (confirm('Are you sure you want to end this conversation? You can start a new one anytime.')) {
+          const confirmMsg = this.translations.endConversationConfirm ||
+            'Are you sure you want to end this conversation? You can start a new one anytime.';
+          if (confirm(confirmMsg)) {
             if (this.onEndConversation) {
               this.onEndConversation();
             }
