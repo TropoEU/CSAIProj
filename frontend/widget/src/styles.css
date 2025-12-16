@@ -548,13 +548,13 @@
   text-align: right;
 }
 
-/* RTL chat window header */
-.csai-rtl .csai-window-header {
-  flex-direction: row-reverse;
-}
+/* RTL chat window header - dir="rtl" handles the reversal automatically */
+/* No flex-direction override needed - browser handles it */
 
-.csai-rtl .csai-header-actions {
-  flex-direction: row-reverse;
+/* RTL header title alignment - dir="rtl" handles this */
+.csai-rtl .csai-header-title,
+.csai-rtl .csai-header-subtitle {
+  text-align: right;
 }
 
 /* RTL messages */
@@ -584,18 +584,14 @@
   border-bottom-right-radius: 4px;
 }
 
-/* RTL input area */
-.csai-rtl .csai-input-area {
-  flex-direction: row-reverse;
-}
+/* RTL input area - dir="rtl" handles the reversal automatically */
 
 .csai-rtl .csai-input {
   text-align: right;
 }
 
-/* RTL error message */
+/* RTL error message - dir="rtl" handles the layout automatically */
 .csai-rtl .csai-error-message {
-  flex-direction: row-reverse;
   text-align: right;
 }
 

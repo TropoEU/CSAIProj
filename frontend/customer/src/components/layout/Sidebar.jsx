@@ -66,7 +66,7 @@ export default function Sidebar({ isOpen, onClose }) {
       <aside
         className={`
           fixed top-0 z-30 h-full w-64 bg-gray-900 transform transition-transform duration-300 ease-in-out
-          lg:relative lg:translate-x-0
+          lg:relative lg:translate-x-0 lg:left-auto lg:right-auto
           ${isRTL ? 'right-0' : 'left-0'}
           ${isOpen
             ? 'translate-x-0'
@@ -76,7 +76,7 @@ export default function Sidebar({ isOpen, onClose }) {
           }
         `}
       >
-        <div className={`flex items-center gap-2 px-6 py-4 border-b border-gray-800 ${isRTL ? 'flex-row-reverse' : ''}`}>
+        <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-800">
           <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -94,8 +94,6 @@ export default function Sidebar({ isOpen, onClose }) {
                   onClick={onClose}
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                      isRTL ? 'flex-row-reverse text-right' : ''
-                    } ${
                       isActive
                         ? 'bg-primary-600 text-white'
                         : 'text-gray-400 hover:bg-gray-800 hover:text-white'

@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { usage } from '../services/api';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Usage() {
+  const { t, isRTL, formatNumber, formatDate } = useLanguage();
   const [currentUsage, setCurrentUsage] = useState(null);
   const [trends, setTrends] = useState(null);
   const [toolUsage, setToolUsage] = useState(null);
@@ -23,7 +25,7 @@ export default function Usage() {
         setError(null);
       } catch (err) {
         console.error('Failed to fetch usage data:', err);
-        setError(err.response?.data?.message || 'Failed to load usage data');
+        setError(err.response?.data?.message || t('common.error'));
       } finally {
         setLoading(false);
       }
@@ -54,19 +56,19 @@ export default function Usage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Usage</h1>
-        <p className="text-gray-600 mt-1">Monitor your platform usage and limits</p>
+        <h1 className="text-3xl font-bold text-gray-900">{t('usage.title')}</h1>
+        <p className="text-gray-600 mt-1">{t('usage.subtitle')}</p>
       </div>
 
       {/* Current Usage */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="card p-6">
-          <h3 className="text-sm text-gray-600 mb-2">Conversations</h3>
-          <p className="text-3xl font-bold text-gray-900">{usageData?.conversations || 0}</p>
+          <h3 className="text-sm text-gray-600 mb-2">{t('usage.conversations')}</h3>
+          <p className="text-3xl font-bold text-gray-900">{formatNumber(usageData?.conversations || 0)}</p>
           {limits?.conversations && (
             <div className="mt-2">
               <div className="flex justify-between text-xs text-gray-500 mb-1">
-                <span>of {limits.conversations} limit</span>
+                <span>{t('usage.of')} {formatNumber(limits.conversations)} {t('usage.limit')}</span>
                 <span>{Math.round((usageData?.conversations || 0) / limits.conversations * 100)}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
@@ -80,12 +82,12 @@ export default function Usage() {
         </div>
 
         <div className="card p-6">
-          <h3 className="text-sm text-gray-600 mb-2">Tokens</h3>
-          <p className="text-3xl font-bold text-gray-900">{(usageData?.tokens || 0).toLocaleString()}</p>
+          <h3 className="text-sm text-gray-600 mb-2">{t('usage.tokens')}</h3>
+          <p className="text-3xl font-bold text-gray-900">{formatNumber(usageData?.tokens || 0)}</p>
           {limits?.tokens && (
             <div className="mt-2">
               <div className="flex justify-between text-xs text-gray-500 mb-1">
-                <span>of {limits.tokens.toLocaleString()} limit</span>
+                <span>{t('usage.of')} {formatNumber(limits.tokens)} {t('usage.limit')}</span>
                 <span>{Math.round((usageData?.tokens || 0) / limits.tokens * 100)}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
@@ -99,12 +101,12 @@ export default function Usage() {
         </div>
 
         <div className="card p-6">
-          <h3 className="text-sm text-gray-600 mb-2">Tool Calls</h3>
-          <p className="text-3xl font-bold text-gray-900">{usageData?.toolCalls || 0}</p>
+          <h3 className="text-sm text-gray-600 mb-2">{t('usage.toolCalls')}</h3>
+          <p className="text-3xl font-bold text-gray-900">{formatNumber(usageData?.toolCalls || 0)}</p>
           {limits?.toolCalls && (
             <div className="mt-2">
               <div className="flex justify-between text-xs text-gray-500 mb-1">
-                <span>of {limits.toolCalls} limit</span>
+                <span>{t('usage.of')} {formatNumber(limits.toolCalls)} {t('usage.limit')}</span>
                 <span>{Math.round((usageData?.toolCalls || 0) / limits.toolCalls * 100)}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
@@ -121,35 +123,35 @@ export default function Usage() {
       {/* Tool Usage Breakdown */}
       {toolUsage && toolUsage.tools && toolUsage.tools.length > 0 && (
         <div className="card p-6">
-          <h2 className="text-lg font-semibold mb-4">Tool Usage Breakdown</h2>
+          <h2 className="text-lg font-semibold mb-4">{t('usage.toolBreakdown')}</h2>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tool
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
+                    {t('usage.tool')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Calls
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
+                    {t('usage.calls')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Success Rate
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
+                    {t('usage.successRate')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Avg Time
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
+                    {t('usage.avgTime')}
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {toolUsage.tools.map((tool) => (
                   <tr key={tool.toolName} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
                       {tool.toolName}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {tool.callCount}
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-600 ${isRTL ? 'text-right' : 'text-left'}`}>
+                      {formatNumber(tool.callCount)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
                       <span className={`px-2 py-1 text-xs rounded-full ${
                         tool.successRate >= 90
                           ? 'bg-green-100 text-green-700'
@@ -160,8 +162,8 @@ export default function Usage() {
                         {tool.successRate}%
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {tool.avgExecutionTime}ms
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-600 ${isRTL ? 'text-right' : 'text-left'}`}>
+                      {formatNumber(tool.avgExecutionTime)}ms
                     </td>
                   </tr>
                 ))}
@@ -174,17 +176,17 @@ export default function Usage() {
       {/* Usage Trends */}
       {trends && trends.daily && trends.daily.length > 0 && (
         <div className="card p-6">
-          <h2 className="text-lg font-semibold mb-4">Usage Trends (Last 30 Days)</h2>
+          <h2 className="text-lg font-semibold mb-4">{t('usage.usageTrends30')}</h2>
           <div className="h-64 flex items-end justify-between gap-2">
             {trends.daily.map((day, idx) => (
               <div key={idx} className="flex-1 flex flex-col items-center">
                 <div className="w-full bg-primary-200 rounded-t relative" style={{ height: `${(day.conversations / Math.max(...trends.daily.map(d => d.conversations))) * 100}%` }}>
                   <div className="absolute -top-6 left-0 right-0 text-center text-xs text-gray-600">
-                    {day.conversations}
+                    {formatNumber(day.conversations)}
                   </div>
                 </div>
                 <div className="text-xs text-gray-500 mt-1 rotate-45 origin-left">
-                  {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  {formatDate(day.date, { month: 'short', day: 'numeric' })}
                 </div>
               </div>
             ))}

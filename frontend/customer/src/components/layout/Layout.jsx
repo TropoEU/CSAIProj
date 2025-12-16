@@ -8,7 +8,7 @@ export default function Layout({ children }) {
   const { isRTL } = useLanguage();
 
   return (
-    <div className={`min-h-screen flex ${isRTL ? 'flex-row-reverse' : ''}`}>
+    <div className="min-h-screen flex">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-h-screen">

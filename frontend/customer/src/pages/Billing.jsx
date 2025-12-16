@@ -3,9 +3,11 @@ import { billing } from '../services/api';
 import { InvoicePDF } from '../components/InvoicePDF';
 import { pdf } from '@react-pdf/renderer';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Billing() {
   const { client } = useAuth();
+  const { t, isRTL, formatDate, formatCurrency } = useLanguage();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -19,7 +21,7 @@ export default function Billing() {
         setError(null);
       } catch (err) {
         console.error('Failed to fetch invoices:', err);
-        setError(err.response?.data?.message || 'Failed to load invoices');
+        setError(err.response?.data?.message || t('common.error'));
       } finally {
         setLoading(false);
       }
@@ -59,6 +61,21 @@ export default function Billing() {
     }
   };
 
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'paid':
+        return t('billing.paid');
+      case 'pending':
+        return t('billing.pending');
+      case 'overdue':
+        return t('billing.overdue');
+      case 'cancelled':
+        return t('billing.cancelled');
+      default:
+        return status;
+    }
+  };
+
   const handleDownloadPDF = async (invoice) => {
     try {
       setDownloading(invoice.id);
@@ -73,7 +90,7 @@ export default function Billing() {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Failed to download PDF:', err);
-      alert('Failed to download invoice. Please try again.');
+      alert(t('billing.downloadError'));
     } finally {
       setDownloading(null);
     }
@@ -85,11 +102,10 @@ export default function Billing() {
       const blob = await pdf(<InvoicePDF invoice={invoice} clientName={client?.name} />).toBlob();
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
-      // Clean up after a delay to ensure the window has opened
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
       console.error('Failed to view PDF:', err);
-      alert('Failed to open invoice. Please try again.');
+      alert(t('billing.downloadError'));
     } finally {
       setDownloading(null);
     }
@@ -98,65 +114,65 @@ export default function Billing() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Billing</h1>
-        <p className="text-gray-600 mt-1">View and manage your invoices</p>
+      <div className={isRTL ? 'text-right' : ''}>
+        <h1 className="text-3xl font-bold text-gray-900">{t('billing.title')}</h1>
+        <p className="text-gray-600 mt-1">{t('billing.subtitle')}</p>
       </div>
 
       {/* Invoices */}
       <div className="card">
         {invoices.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full" dir={isRTL ? 'rtl' : 'ltr'}>
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Invoice #
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
+                    {t('billing.invoiceNumber')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Period
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
+                    {t('billing.period')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
+                    {t('billing.amount')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
+                    {t('billing.status')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Due Date
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
+                    {t('billing.dueDate')}
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-left' : 'text-right'}`}>
+                    {t('billing.actions')}
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {invoices.map((invoice) => (
                   <tr key={invoice.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
                       #{invoice.invoiceNumber}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-600 ${isRTL ? 'text-right' : 'text-left'}`}>
                       {invoice.period || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      ${(invoice.amount || 0).toFixed(2)}
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
+                      {formatCurrency(invoice.amount || 0)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs rounded-full capitalize ${getStatusColor(invoice.status)}`}>
-                        {invoice.status}
+                    <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
+                      <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(invoice.status)}`}>
+                        {getStatusText(invoice.status)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A'}
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-600 ${isRTL ? 'text-right' : 'text-left'}`}>
+                      {invoice.dueDate ? formatDate(invoice.dueDate) : 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <div className="flex items-center gap-2 justify-end">
                         <button
                           onClick={() => handleViewPDF(invoice)}
                           disabled={downloading === invoice.id}
                           className="text-primary-600 hover:text-primary-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="View PDF"
+                          title={t('billing.view')}
                         >
                           {downloading === invoice.id ? (
                             <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -174,7 +190,7 @@ export default function Billing() {
                           onClick={() => handleDownloadPDF(invoice)}
                           disabled={downloading === invoice.id}
                           className="text-gray-600 hover:text-gray-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Download PDF"
+                          title={t('billing.download')}
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -192,8 +208,8 @@ export default function Billing() {
             <svg className="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <p className="text-lg font-medium">No invoices yet</p>
-            <p className="text-sm mt-1">Your invoices will appear here</p>
+            <p className="text-lg font-medium">{t('billing.noInvoices')}</p>
+            <p className="text-sm mt-1">{t('billing.noInvoicesDesc')}</p>
           </div>
         )}
       </div>

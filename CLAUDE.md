@@ -439,17 +439,37 @@ Widget configuration is stored in the `clients.widget_config` JSONB column and s
 - Read-only access (no settings changes in MVP)
 - Test login: Access code `GAV091`
 
-**Phases 8-10** (Not Started):
+**Phase 8** (✅ Complete - December 16, 2025):
 
-- Phase 8: Hebrew/RTL support
+- Hebrew/RTL Support for Israeli market
+- **Database**: `language` column on `clients` table (VARCHAR, default 'en')
+- **Widget i18n** (`frontend/widget/src/i18n/translations.js`):
+  - Full Hebrew/English translations
+  - RTL CSS (header reversed, user messages left, AI right)
+  - `/chat/config` endpoint returns client language
+- **Customer Dashboard i18n** (`frontend/customer/src/i18n/translations.js`):
+  - Complete Hebrew translations for all 6 pages
+  - LanguageContext for state management
+  - Settings page for language selection
+  - RTL layout (sidebar on right, flex-direction-reverse)
+  - Date/number formatting with Hebrew locale
+- **Admin Dashboard**: RTL CSS support for viewing Hebrew content (UI labels remain English)
+- **System Prompts** (`backend/src/prompts/systemPrompt.js`):
+  - Hebrew prompt with language-specific instructions
+  - `getSystemPrompt()` returns Hebrew or English based on `client.language`
+- **API Endpoints**:
+  - `GET /chat/config` - Returns language setting for widget
+  - `GET/PUT /api/customer/settings` - Language preference CRUD
+
+**Phases 9-10** (Not Started):
+
 - Phase 9: Advanced features (RAG, analytics, escalation)
 - Phase 10: Production deployment and DevOps
 
 **🚀 Upcoming Planned Features** (Priority for next development cycle):
 
-1. **Hebrew Support & RTL** - Right-to-left layout for Hebrew across widget, admin, and customer dashboard
-2. **Production Deployment** - Deploy all components to hosting platforms with SSL
-3. **RAG Implementation** - Knowledge base integration with vector embeddings
+1. **Production Deployment** - Deploy all components to hosting platforms with SSL
+2. **RAG Implementation** - Knowledge base integration with vector embeddings
 
 ## Important Implementation Patterns
 

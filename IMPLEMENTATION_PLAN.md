@@ -72,6 +72,23 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 - **Access**: http://localhost:3003 (Login with access code, e.g., `GAV091`)
 - **See**: `docs/CUSTOMER_DASHBOARD_COMPLETE.md` for complete implementation details
 
+### Phase 8: Hebrew Support & RTL
+- **Language Setting**: Per-client language preference (English/Hebrew) in database
+- **Widget i18n**: Full translation system with RTL CSS support
+  - Header title/buttons reverse position in RTL mode
+  - User messages on left, AI on right in RTL
+  - All UI text translated to Hebrew
+- **Customer Dashboard i18n**: Complete Hebrew translation
+  - Settings page for language selection
+  - All 6 pages fully translated (Dashboard, Conversations, Billing, Usage, Settings, ConversationDetail)
+  - RTL layout (sidebar on right, text alignment, flex-direction-reverse)
+  - Date/number formatting with Hebrew locale
+- **Admin Dashboard RTL**: RTL CSS support for viewing Hebrew content (UI labels remain English)
+- **Hebrew System Prompts**: AI responds in Hebrew when client language is 'he'
+- **API Endpoints**:
+  - `/chat/config` returns language setting for widget
+  - `/api/customer/settings` GET/PUT for language preference
+
 **See `CLAUDE.md` for detailed technical documentation**
 
 ---
@@ -97,19 +114,6 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 ---
 
 ## 📋 Upcoming Phases
-
-### Phase 8: Hebrew Support & RTL
-
-**Goal**: Full Hebrew language support for Israeli market
-
-- [ ] Widget RTL support (detect Hebrew, apply RTL dynamically, fix UI layout)
-- [ ] Admin Dashboard RTL (layout, Hebrew UI labels, date/number formatting)
-- [ ] Customer Dashboard RTL (layout, Hebrew UI labels)
-- [ ] Hebrew prompts (system prompt variations, test comprehension, optimize for Israeli businesses)
-
-**Estimated Time**: 16-24 hours
-
----
 
 ### Phase 9: Advanced Features
 
@@ -145,7 +149,7 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 
 ## 🚀 Current Status
 
-**🎉 PLATFORM COMPLETE - PRODUCTION-READY**
+**🎉 PLATFORM COMPLETE - PRODUCTION-READY WITH HEBREW SUPPORT**
 
 **What Works Now:**
 - ✅ Multi-provider LLM support (Ollama, Claude, OpenAI, Groq) with per-client selection
@@ -158,11 +162,11 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 - ✅ Conversation management (auto-end after 15min inactivity, manual end, AI-detected end with 30+ phrases)
 - ✅ Smart tool result formatting for optimal LLM performance
 - ✅ Groq integration with free tier for development/testing
+- ✅ **Hebrew/RTL Support**: Full widget and customer dashboard translation with RTL layout
 
 **Platform can accept production clients now. All core features complete.**
 
 **Next Priority Phases:**
-- **Phase 8**: Hebrew Support & RTL (16-24 hours)
 - **Phase 10**: Production Deployment (8-16 hours)
 - **Phase 9**: Advanced Features (40-60 hours)
 
@@ -185,7 +189,7 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 | Customer Portal | React 18 + Tailwind + JWT     | ✅ Complete    |
 | Billing         | Invoice + tracking + prorating| ✅ Complete    |
 | Deployment      | Railway/Vercel + Contabo      | ⏳ Phase 10    |
-| Hebrew/RTL      | N/A                           | ⏳ Phase 8     |
+| Hebrew/RTL      | i18n + RTL CSS                | ✅ Complete    |
 
 ---
 

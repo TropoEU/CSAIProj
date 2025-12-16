@@ -88,13 +88,7 @@ html[dir="rtl"] body.rtl {
   margin-left: 1rem;
 }
 
-.rtl .text-left {
-  text-align: right;
-}
-
-.rtl .text-right {
-  text-align: left;
-}
+/* RTL text alignment is handled by dir="rtl" attribute - no need to swap */
 
 /* RTL scrollbar positioning for sidebar */
 html[dir="rtl"] ::-webkit-scrollbar {
