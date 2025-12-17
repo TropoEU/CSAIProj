@@ -3,13 +3,21 @@ import { db } from '../db.js';
 export class Conversation {
     /**
      * Create a new conversation
+     * @param {number} clientId - The client ID
+     * @param {string} sessionId - The session ID
+     * @param {string} userIdentifier - Optional user identifier
+     * @param {string} llmProvider - Optional LLM provider
+     * @param {string} modelName - Optional model name
+     * @param {string} channel - Channel type (widget, email, whatsapp)
+     * @param {string} channelThreadId - Channel-specific thread ID
+     * @param {object} channelMetadata - Channel-specific metadata
      */
-    static async create(clientId, sessionId, userIdentifier = null, llmProvider = null, modelName = null) {
+    static async create(clientId, sessionId, userIdentifier = null, llmProvider = null, modelName = null, channel = 'widget', channelThreadId = null, channelMetadata = null) {
         const result = await db.query(
-            `INSERT INTO conversations (client_id, session_id, user_identifier, llm_provider, model_name)
-             VALUES ($1, $2, $3, $4, $5)
+            `INSERT INTO conversations (client_id, session_id, user_identifier, llm_provider, model_name, channel, channel_thread_id, channel_metadata)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
              RETURNING *`,
-            [clientId, sessionId, userIdentifier, llmProvider, modelName]
+            [clientId, sessionId, userIdentifier, llmProvider, modelName, channel, channelThreadId, channelMetadata ? JSON.stringify(channelMetadata) : null]
         );
         return result.rows[0];
     }
@@ -33,6 +41,45 @@ export class Conversation {
             'SELECT * FROM conversations WHERE session_id = $1',
             [sessionId]
         );
+        return result.rows[0] || null;
+    }
+
+    /**
+     * Find conversation by channel thread ID
+     * @param {string} channelThreadId - The channel-specific thread ID (Gmail thread ID, etc.)
+     * @param {string} channel - The channel type (email, whatsapp)
+     * @param {number} clientId - Optional client ID to filter by
+     */
+    static async findByChannelThread(channelThreadId, channel, clientId = null) {
+        let query = 'SELECT * FROM conversations WHERE channel_thread_id = $1 AND channel = $2';
+        const params = [channelThreadId, channel];
+
+        if (clientId) {
+            query += ' AND client_id = $3';
+            params.push(clientId);
+        }
+
+        query += ' ORDER BY started_at DESC LIMIT 1';
+
+        const result = await db.query(query, params);
+        return result.rows[0] || null;
+    }
+
+    /**
+     * Find active conversation by channel thread ID (not ended)
+     */
+    static async findActiveByChannelThread(channelThreadId, channel, clientId = null) {
+        let query = 'SELECT * FROM conversations WHERE channel_thread_id = $1 AND channel = $2 AND ended_at IS NULL';
+        const params = [channelThreadId, channel];
+
+        if (clientId) {
+            query += ' AND client_id = $3';
+            params.push(clientId);
+        }
+
+        query += ' ORDER BY started_at DESC LIMIT 1';
+
+        const result = await db.query(query, params);
         return result.rows[0] || null;
     }
 

@@ -181,4 +181,26 @@ export const escalations = {
   getClientStats: (clientId) => api.get(`/admin/clients/${clientId}/escalations/stats`),
 };
 
+// Email channel endpoints
+export const email = {
+  // Get OAuth URL to initiate Gmail connection
+  getAuthUrl: (clientId) => api.get(`/email/oauth/authorize/${clientId}`),
+  // Get all email channels for a client
+  getChannels: (clientId) => api.get(`/email/channels/${clientId}`),
+  // Get a specific email channel
+  getChannel: (channelId) => api.get(`/email/channel/${channelId}`),
+  // Update email channel settings
+  updateChannel: (channelId, settings) => api.put(`/email/channel/${channelId}`, { settings }),
+  // Disconnect/delete an email channel
+  disconnectChannel: (channelId) => api.delete(`/email/channel/${channelId}`),
+  // Test connection to Gmail
+  testConnection: (channelId) => api.post(`/email/channel/${channelId}/test`),
+  // Send a test email
+  sendTestEmail: (channelId, data) => api.post(`/email/channel/${channelId}/send-test`, data),
+  // Get unread emails (for debugging)
+  getUnreadEmails: (channelId, limit = 10) => api.get(`/email/channel/${channelId}/unread`, { params: { limit } }),
+  // Get email statistics
+  getStats: () => api.get('/email/stats'),
+};
+
 export default api;

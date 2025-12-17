@@ -6,9 +6,11 @@ import chatRoutes from "./routes/chat.js";
 import adminRoutes from "./routes/admin.js";
 import customerRoutes from "./routes/customer.js";
 import mockApiRoutes from "./routes/mockApi.js";
+import emailRoutes from "./routes/email.js";
 import { redisClient } from "./redis.js";
 import { db } from "./db.js";
 import conversationService from "./services/conversationService.js";
+import { emailMonitor } from "./services/emailMonitor.js";
 
 // Note: dotenv is loaded in config.js, no need to load it here
 
@@ -25,6 +27,7 @@ app.use("/tools", toolRoutes);
 app.use("/chat", chatRoutes);
 app.use("/admin", adminRoutes);
 app.use("/api/customer", customerRoutes); // Customer portal API
+app.use("/api/email", emailRoutes); // Email channel management & OAuth
 app.use("/mock-api", mockApiRoutes); // Mock client APIs for testing
 
 //health check for services
@@ -83,15 +86,18 @@ function startScheduledTasks() {
   // Runs every 5 minutes, ends conversations inactive for 15+ minutes (configurable)
   const INACTIVITY_TIMEOUT_MINUTES = parseInt(process.env.CONVERSATION_INACTIVITY_TIMEOUT_MINUTES || '15');
   const CHECK_INTERVAL_MS = parseInt(process.env.CONVERSATION_AUTO_END_CHECK_INTERVAL_MS || '300000'); // 5 minutes default
-  
+
   console.log(`[Scheduler] Starting auto-end task: checking every ${CHECK_INTERVAL_MS / 1000}s, ending conversations inactive for ${INACTIVITY_TIMEOUT_MINUTES}+ minutes`);
-  
+
   // Run immediately on startup, then on interval
   runAutoEndTask(INACTIVITY_TIMEOUT_MINUTES);
-  
+
   setInterval(() => {
     runAutoEndTask(INACTIVITY_TIMEOUT_MINUTES);
   }, CHECK_INTERVAL_MS);
+
+  // Start email monitor for multi-channel AI support
+  emailMonitor.start();
 }
 
 /**

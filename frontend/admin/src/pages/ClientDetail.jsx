@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { clients, tools as toolsApi, plans as plansApi, integrations } from '../services/api';
 import {
@@ -19,10 +19,13 @@ import {
   TableHeader,
   TableCell,
 } from '../components/common';
+import EmailChannels from '../components/EmailChannels';
 
 export default function ClientDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
   const [client, setClient] = useState(null);
   const [clientTools, setClientTools] = useState([]);
   const [allTools, setAllTools] = useState([]);
@@ -463,16 +466,16 @@ export default function ClientDetail() {
       {/* Tabs */}
       <div className="border-b border-gray-200">
         <nav className="flex space-x-8">
-          <Link
-            to={`/clients/${id}`}
+          <button
+            onClick={() => setActiveTab('overview')}
             className={`py-4 px-1 border-b-2 font-medium text-sm ${
-              window.location.pathname === `/clients/${id}`
+              activeTab === 'overview'
                 ? 'border-primary-500 text-primary-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
             Overview
-          </Link>
+          </button>
           <Link
             to={`/clients/${id}/business-info`}
             className={`py-4 px-1 border-b-2 font-medium text-sm ${
@@ -483,6 +486,19 @@ export default function ClientDetail() {
           >
             Business Info
           </Link>
+          <button
+            onClick={() => setActiveTab('email')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
+              activeTab === 'email'
+                ? 'border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            Email Channels
+          </button>
         </nav>
       </div>
 
@@ -492,6 +508,14 @@ export default function ClientDetail() {
         </div>
       )}
 
+      {/* Email Tab Content */}
+      {activeTab === 'email' && (
+        <EmailChannels clientId={id} />
+      )}
+
+      {/* Overview Tab Content */}
+      {activeTab === 'overview' && (
+        <>
       {/* Quick Links */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Link to={`/usage?client=${id}`} className="block">
@@ -1228,6 +1252,8 @@ export default function ClientDetail() {
           </Table>
         </CardBody>
       </Card>
+        </>
+      )}
 
       {/* Edit Client Modal */}
       <Modal

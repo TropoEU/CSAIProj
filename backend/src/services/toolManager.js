@@ -140,86 +140,110 @@ class ToolManager {
   parseToolCallsFromContent(content) {
     try {
       const toolCalls = [];
+      const addedToolKeys = new Set(); // Track to avoid duplicates
 
-      // Pattern 1: Multi-line format (preferred)
-      // USE_TOOL: tool_name
-      // PARAMETERS: {...}
+      // Helper to add tool call without duplicates
+      const addToolCall = (name, parameters) => {
+        const key = `${name}:${JSON.stringify(parameters)}`;
+        if (!addedToolKeys.has(key) && Object.keys(parameters).length > 0) {
+          addedToolKeys.add(key);
+          toolCalls.push({
+            id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            name: name.toLowerCase(),
+            arguments: parameters
+          });
+          return true;
+        }
+        return false;
+      };
+
+      // Pattern 1: USE_TOOL: followed by PARAMETERS: (can be anywhere in text, same or next line)
+      // This catches: "USE_TOOL: get_order_status PARAMETERS: {...}" embedded in prose
+      const useToolRegex = /USE_TOOL:\s*(\w+)\s*(?:\n\s*)?PARAMETERS:\s*(\{[^}]+\})/gi;
+      let match;
+      while ((match = useToolRegex.exec(content)) !== null) {
+        const toolName = match[1].trim();
+        try {
+          const parameters = JSON.parse(match[2]);
+          addToolCall(toolName, parameters);
+        } catch (e) {
+          console.warn(`Failed to parse parameters for ${toolName}:`, match[2]);
+        }
+      }
+
+      // Pattern 2: Multi-line format (USE_TOOL: on one line, PARAMETERS: on next)
       const lines = content.split('\n');
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
 
-        if (line.startsWith('USE_TOOL:')) {
-          const toolName = line.replace('USE_TOOL:', '').trim().toLowerCase();
+        // Check for USE_TOOL: anywhere in the line
+        const useToolMatch = line.match(/USE_TOOL:\s*(\w+)/i);
+        if (useToolMatch) {
+          const toolName = useToolMatch[1].trim();
 
-          // Look for PARAMETERS on the next line
-          let parameters = {};
-          if (i + 1 < lines.length && lines[i + 1].trim().startsWith('PARAMETERS:')) {
-            const paramsLine = lines[i + 1].trim().replace('PARAMETERS:', '').trim();
+          // Check for PARAMETERS: on the same line (after USE_TOOL:)
+          const sameLineParams = line.match(/PARAMETERS:\s*(\{[^}]+\})/i);
+          if (sameLineParams) {
             try {
-              parameters = JSON.parse(paramsLine);
+              const parameters = JSON.parse(sameLineParams[1]);
+              addToolCall(toolName, parameters);
             } catch (e) {
-              console.warn(`Failed to parse parameters for ${toolName}:`, paramsLine);
+              console.warn(`Failed to parse same-line parameters for ${toolName}:`, sameLineParams[1]);
             }
+            continue;
           }
 
-          toolCalls.push({
-            id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            name: toolName,
-            arguments: parameters
-          });
+          // Look for PARAMETERS: on the next line
+          if (i + 1 < lines.length) {
+            const nextLine = lines[i + 1].trim();
+            const nextLineParams = nextLine.match(/PARAMETERS:\s*(\{[^}]+\})/i);
+            if (nextLineParams) {
+              try {
+                const parameters = JSON.parse(nextLineParams[1]);
+                addToolCall(toolName, parameters);
+              } catch (e) {
+                console.warn(`Failed to parse next-line parameters for ${toolName}:`, nextLineParams[1]);
+              }
+            }
+          }
         }
       }
 
-      // Pattern 2: tool_name: {...} format (fallback - AI sometimes outputs this)
-      // Matches: "book_appointment: {...}" or "book_appointment: {...}"
+      // Pattern 3: tool_name: {...} format (fallback - AI sometimes outputs this)
+      // Matches: "book_appointment: {...}" or "get_order_status: {...}"
       const toolNameColonRegex = /(\w+):\s*(\{[^}]+\})/g;
-      let match;
       while ((match = toolNameColonRegex.exec(content)) !== null) {
-        const toolName = match[1].toLowerCase();
+        const toolName = match[1];
         // Check if this looks like a tool name (contains underscore or matches known tools)
-        if (toolName.includes('_') || ['book_appointment', 'get_order_status', 'check_inventory'].includes(toolName)) {
-          let parameters = {};
+        if (toolName.includes('_') || ['book_appointment', 'get_order_status', 'check_inventory'].includes(toolName.toLowerCase())) {
           try {
-            parameters = JSON.parse(match[2]);
+            const parameters = JSON.parse(match[2]);
+            addToolCall(toolName, parameters);
           } catch (e) {
             // Try to extract JSON from the line
             const jsonMatch = match[2].match(/\{.*\}/);
             if (jsonMatch) {
               try {
-                parameters = JSON.parse(jsonMatch[0]);
+                const parameters = JSON.parse(jsonMatch[0]);
+                addToolCall(toolName, parameters);
               } catch (e2) {
                 console.warn(`Failed to parse parameters for ${toolName}:`, match[2]);
               }
             }
           }
-
-          // Only add if we successfully parsed parameters
-          if (Object.keys(parameters).length > 0) {
-            toolCalls.push({
-              id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              name: toolName,
-              arguments: parameters
-            });
-          }
         }
       }
 
-      // Pattern 3: Single-line "Using the tool: TOOL_NAME - PARAMETERS: {...}"
+      // Pattern 4: Single-line "Using the tool: TOOL_NAME - PARAMETERS: {...}"
       const singleLineRegex = /using the tool:\s*([A-Z_]+)\s*-\s*PARAMETERS:\s*(\{[^}]+\})/gi;
       while ((match = singleLineRegex.exec(content)) !== null) {
-        const toolName = match[1].toLowerCase();
-        let parameters = {};
+        const toolName = match[1];
         try {
-          parameters = JSON.parse(match[2]);
+          const parameters = JSON.parse(match[2]);
+          addToolCall(toolName, parameters);
         } catch (e) {
           console.warn(`Failed to parse parameters for ${toolName}:`, match[2]);
         }
-
-        toolCalls.push({
-          id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          name: toolName,
-          arguments: parameters
-        });
       }
 
       return toolCalls.length > 0 ? toolCalls : null;

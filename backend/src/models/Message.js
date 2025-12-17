@@ -3,15 +3,32 @@ import { db } from '../db.js';
 export class Message {
     /**
      * Create a new message
+     * @param {number} conversationId - The conversation ID
+     * @param {string} role - The role (user, assistant, system)
+     * @param {string} content - The message content
+     * @param {number} tokensUsed - Number of tokens used
+     * @param {string} externalMessageId - External message ID (Gmail message ID, etc.)
+     * @param {object} channelMetadata - Channel-specific metadata
      */
-    static async create(conversationId, role, content, tokensUsed = 0) {
+    static async create(conversationId, role, content, tokensUsed = 0, externalMessageId = null, channelMetadata = null) {
         const result = await db.query(
-            `INSERT INTO messages (conversation_id, role, content, tokens_used)
-             VALUES ($1, $2, $3, $4)
+            `INSERT INTO messages (conversation_id, role, content, tokens_used, external_message_id, channel_metadata)
+             VALUES ($1, $2, $3, $4, $5, $6::jsonb)
              RETURNING *`,
-            [conversationId, role, content, tokensUsed]
+            [conversationId, role, content, tokensUsed, externalMessageId, channelMetadata ? JSON.stringify(channelMetadata) : null]
         );
         return result.rows[0];
+    }
+
+    /**
+     * Find message by external ID
+     */
+    static async findByExternalId(externalMessageId) {
+        const result = await db.query(
+            'SELECT * FROM messages WHERE external_message_id = $1',
+            [externalMessageId]
+        );
+        return result.rows[0] || null;
     }
 
     /**

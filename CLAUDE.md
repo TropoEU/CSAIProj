@@ -88,7 +88,7 @@ This architecture allows each client to have customized workflows without writin
 
 ### Database Schema
 
-The system uses 14 core tables:
+The system uses 15 core tables:
 
 **Multi-Tenant Structure:**
 
@@ -104,7 +104,16 @@ The system uses 14 core tables:
 **Conversation Tracking:**
 
 - `conversations`: Chat sessions between end-users and the AI
+  - Includes `channel` (widget, email, whatsapp), `channel_thread_id`, `channel_metadata` JSONB
 - `messages`: Individual messages in conversations
+  - Includes `external_message_id` (Gmail message ID, etc.), `channel_metadata` JSONB
+
+**Email Channels:**
+
+- `email_channels`: Gmail/email integration configurations per client
+  - Includes `connection_config` JSONB (OAuth tokens), `settings` JSONB (signature, auto_reply)
+  - Includes `status` (active, inactive, error, authenticating)
+  - Includes `last_checked_at` timestamp for monitoring
 
 **Tool System:**
 
@@ -493,11 +502,25 @@ Widget configuration is stored in the `clients.widget_config` JSONB column and s
   - Integrated into conversation flow with graceful error handling
   - Bug fixes: Logger, Message.getAll method, status management
 
+- **Gmail Email Integration** (✅ Complete - December 17, 2025)
+  - **Database**: `email_channels` table + multi-channel columns on `conversations`/`messages`
+  - **Gmail OAuth2 Flow**: Connect Gmail accounts via admin dashboard
+  - **Email Monitor Service**: Background job checks inboxes every 60 seconds
+  - **AI-Powered Responses**: Automatic email replies using the AI conversation engine
+  - **Thread Context**: Maintains email thread context for coherent conversations
+  - **Admin Dashboard**: "Email Channels" tab in Client Detail page
+    - Connect/disconnect Gmail accounts
+    - Test connection, send test emails
+    - Configure signature, auto-reply, monitoring settings
+  - **Transactional Email Service**: Platform emails for access codes, invoices, notifications
+  - **API Endpoints**: `/api/email/*` for OAuth and channel management
+  - **Environment Variables**: `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REDIRECT_URI`
+
 **Phase 9 Remaining** (Optional):
 
 - RAG (Retrieval-Augmented Generation) - Vector embeddings for knowledge base
 - Enhanced Analytics - Conversation satisfaction scoring
-- Multi-Channel Integration - Gmail, WhatsApp (planned - see `docs/MULTI_CHANNEL_INTEGRATION.md`)
+- WhatsApp Integration - Critical for Israeli market (architecture complete in `docs/MULTI_CHANNEL_INTEGRATION.md`)
 
 **Phase 10** (Not Started):
 
@@ -506,9 +529,9 @@ Widget configuration is stored in the `clients.widget_config` JSONB column and s
 **🚀 Upcoming Planned Features** (Priority for next development cycle):
 
 1. **Production Deployment** - Deploy all components to hosting platforms with SSL
-2. **Gmail Integration** - Email-based customer support (architecture complete)
-3. **WhatsApp Integration** - Critical for Israeli market (architecture complete)
-4. **RAG Implementation** - Knowledge base integration with vector embeddings
+2. **WhatsApp Integration** - Critical for Israeli market (architecture complete)
+3. **RAG Implementation** - Knowledge base integration with vector embeddings
+4. **Platform Email Configuration** - Configure platform's own Gmail for transactional emails
 
 ## Important Implementation Patterns
 
