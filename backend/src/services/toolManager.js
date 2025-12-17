@@ -159,15 +159,34 @@ class ToolManager {
 
       // Pattern 1: USE_TOOL: followed by PARAMETERS: (can be anywhere in text, same or next line)
       // This catches: "USE_TOOL: get_order_status PARAMETERS: {...}" embedded in prose
-      const useToolRegex = /USE_TOOL:\s*(\w+)\s*(?:\n\s*)?PARAMETERS:\s*(\{[^}]+\})/gi;
+      const useToolRegex = /USE_TOOL:\s*(\w+)\s*(?:\n\s*)?PARAMETERS:\s*(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})/gi;
       let match;
       while ((match = useToolRegex.exec(content)) !== null) {
         const toolName = match[1].trim();
         try {
-          const parameters = JSON.parse(match[2]);
+          // Try to extract complete JSON object (handle cases where there might be trailing text like ". Waits for response.")
+          let jsonStr = match[2];
+          // Find the matching closing brace for the JSON object
+          let braceCount = 0;
+          let jsonEnd = -1;
+          for (let i = 0; i < jsonStr.length; i++) {
+            if (jsonStr[i] === '{') braceCount++;
+            if (jsonStr[i] === '}') {
+              braceCount--;
+              if (braceCount === 0) {
+                jsonEnd = i + 1;
+                break;
+              }
+            }
+          }
+          if (jsonEnd > 0) {
+            jsonStr = jsonStr.substring(0, jsonEnd);
+          }
+          const parameters = JSON.parse(jsonStr);
+          console.log(`[ToolManager] Parsed tool call: ${toolName} with params:`, parameters);
           addToolCall(toolName, parameters);
         } catch (e) {
-          console.warn(`Failed to parse parameters for ${toolName}:`, match[2]);
+          console.warn(`[ToolManager] Failed to parse parameters for ${toolName}:`, match[2], e.message);
         }
       }
 

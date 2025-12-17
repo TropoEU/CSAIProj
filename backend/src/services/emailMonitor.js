@@ -173,26 +173,14 @@ class EmailMonitor {
             });
         }
 
-        // Save user message
-        await Message.create(
-            conversation.id,
-            'user',
-            email.body,
-            0, // tokens
-            email.id,
-            {
-                from: email.from,
-                subject: email.subject,
-                date: email.date
-            }
-        );
-
         logger.log(`[EmailMonitor] Processing email from ${email.from}`, {
             conversationId: conversation.id,
-            subject: email.subject
+            subject: email.subject,
+            threadId: email.threadId
         });
 
-        // Generate AI response
+        // Generate AI response (conversationService will save the user message)
+        // Remove skipUserMessageSave so conversationService saves it
         const result = await conversationService.processMessage(
             client,
             conversation.session_id,
@@ -202,7 +190,8 @@ class EmailMonitor {
                 channel: 'email',
                 channelMetadata: {
                     from: email.from,
-                    subject: email.subject
+                    subject: email.subject,
+                    threadId: email.threadId
                 }
             }
         );
@@ -215,17 +204,24 @@ class EmailMonitor {
             channel
         );
 
-        // Send email reply
+        // Send email reply - ALWAYS use the current email's threadId
         const replySubject = email.subject.startsWith('Re:') ?
             email.subject :
             `Re: ${email.subject}`;
+
+        // Get the Message-ID from the original email for proper threading
+        // Gmail message IDs need to be formatted as <messageId>@mail.gmail.com
+        // But actually, we can use the email.id directly as the inReplyTo
+        // Gmail API will handle the formatting
+        const inReplyToMessageId = email.messageId || `<${email.id}@mail.gmail.com>`;
 
         await gmailService.sendEmail(
             channel.id,
             email.from,
             replySubject,
             replyBody,
-            email.threadId
+            email.threadId,  // Thread ID for Gmail API
+            inReplyToMessageId  // Message-ID for In-Reply-To header
         );
 
         // Mark as read
@@ -242,7 +238,8 @@ class EmailMonitor {
 
         logger.log(`[EmailMonitor] Replied to email ${email.id}`, {
             conversationId: conversation.id,
-            to: email.from
+            to: email.from,
+            threadId: email.threadId
         });
     }
 

@@ -200,7 +200,8 @@ class GmailService {
             date: new Date(parseInt(message.internalDate)),
             body: body.trim(),
             snippet: message.snippet,
-            labelIds: message.labelIds || []
+            labelIds: message.labelIds || [],
+            messageId: getHeader('Message-ID') || `<${message.id}@mail.gmail.com>`  // Add Message-ID
         };
     }
 

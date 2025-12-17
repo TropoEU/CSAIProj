@@ -548,8 +548,10 @@ class ConversationService {
         };
       }
 
-      // Save user message
-      await this.addMessage(conversation.id, 'user', userMessage);
+      // Save user message (unless it was already saved by the caller, e.g., emailMonitor)
+      if (!options.skipUserMessageSave) {
+        await this.addMessage(conversation.id, 'user', userMessage);
+      }
 
       // Get enabled tools for this client
       const clientTools = await toolManager.getClientTools(client.id);
@@ -561,7 +563,24 @@ class ConversationService {
       let messages = await this.getConversationContext(sessionId, client, clientTools, isFirstMessage);
 
       // Add the new user message to context
-      messages.push({ role: 'user', content: userMessage });
+      let userMessageContent = userMessage;
+
+      // If this is an email conversation, include the subject for context
+      if (options.channel === 'email' && options.channelMetadata?.subject) {
+        const subject = options.channelMetadata.subject;
+        // Only include subject if it's not just "Re: ..." (which is less informative)
+        if (!subject.toLowerCase().startsWith('re:')) {
+          userMessageContent = `Subject: ${subject}\n\n${userMessage}`;
+        } else {
+          // For replies, the subject might still have useful info after "Re:"
+          const subjectWithoutRe = subject.replace(/^Re:\s*/i, '').trim();
+          if (subjectWithoutRe && subjectWithoutRe.length > 0) {
+            userMessageContent = `Subject: ${subjectWithoutRe}\n\n${userMessage}`;
+          }
+        }
+      }
+
+      messages.push({ role: 'user', content: userMessageContent });
 
       // Track tool usage and tokens
       const toolsUsed = [];
@@ -666,11 +685,27 @@ class ConversationService {
         // Check finish_reason/stopReason - if it's 'stop' and we have content, use it as final response
         // This prevents infinite loops when LLM returns content but also has tool_calls
         if (llmResponse.stopReason === 'stop' && llmResponse.content && llmResponse.content.trim().length > 0) {
-          // If we have both content and tool calls, prefer content if finish_reason is 'stop'
-          // This means the LLM is done and the content is the final response
-          if (toolCalls && toolCalls.length > 0) {
-            console.log(`[Conversation] LLM returned both content and tool_calls with finish_reason='stop'. Using content as final response.`);
-            toolCalls = null; // Ignore tool calls, use content instead
+          // For Ollama, we need to check if there are tool calls embedded in the content
+          // because Ollama often returns descriptive text along with tool call patterns
+          if (effectiveProvider === 'ollama') {
+            // Parse tool calls from content even if stopReason is 'stop'
+            // Only ignore if we truly have no tool calls after parsing
+            const parsedToolCalls = toolManager.parseToolCallsFromContent(llmResponse.content);
+            if (parsedToolCalls && parsedToolCalls.length > 0) {
+              // We found tool calls, use them instead of ignoring
+              toolCalls = parsedToolCalls;
+              console.log(`[Conversation] Ollama returned stopReason='stop' but found ${toolCalls.length} tool call(s) in content. Executing tools.`);
+            } else {
+              // No tool calls found, use content as final response
+              console.log(`[Conversation] LLM returned content with finish_reason='stop' and no tool calls. Using content as final response.`);
+            }
+          } else {
+            // For native function calling providers (Claude, OpenAI, Groq)
+            // If we have both content and tool calls, prefer content if finish_reason is 'stop'
+            if (toolCalls && toolCalls.length > 0) {
+              console.log(`[Conversation] LLM returned both content and tool_calls with finish_reason='stop'. Using content as final response.`);
+              toolCalls = null; // Ignore tool calls, use content instead
+            }
           }
         }
 
@@ -683,15 +718,43 @@ class ConversationService {
             const actionWords = ['booked', 'reserved', 'confirmed', 'scheduled', 'completed', 'done', 'finished'];
             const hasActionClaim = actionWords.some(word => responseLower.includes(word));
             
-            // If AI claimed an action but no tool was called, and user requested an action, force tool call
-            if (hasActionClaim && userMessage.toLowerCase().match(/(book|reserve|schedule|check|get.*status)/i)) {
-              console.warn(`[Conversation] AI claimed action "${responseLower}" but no tool was called. This is a hallucination.`);
-              // Don't accept this response - the AI needs to actually call the tool
-              // We'll let it continue in the loop, but this is logged for debugging
-            }
+            // Also check for tool-related phrases that indicate the AI is pretending to use tools
+            const toolSimulationPhrases = [
+              'waits', 'waiting', 'checking', 'loading', 'processing',
+              'status from the system', 'information you asked for',
+              'hold for a moment', 'may take a moment', 'please hold'
+            ];
+            const hasToolSimulation = toolSimulationPhrases.some(phrase => responseLower.includes(phrase));
             
-            finalResponse = llmResponse.content;
-            break;
+            // Check if user requested an action that requires a tool
+            const userRequestedAction = userMessage.toLowerCase().match(/(book|reserve|schedule|check|get.*status|what.*status|order.*status)/i);
+            
+            // If AI is simulating tool usage or claimed an action but no tool was called
+            if ((hasActionClaim || hasToolSimulation) && userRequestedAction) {
+              console.warn(`[Conversation] AI is simulating tool usage or claimed action but no tool was called. Response: "${responseLower.substring(0, 100)}"`);
+              
+              // If we haven't reached max iterations, continue the loop to give AI another chance
+              if (iterationCount < maxToolIterations) {
+                console.log(`[Conversation] Retrying (iteration ${iterationCount + 1}/${maxToolIterations}) - AI needs to actually call the tool`);
+                
+                // Add a system message to remind the AI to use the tool format
+                messages.push({
+                  role: 'system',
+                  content: 'You described checking the order but did not use the USE_TOOL format. Please call the tool using: USE_TOOL: get_order_status PARAMETERS: {"orderNumber": "12345"}'
+                });
+                
+                continue; // Continue the loop to retry
+              } else {
+                // Max iterations reached, use the response anyway
+                console.warn(`[Conversation] Max iterations reached. Using AI response despite tool simulation.`);
+                finalResponse = llmResponse.content;
+                break;
+              }
+            } else {
+              // Normal response, no tool needed
+              finalResponse = llmResponse.content;
+              break;
+            }
           } else {
             // No content and no tool calls - this is unusual
             // If we just executed tools, the LLM should respond with the results
