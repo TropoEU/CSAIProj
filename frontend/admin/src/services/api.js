@@ -47,6 +47,14 @@ export const clients = {
   regenerateApiKey: (id) => api.post(`/admin/clients/${id}/api-key`),
   regenerateAccessCode: (id) => api.post(`/admin/clients/${id}/access-code`),
   getStats: (id) => api.get(`/admin/clients/${id}/stats`),
+  getBusinessInfo: async (id) => {
+    const response = await api.get(`/admin/clients/${id}/business-info`);
+    return response.data;
+  },
+  updateBusinessInfo: async (id, business_info) => {
+    const response = await api.put(`/admin/clients/${id}/business-info`, { business_info });
+    return response.data;
+  },
 };
 
 // Tool endpoints
@@ -159,6 +167,18 @@ export const usage = {
     });
     return response.data;
   },
+};
+
+// Escalation endpoints
+export const escalations = {
+  getAll: (params) => api.get('/admin/escalations', { params }),
+  getById: (id) => api.get(`/admin/escalations/${id}`),
+  updateStatus: (id, status, notes, assigned_to) =>
+    api.put(`/admin/escalations/${id}/status`, { status, notes, assigned_to }),
+  resolve: (id, notes) => api.post(`/admin/escalations/${id}/resolve`, { notes }),
+  cancel: (id) => api.post(`/admin/escalations/${id}/cancel`),
+  getGlobalStats: () => api.get('/admin/escalations/stats/global'),
+  getClientStats: (clientId) => api.get(`/admin/clients/${clientId}/escalations/stats`),
 };
 
 export default api;

@@ -5,10 +5,12 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Clients from './pages/Clients';
 import ClientDetail from './pages/ClientDetail';
+import BusinessInfo from './pages/BusinessInfo';
 import Tools from './pages/Tools';
 import Plans from './pages/Plans';
 import Conversations from './pages/Conversations';
 import ConversationDetail from './pages/ConversationDetail';
+import Escalations from './pages/Escalations';
 import Integrations from './pages/Integrations';
 import TestChat from './pages/TestChat';
 import Billing from './pages/Billing';
@@ -45,10 +47,12 @@ function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/clients" element={<Clients />} />
                 <Route path="/clients/:id" element={<ClientDetail />} />
+                <Route path="/clients/:id/business-info" element={<BusinessInfo />} />
                 <Route path="/tools" element={<Tools />} />
                 <Route path="/plans" element={<Plans />} />
                 <Route path="/conversations" element={<Conversations />} />
                 <Route path="/conversations/:id" element={<ConversationDetail />} />
+                <Route path="/escalations" element={<Escalations />} />
                 <Route path="/integrations" element={<Integrations />} />
                 <Route path="/test-chat" element={<TestChat />} />
                 <Route path="/billing" element={<Billing />} />

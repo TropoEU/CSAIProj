@@ -460,6 +460,32 @@ export default function ClientDetail() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="flex space-x-8">
+          <Link
+            to={`/clients/${id}`}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              window.location.pathname === `/clients/${id}`
+                ? 'border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Overview
+          </Link>
+          <Link
+            to={`/clients/${id}/business-info`}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              window.location.pathname === `/clients/${id}/business-info`
+                ? 'border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Business Info
+          </Link>
+        </nav>
+      </div>
+
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
           {error}

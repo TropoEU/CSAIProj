@@ -88,11 +88,11 @@ This architecture allows each client to have customized workflows without writin
 
 ### Database Schema
 
-The system uses 12 core tables:
+The system uses 14 core tables:
 
 **Multi-Tenant Structure:**
 
-- `clients`: Business clients using the platform (identified by API key, includes `widget_config` JSON for customization)
+- `clients`: Business clients using the platform (identified by API key, includes `widget_config` JSONB for customization, `business_info` JSONB for business details, `escalation_config` JSONB for escalation settings)
 - `client_tools`: Which tools each client has enabled (includes `integration_mapping` for many-to-many relationships)
 - `client_integrations`: External system connections per client
   - Includes `api_schema` JSONB: captured API structure from testing
@@ -123,6 +123,13 @@ The system uses 12 core tables:
 - `admins`: Admin user accounts for dashboard access
 - `invoices`: Billing invoices with payment tracking
 - `plans`: Plan configurations with limits, features, and pricing (database-driven)
+
+**Escalation System:**
+
+- `escalations`: Human escalation tracking (status: pending, acknowledged, resolved, cancelled)
+  - Includes `reason` (user_requested, ai_stuck, low_confidence, explicit_trigger)
+  - Includes `escalated_at`, `acknowledged_at`, `resolved_at` timestamps
+  - Foreign keys to `conversations`, `clients`, and optional `trigger_message_id`
 
 All models use a static class pattern (see `backend/src/models/Client.js` as reference). Models directly interact with the database via `db.query()`.
 
@@ -400,12 +407,16 @@ Widget configuration is stored in the `clients.widget_config` JSONB column and s
 - React 18 + Vite + Tailwind CSS
 - JWT authentication with bcrypt password hashing
 - Client management (CRUD, API key generation)
+  - Clickable table rows for navigation
+  - Tabbed interface (Overview/Business Info) for better UX
+  - Business information editor with 5 tabs
 - Tool configuration per client
 - Conversation monitoring with export
 - Integration management
 - Analytics dashboard with charts
 - Test chat interface
 - Widget customization UI with embed code generator
+- Escalation management with filtering and status updates
 - Login credentials: `admin` / `admin123`
 
 **Phase 6** (✅ Complete - December 11, 2025):
@@ -461,15 +472,43 @@ Widget configuration is stored in the `clients.widget_config` JSONB column and s
   - `GET /chat/config` - Returns language setting for widget
   - `GET/PUT /api/customer/settings` - Language preference CRUD
 
-**Phases 9-10** (Not Started):
+**Phase 9** (✅ Partial Complete - December 17, 2025):
 
-- Phase 9: Advanced features (RAG, analytics, escalation)
-- Phase 10: Production deployment and DevOps
+- **Business Information Management** (✅ Complete)
+  - `business_info` JSONB column on `clients` table
+  - Comprehensive admin UI with 5 tabs (About, Contact, Policies, FAQs, AI Instructions)
+  - Auto-integrated with system prompts via `getContextualSystemPrompt()`
+  - Character limits to prevent token overuse
+  - Tabbed navigation in admin dashboard (Overview/Business Info)
+  - Accessible via clickable table rows in Clients page
+
+- **Escalation to Human** (✅ Complete)
+  - **Database**: `escalations` table + `escalation_config` on clients
+  - **Auto-detection**: AI stuck (repeated clarifications), user request, low confidence
+  - **Enhanced trigger phrases**: 23 English + 22 Hebrew phrases for detection
+  - **Multi-channel notifications**: Email/WhatsApp/SMS (placeholders ready for Phase 10)
+  - **Admin Dashboard**: Full escalation management page with status tracking
+  - **No widget button** - Auto-detection only to prevent bypass
+  - **Status flow**: Escalations stay "pending" until manually acknowledged
+  - Integrated into conversation flow with graceful error handling
+  - Bug fixes: Logger, Message.getAll method, status management
+
+**Phase 9 Remaining** (Optional):
+
+- RAG (Retrieval-Augmented Generation) - Vector embeddings for knowledge base
+- Enhanced Analytics - Conversation satisfaction scoring
+- Multi-Channel Integration - Gmail, WhatsApp (planned - see `docs/MULTI_CHANNEL_INTEGRATION.md`)
+
+**Phase 10** (Not Started):
+
+- Production deployment and DevOps
 
 **🚀 Upcoming Planned Features** (Priority for next development cycle):
 
 1. **Production Deployment** - Deploy all components to hosting platforms with SSL
-2. **RAG Implementation** - Knowledge base integration with vector embeddings
+2. **Gmail Integration** - Email-based customer support (architecture complete)
+3. **WhatsApp Integration** - Critical for Israeli market (architecture complete)
+4. **RAG Implementation** - Knowledge base integration with vector embeddings
 
 ## Important Implementation Patterns
 
@@ -592,10 +631,10 @@ CSAIProj/
 │   │   ├── config.js          # Environment detection & config
 │   │   ├── db.js              # Postgres connection pool
 │   │   ├── redis.js           # Redis client
-│   │   ├── models/            # Database models (12 tables: +Admin, +Invoice, +Plan)
+│   │   ├── models/            # Database models (14 tables: Client, Admin, Invoice, Plan, Escalation, etc.)
 │   │   ├── routes/            # API route definitions (chat, tools, admin)
 │   │   ├── controllers/       # Route handlers
-│   │   ├── services/          # Business logic (n8n, cache, llm, billing, usage)
+│   │   ├── services/          # Business logic (n8n, cache, llm, billing, usage, escalation)
 │   │   ├── prompts/           # System prompt templates
 │   │   ├── middleware/        # Auth, rate limiting, admin auth
 │   │   ├── utils/             # Validation and helpers
@@ -621,10 +660,10 @@ CSAIProj/
 │   │   │   ├── App.jsx        # Protected routes setup
 │   │   │   ├── context/       # Auth context
 │   │   │   ├── services/      # API client
-│   │   │   ├── pages/         # 12 Dashboard pages:
-│   │   │   │   │              #   Login, Dashboard, Clients, ClientDetail,
+│   │   │   ├── pages/         # 14 Dashboard pages:
+│   │   │   │   │              #   Login, Dashboard, Clients, ClientDetail, BusinessInfo,
 │   │   │   │   │              #   Tools, Conversations, ConversationDetail,
-│   │   │   │   │              #   Integrations, TestChat, Billing, UsageReports, Plans
+│   │   │   │   │              #   Integrations, TestChat, Billing, UsageReports, Plans, Escalations
 │   │   │   ├── components/    # Reusable UI components
 │   │   │   └── index.css      # Tailwind CSS
 │   │   ├── index.html         # HTML entry point

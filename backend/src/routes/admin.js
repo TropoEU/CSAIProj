@@ -9,12 +9,14 @@ import { ToolExecution } from '../models/ToolExecution.js';
 import { ClientIntegration } from '../models/ClientIntegration.js';
 import { Invoice } from '../models/Invoice.js';
 import { Plan } from '../models/Plan.js';
+import { Escalation } from '../models/Escalation.js';
 import { authenticateAdmin, generateToken } from '../middleware/adminAuth.js';
 import conversationService from '../services/conversationService.js';
 import toolManager from '../services/toolManager.js';
 import n8nService from '../services/n8nService.js';
 import integrationService from '../services/integrationService.js';
 import integrationTester from '../services/integrationTester.js';
+import escalationService from '../services/escalationService.js';
 import { BillingService } from '../services/billingService.js';
 import { UsageTracker } from '../services/usageTracker.js';
 import { clearPlanCache } from '../config/planLimits.js';
@@ -183,7 +185,7 @@ router.post('/clients', async (req, res) => {
  */
 router.put('/clients/:id', async (req, res) => {
   try {
-    const { name, domain, plan_type, status, email, llm_provider, model_name, system_prompt, widget_config } = req.body;
+    const { name, domain, plan_type, status, email, llm_provider, model_name, system_prompt, widget_config, business_info, language } = req.body;
     const updates = {};
 
     if (name !== undefined) updates.name = name;
@@ -195,6 +197,8 @@ router.put('/clients/:id', async (req, res) => {
     if (model_name !== undefined) updates.model_name = model_name;
     if (system_prompt !== undefined) updates.system_prompt = system_prompt;
     if (widget_config !== undefined) updates.widget_config = widget_config;
+    if (business_info !== undefined) updates.business_info = business_info;
+    if (language !== undefined) updates.language = language;
 
     const client = await Client.update(req.params.id, updates);
     if (!client) {
@@ -240,6 +244,83 @@ router.post('/clients/:id/api-key', async (req, res) => {
   } catch (error) {
     console.error('[Admin] Regenerate API key error:', error);
     res.status(500).json({ error: 'Failed to regenerate API key' });
+  }
+});
+
+/**
+ * GET /admin/clients/:id/business-info
+ * Get client business information
+ */
+router.get('/clients/:id/business-info', async (req, res) => {
+  try {
+    const client = await Client.findById(req.params.id);
+    if (!client) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    // Return business_info with defaults if not set
+    const defaultBusinessInfo = {
+      about_business: '',
+      custom_instructions: '',
+      business_hours: '',
+      contact_phone: '',
+      contact_email: '',
+      contact_address: '',
+      return_policy: '',
+      shipping_policy: '',
+      payment_methods: '',
+      faq: []
+    };
+
+    res.json({
+      client_id: client.id,
+      client_name: client.name,
+      business_info: client.business_info || defaultBusinessInfo
+    });
+  } catch (error) {
+    console.error('[Admin] Get business info error:', error);
+    res.status(500).json({ error: 'Failed to get business information' });
+  }
+});
+
+/**
+ * PUT /admin/clients/:id/business-info
+ * Update client business information
+ */
+router.put('/clients/:id/business-info', async (req, res) => {
+  try {
+    const { business_info } = req.body;
+
+    if (!business_info || typeof business_info !== 'object') {
+      return res.status(400).json({ error: 'Invalid business_info format' });
+    }
+
+    // Validate FAQ structure if present
+    if (business_info.faq && !Array.isArray(business_info.faq)) {
+      return res.status(400).json({ error: 'FAQ must be an array' });
+    }
+
+    // Ensure all FAQ items have question and answer
+    if (business_info.faq) {
+      for (const item of business_info.faq) {
+        if (!item.question || !item.answer) {
+          return res.status(400).json({ error: 'Each FAQ item must have question and answer' });
+        }
+      }
+    }
+
+    const client = await Client.update(req.params.id, { business_info });
+    if (!client) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    res.json({
+      message: 'Business information updated successfully',
+      business_info: client.business_info
+    });
+  } catch (error) {
+    console.error('[Admin] Update business info error:', error);
+    res.status(500).json({ error: 'Failed to update business information' });
   }
 });
 
@@ -2026,6 +2107,170 @@ router.post('/plans/refresh-cache', async (req, res) => {
   } catch (error) {
     console.error('[Admin] Refresh cache error:', error);
     res.status(500).json({ error: 'Failed to refresh cache' });
+  }
+});
+
+// =====================================================
+// ESCALATION ROUTES
+// =====================================================
+
+/**
+ * GET /admin/escalations
+ * Get all escalations (with optional filtering)
+ */
+router.get('/escalations', async (req, res) => {
+  try {
+    const { status, client_id, limit = 50, offset = 0 } = req.query;
+
+    let escalations;
+    if (client_id) {
+      escalations = await Escalation.getByClient(parseInt(client_id), {
+        status,
+        limit: parseInt(limit),
+        offset: parseInt(offset)
+      });
+    } else if (status === 'pending') {
+      escalations = await Escalation.getPending(parseInt(limit), parseInt(offset));
+    } else {
+      // Get all escalations across clients (would need a new method)
+      const query = `
+        SELECT
+          e.*,
+          c.session_id,
+          cl.name as client_name
+        FROM escalations e
+        JOIN conversations c ON e.conversation_id = c.id
+        JOIN clients cl ON e.client_id = cl.id
+        ${status ? 'WHERE e.status = $1' : ''}
+        ORDER BY e.escalated_at DESC
+        LIMIT $${status ? 2 : 1} OFFSET $${status ? 3 : 2}
+      `;
+      const params = status ? [status, limit, offset] : [limit, offset];
+      const result = await db.query(query, params);
+      escalations = result.rows;
+    }
+
+    res.json(escalations);
+  } catch (error) {
+    console.error('[Admin] Get escalations error:', error);
+    res.status(500).json({ error: 'Failed to get escalations' });
+  }
+});
+
+/**
+ * GET /admin/escalations/:id
+ * Get escalation details
+ */
+router.get('/escalations/:id', async (req, res) => {
+  try {
+    const escalation = await Escalation.findById(req.params.id);
+    if (!escalation) {
+      return res.status(404).json({ error: 'Escalation not found' });
+    }
+    res.json(escalation);
+  } catch (error) {
+    console.error('[Admin] Get escalation error:', error);
+    res.status(500).json({ error: 'Failed to get escalation' });
+  }
+});
+
+/**
+ * PUT /admin/escalations/:id/status
+ * Update escalation status
+ */
+router.put('/escalations/:id/status', async (req, res) => {
+  try {
+    const { status, notes, assigned_to } = req.body;
+
+    if (!status || !['acknowledged', 'resolved', 'cancelled'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    const escalation = await Escalation.updateStatus(req.params.id, status, {
+      notes,
+      assigned_to
+    });
+
+    if (!escalation) {
+      return res.status(404).json({ error: 'Escalation not found' });
+    }
+
+    // Update conversation status if resolved/cancelled
+    if (status === 'resolved' || status === 'cancelled') {
+      await Conversation.updateStatus(escalation.conversation_id, 'active');
+    }
+
+    res.json(escalation);
+  } catch (error) {
+    console.error('[Admin] Update escalation status error:', error);
+    res.status(500).json({ error: 'Failed to update escalation status' });
+  }
+});
+
+/**
+ * POST /admin/escalations/:id/resolve
+ * Resolve an escalation
+ */
+router.post('/escalations/:id/resolve', async (req, res) => {
+  try {
+    const { notes } = req.body;
+    const escalation = await escalationService.resolve(req.params.id, notes);
+
+    if (!escalation) {
+      return res.status(404).json({ error: 'Escalation not found' });
+    }
+
+    res.json(escalation);
+  } catch (error) {
+    console.error('[Admin] Resolve escalation error:', error);
+    res.status(500).json({ error: 'Failed to resolve escalation' });
+  }
+});
+
+/**
+ * POST /admin/escalations/:id/cancel
+ * Cancel an escalation
+ */
+router.post('/escalations/:id/cancel', async (req, res) => {
+  try {
+    const escalation = await escalationService.cancel(req.params.id);
+
+    if (!escalation) {
+      return res.status(404).json({ error: 'Escalation not found' });
+    }
+
+    res.json(escalation);
+  } catch (error) {
+    console.error('[Admin] Cancel escalation error:', error);
+    res.status(500).json({ error: 'Failed to cancel escalation' });
+  }
+});
+
+/**
+ * GET /admin/escalations/stats/global
+ * Get global escalation statistics
+ */
+router.get('/escalations/stats/global', async (req, res) => {
+  try {
+    const stats = await escalationService.getGlobalStats();
+    res.json(stats);
+  } catch (error) {
+    console.error('[Admin] Get escalation stats error:', error);
+    res.status(500).json({ error: 'Failed to get escalation stats' });
+  }
+});
+
+/**
+ * GET /admin/clients/:clientId/escalations/stats
+ * Get escalation statistics for a specific client
+ */
+router.get('/clients/:clientId/escalations/stats', async (req, res) => {
+  try {
+    const stats = await Escalation.getStats(req.params.clientId);
+    res.json(stats);
+  } catch (error) {
+    console.error('[Admin] Get client escalation stats error:', error);
+    res.status(500).json({ error: 'Failed to get client escalation stats' });
   }
 });
 

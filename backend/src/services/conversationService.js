@@ -2,11 +2,12 @@ import { Conversation } from '../models/Conversation.js';
 import { Message } from '../models/Message.js';
 import { ToolExecution } from '../models/ToolExecution.js';
 import { RedisCache } from './redisCache.js';
-import { getEnhancedSystemPrompt } from '../prompts/systemPrompt.js';
+import { getContextualSystemPrompt } from '../prompts/systemPrompt.js';
 import llmService from './llmService.js';
 import toolManager from './toolManager.js';
 import n8nService from './n8nService.js';
 import integrationService from './integrationService.js';
+import escalationService from './escalationService.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -195,7 +196,7 @@ class ConversationService {
       if (!includeSystemPrompt) {
         return [];
       }
-      const systemMessage = getEnhancedSystemPrompt(client, tools);
+      const systemMessage = getContextualSystemPrompt(client, tools);
       return [{ role: 'system', content: systemMessage }];
     }
 
@@ -204,10 +205,10 @@ class ConversationService {
 
     // Format messages for LLM
     const formattedMessages = [];
-    
+
     // Only include system prompt if requested (for first message or if system prompt changed)
     if (includeSystemPrompt) {
-      formattedMessages.push({ role: 'system', content: getEnhancedSystemPrompt(client, tools) });
+      formattedMessages.push({ role: 'system', content: getContextualSystemPrompt(client, tools) });
     }
     
     formattedMessages.push(...messages.map(msg => ({
@@ -218,7 +219,7 @@ class ConversationService {
 
     // Cache in Redis (always cache with system prompt for consistency)
     const messagesWithSystem = [
-      { role: 'system', content: getEnhancedSystemPrompt(client, tools) },
+      { role: 'system', content: getContextualSystemPrompt(client, tools) },
       ...messages.map(msg => ({
         role: msg.role,
         content: msg.content,
@@ -586,7 +587,7 @@ class ConversationService {
         // If no system prompt in messages (because we skipped it for caching), add it for this request
         // Ollama will cache it, so subsequent requests won't need it
         if (!baseSystemPrompt) {
-          baseSystemPrompt = getEnhancedSystemPrompt(client, clientTools);
+          baseSystemPrompt = getContextualSystemPrompt(client, clientTools);
           messages.unshift({ role: 'system', content: baseSystemPrompt });
         }
         
@@ -966,6 +967,15 @@ class ConversationService {
       } catch (usageError) {
         console.error('[Conversation] Failed to record usage:', usageError);
         // Don't throw - usage tracking failure shouldn't break the conversation
+      }
+
+      // Auto-detect escalation needs (do this after saving AI response)
+      try {
+        const language = client.language || 'en';
+        await escalationService.autoDetect(conversation.id, userMessage, language);
+      } catch (escalationError) {
+        console.error('[Conversation] Failed to auto-detect escalation:', escalationError);
+        // Don't throw - escalation detection failure shouldn't break the conversation
       }
 
       return {

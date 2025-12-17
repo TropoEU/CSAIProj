@@ -87,15 +87,15 @@ export class Client {
      * Update client
      */
     static async update(id, updates) {
-        const allowedFields = ['name', 'domain', 'plan_type', 'status', 'email', 'llm_provider', 'model_name', 'system_prompt', 'widget_config', 'language'];
+        const allowedFields = ['name', 'domain', 'plan_type', 'status', 'email', 'llm_provider', 'model_name', 'system_prompt', 'widget_config', 'language', 'business_info', 'escalation_config'];
         const fields = [];
         const values = [];
         let paramIndex = 1;
 
         for (const [key, value] of Object.entries(updates)) {
             if (allowedFields.includes(key)) {
-                // Handle widget_config as JSONB
-                if (key === 'widget_config' && value !== null && typeof value === 'object') {
+                // Handle JSONB fields
+                if ((key === 'widget_config' || key === 'business_info' || key === 'escalation_config') && value !== null && typeof value === 'object') {
                     fields.push(`${key} = $${paramIndex}::jsonb`);
                     values.push(JSON.stringify(value));
                 } else {

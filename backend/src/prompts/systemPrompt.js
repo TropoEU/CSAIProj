@@ -107,16 +107,17 @@ export function getSystemPrompt(client, tools = []) {
 
 /**
  * Enhanced system prompt with custom client instructions
- * @param {Object} client - Client configuration with custom_instructions
+ * @param {Object} client - Client configuration with business_info
  * @param {Array} tools - Available tools
  * @returns {String} System prompt
  */
 export function getEnhancedSystemPrompt(client, tools = []) {
   const basePrompt = getSystemPrompt(client, tools);
 
-  // Add client-specific instructions if provided
-  if (client.custom_instructions) {
-    return `${basePrompt}\n\n## Client-Specific Instructions\n${client.custom_instructions}`;
+  // Add client-specific instructions from business_info if provided
+  const businessInfo = client.business_info || {};
+  if (businessInfo.custom_instructions) {
+    return `${basePrompt}\n\n## Client-Specific Instructions\n${businessInfo.custom_instructions}`;
   }
 
   return basePrompt;
@@ -124,32 +125,56 @@ export function getEnhancedSystemPrompt(client, tools = []) {
 
 /**
  * Context-aware prompt that includes business hours, policies, etc.
- * @param {Object} client - Client configuration
+ * Automatically pulls from client.business_info if available
+ * @param {Object} client - Client configuration with business_info
  * @param {Array} tools - Available tools
- * @param {Object} context - Additional context (business hours, policies, etc.)
+ * @param {Object} context - Additional context (overrides business_info if provided)
  * @returns {String} System prompt
  */
 export function getContextualSystemPrompt(client, tools = [], context = {}) {
   let prompt = getEnhancedSystemPrompt(client, tools);
 
+  // Merge business_info with context (context overrides business_info)
+  const businessInfo = client.business_info || {};
+  const mergedContext = { ...businessInfo, ...context };
+
+  // Add business description if provided
+  if (mergedContext.about_business) {
+    prompt += `\n\n## About ${client.name}\n${mergedContext.about_business}`;
+  }
+
   // Add business hours if provided
-  if (context.businessHours) {
-    prompt += `\n\n## Business Hours\n${context.businessHours}`;
+  if (mergedContext.business_hours) {
+    prompt += `\n\n## Business Hours\n${mergedContext.business_hours}`;
+  }
+
+  // Add contact information if provided
+  const contactInfo = [];
+  if (mergedContext.contact_phone) contactInfo.push(`Phone: ${mergedContext.contact_phone}`);
+  if (mergedContext.contact_email) contactInfo.push(`Email: ${mergedContext.contact_email}`);
+  if (mergedContext.contact_address) contactInfo.push(`Address: ${mergedContext.contact_address}`);
+  if (contactInfo.length > 0) {
+    prompt += `\n\n## Contact Information\n${contactInfo.join('\n')}`;
   }
 
   // Add return policy if provided
-  if (context.returnPolicy) {
-    prompt += `\n\n## Return Policy\n${context.returnPolicy}`;
+  if (mergedContext.return_policy) {
+    prompt += `\n\n## Return Policy\n${mergedContext.return_policy}`;
   }
 
   // Add shipping policy if provided
-  if (context.shippingPolicy) {
-    prompt += `\n\n## Shipping Policy\n${context.shippingPolicy}`;
+  if (mergedContext.shipping_policy) {
+    prompt += `\n\n## Shipping Policy\n${mergedContext.shipping_policy}`;
+  }
+
+  // Add payment methods if provided
+  if (mergedContext.payment_methods) {
+    prompt += `\n\n## Payment Methods\n${mergedContext.payment_methods}`;
   }
 
   // Add FAQ if provided
-  if (context.faq && context.faq.length > 0) {
-    prompt += `\n\n## Frequently Asked Questions\n${context.faq.map((item, i) => `${i + 1}. Q: ${item.question}\n   A: ${item.answer}`).join('\n')}`;
+  if (mergedContext.faq && mergedContext.faq.length > 0) {
+    prompt += `\n\n## Frequently Asked Questions\n${mergedContext.faq.map((item, i) => `${i + 1}. Q: ${item.question}\n   A: ${item.answer}`).join('\n')}`;
   }
 
   return prompt;

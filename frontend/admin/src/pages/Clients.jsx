@@ -156,20 +156,18 @@ export default function Clients() {
                 <TableHeader>Plan</TableHeader>
                 <TableHeader>Status</TableHeader>
                 <TableHeader>Created</TableHeader>
-                <TableHeader>Actions</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredClients.length > 0 ? (
                 filteredClients.map((client) => (
-                  <TableRow key={client.id}>
-                    <TableCell className="font-medium">
-                      <Link
-                        to={`/clients/${client.id}`}
-                        className="text-gray-900 hover:text-indigo-600 hover:underline"
-                      >
-                        {client.name}
-                      </Link>
+                  <TableRow
+                    key={client.id}
+                    onClick={() => window.location.href = `/clients/${client.id}`}
+                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                  >
+                    <TableCell className="font-medium text-gray-900">
+                      {client.name}
                     </TableCell>
                     <TableCell className="text-gray-500">
                       {client.domain || '-'}
@@ -197,19 +195,11 @@ export default function Clients() {
                     <TableCell className="text-gray-500">
                       {new Date(client.created_at).toLocaleDateString()}
                     </TableCell>
-                    <TableCell>
-                      <Link
-                        to={`/clients/${client.id}`}
-                        className="text-primary-600 hover:text-primary-700 font-medium"
-                      >
-                        View
-                      </Link>
-                    </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                  <TableCell colSpan={5} className="text-center text-gray-500 py-8">
                     No clients found
                   </TableCell>
                 </TableRow>
