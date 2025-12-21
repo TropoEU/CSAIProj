@@ -27,6 +27,7 @@ Successfully implemented full Groq integration with per-client LLM provider sele
 - Updated `supportsNativeFunctionCalling()` to return true for Groq
 
 **Supported Models**:
+
 - `llama-3.3-70b-versatile` (default - best general purpose)
 - `llama-3.1-8b-instant` (fastest - 131k context)
 - `gemma2-9b-it`
@@ -36,6 +37,7 @@ Successfully implemented full Groq integration with per-client LLM provider sele
 **File**: `backend/src/services/costCalculator.js`
 
 Added Groq pricing entries:
+
 - `groq`: Generic Groq provider (free during beta)
 - `llama-3.3-70b-versatile`: Best Groq model
 - `llama-3.1-8b-instant`: Fastest Groq model
@@ -48,13 +50,14 @@ All currently set to $0 (free during beta).
 
 ```env
 # Groq (fast inference - free during beta)
-GROQ_API_KEY=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
+GROQ_API_KEY=[your groq key]
 GROQ_MODEL=llama-3.3-70b-versatile
 ```
 
 ### 4. Database Schema ✅
 
 **Already existed** in `clients` table:
+
 - `llm_provider` VARCHAR(50) - Default: 'ollama'
 - `model_name` VARCHAR(100) - Client-specific model
 
@@ -63,6 +66,7 @@ GROQ_MODEL=llama-3.3-70b-versatile
 **File**: `backend/src/models/Client.js`
 
 **Already supported**:
+
 - `llm_provider` and `model_name` in `create()` method
 - Both fields in `update()` allowed fields
 - Full CRUD operations
@@ -72,23 +76,26 @@ GROQ_MODEL=llama-3.3-70b-versatile
 **File**: `backend/src/services/conversationService.js`
 
 **Already configured** (lines 424-425):
+
 ```javascript
 const llmResponse = await llmService.chat(messages, {
   tools: llmService.supportsNativeFunctionCalling() ? formattedTools : null,
   maxTokens: 2048,
   temperature: 0.3,
-  model: client.model_name || null,      // Per-client model override
-  provider: client.llm_provider || null  // Per-client provider override
+  model: client.model_name || null, // Per-client model override
+  provider: client.llm_provider || null, // Per-client provider override
 });
 ```
 
 ### 7. Admin Panel UI ✅
 
 **Files Updated**:
+
 - `frontend/admin/src/pages/ClientDetail.jsx` (Edit Client form)
 - `frontend/admin/src/pages/Clients.jsx` (Create Client form)
 
 **Added Groq to LLM Provider dropdown**:
+
 ```javascript
 options={[
   { value: 'ollama', label: 'Ollama (Local)' },
@@ -99,6 +106,7 @@ options={[
 ```
 
 Updated Model Name placeholder:
+
 ```
 placeholder="e.g., llama-3.3-70b-versatile, claude-3-5-sonnet-20241022"
 ```
@@ -110,6 +118,7 @@ placeholder="e.g., llama-3.3-70b-versatile, claude-3-5-sonnet-20241022"
 ### Test 1: Groq API Integration (`backend/test-groq.js`)
 
 **Results**:
+
 - ✅ Simple conversation (llama-3.3-70b-versatile)
 - ✅ Tool calling (correctly identified `get_order_status` tool)
 - ✅ Fast model (llama-3.1-8b-instant)
@@ -117,6 +126,7 @@ placeholder="e.g., llama-3.3-70b-versatile, claude-3-5-sonnet-20241022"
 - ✅ Cost tracking
 
 **Example Output**:
+
 ```
 ✅ Response: 2 + 2 equals 4.
 📊 Tokens: { input: 57, output: 9, total: 66 }
@@ -128,12 +138,14 @@ placeholder="e.g., llama-3.3-70b-versatile, claude-3-5-sonnet-20241022"
 ### Test 2: Provider Switching (`backend/test-provider-switching.js`)
 
 **Results**:
+
 - ✅ Ollama → Groq switching
 - ✅ Groq model switching (70B → 8B)
 - ✅ Groq → Ollama switching
 - ✅ Database updates working correctly
 
 **Example Output**:
+
 ```
 📊 Summary:
 - Ollama → Groq: ✅
@@ -150,16 +162,19 @@ placeholder="e.g., llama-3.3-70b-versatile, claude-3-5-sonnet-20241022"
 ### For Developers
 
 **1. Test Groq Integration**:
+
 ```bash
 node backend/test-groq.js
 ```
 
 **2. Test Provider Switching**:
+
 ```bash
 node backend/test-provider-switching.js
 ```
 
 **3. Use Groq as Default Provider**:
+
 ```env
 # In backend/.env
 LLM_PROVIDER=groq
@@ -169,12 +184,14 @@ GROQ_MODEL=llama-3.3-70b-versatile
 ### For Admin Users
 
 **1. Create Client with Groq**:
+
 - Go to Admin Panel → Clients → Add Client
 - Select "Groq (Fast & Free)" from LLM Provider dropdown
 - Enter model name: `llama-3.3-70b-versatile`
 - Save
 
 **2. Switch Existing Client to Groq**:
+
 - Go to Client Detail page
 - Click "Edit Client"
 - Change LLM Provider to "Groq (Fast & Free)"
@@ -182,6 +199,7 @@ GROQ_MODEL=llama-3.3-70b-versatile
 - Save Changes
 
 **3. Available Groq Models**:
+
 - `llama-3.3-70b-versatile` - Best for general tasks
 - `llama-3.1-8b-instant` - Fastest, good for simple tasks
 - `gemma2-9b-it` - Alternative option
@@ -201,12 +219,12 @@ GROQ_MODEL=llama-3.3-70b-versatile
 
 ## Comparison
 
-| Provider | Speed | Cost | Tool Calling | Best For |
-|----------|-------|------|--------------|----------|
-| **Ollama** | Slow (local) | Free | No (prompt eng) | Development |
-| **Groq** | Very Fast | Free (beta) | Yes | Production/Dev |
-| **Claude** | Medium | $3-15/M tokens | Yes | High quality |
-| **OpenAI** | Medium | $2.50-10/M tokens | Planned | Alternative |
+| Provider   | Speed        | Cost              | Tool Calling    | Best For       |
+| ---------- | ------------ | ----------------- | --------------- | -------------- |
+| **Ollama** | Slow (local) | Free              | No (prompt eng) | Development    |
+| **Groq**   | Very Fast    | Free (beta)       | Yes             | Production/Dev |
+| **Claude** | Medium       | $3-15/M tokens    | Yes             | High quality   |
+| **OpenAI** | Medium       | $2.50-10/M tokens | Planned         | Alternative    |
 
 ---
 
@@ -230,11 +248,13 @@ GROQ_MODEL=llama-3.3-70b-versatile
 ## Files Created/Modified
 
 ### Created:
+
 - `backend/test-groq.js` - Groq integration test
 - `backend/test-provider-switching.js` - Provider switching test
 - `GROQ_INTEGRATION_COMPLETE.md` - This document
 
 ### Modified:
+
 - `backend/src/services/llmService.js` - Added Groq provider
 - `backend/src/services/costCalculator.js` - Added Groq pricing
 - `backend/.env` - Added GROQ_API_KEY and GROQ_MODEL
