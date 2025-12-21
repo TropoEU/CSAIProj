@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { clients, tools as toolsApi, plans as plansApi, integrations } from '../services/api';
+import api from '../services/api';
 import {
   Card,
   CardBody,
@@ -68,6 +69,8 @@ export default function ClientDetail() {
   const [clientIntegrations, setClientIntegrations] = useState([]);
   const [selectedToolForEnable, setSelectedToolForEnable] = useState(null);
   const [integrationMapping, setIntegrationMapping] = useState({});
+  const [sendingEmail, setSendingEmail] = useState({ accessCode: false, welcome: false });
+  const [emailMessage, setEmailMessage] = useState(null);
   const previewRef = useRef(null);
 
   const testToolForm = useForm();
@@ -317,6 +320,54 @@ export default function ClientDetail() {
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
+  };
+
+  const getClientEmail = () => {
+    return client?.email || client?.business_info?.contact_email || null;
+  };
+
+  const sendAccessCodeEmail = async () => {
+    const clientEmail = getClientEmail();
+    if (!clientEmail) {
+      setEmailMessage({ type: 'error', text: 'No contact email set for this client. Add one in the Edit dialog.' });
+      return;
+    }
+
+    setSendingEmail(prev => ({ ...prev, accessCode: true }));
+    try {
+      await api.post('/email/platform/test', {
+        to: clientEmail,
+        type: 'access_code',
+        clientId: client.id,
+      });
+      setEmailMessage({ type: 'success', text: `Access code sent to ${clientEmail}` });
+    } catch (error) {
+      setEmailMessage({ type: 'error', text: error.response?.data?.error || 'Failed to send email' });
+    } finally {
+      setSendingEmail(prev => ({ ...prev, accessCode: false }));
+    }
+  };
+
+  const sendWelcomeEmail = async () => {
+    const clientEmail = getClientEmail();
+    if (!clientEmail) {
+      setEmailMessage({ type: 'error', text: 'No contact email set for this client. Add one in the Edit dialog.' });
+      return;
+    }
+
+    setSendingEmail(prev => ({ ...prev, welcome: true }));
+    try {
+      await api.post('/email/platform/test', {
+        to: clientEmail,
+        type: 'welcome',
+        clientId: client.id,
+      });
+      setEmailMessage({ type: 'success', text: `Welcome email sent to ${clientEmail}` });
+    } catch (error) {
+      setEmailMessage({ type: 'error', text: error.response?.data?.error || 'Failed to send email' });
+    } finally {
+      setSendingEmail(prev => ({ ...prev, welcome: false }));
+    }
   };
 
   const handleToggleToolEnabled = async (toolId, currentEnabledStatus) => {
@@ -695,6 +746,22 @@ export default function ClientDetail() {
           </CardHeader>
           <CardBody>
             <div className="space-y-4">
+              {emailMessage && (
+                <div className={`p-3 rounded-lg text-sm ${
+                  emailMessage.type === 'success'
+                    ? 'bg-green-50 text-green-800 border border-green-200'
+                    : 'bg-red-50 text-red-800 border border-red-200'
+                }`}>
+                  <div className="flex justify-between items-start">
+                    <span>{emailMessage.text}</span>
+                    <button onClick={() => setEmailMessage(null)} className="text-gray-500 hover:text-gray-700">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
               <p className="text-sm text-gray-600">
                 Share this code with your client for customer dashboard login
               </p>
@@ -724,16 +791,44 @@ export default function ClientDetail() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
                 </button>
+                <button
+                  onClick={sendAccessCodeEmail}
+                  disabled={sendingEmail.accessCode}
+                  className="p-2 rounded-lg hover:bg-blue-50 text-blue-600 disabled:opacity-50"
+                  title="Send access code via email"
+                >
+                  {sendingEmail.accessCode ? (
+                    <div className="w-5 h-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  )}
+                </button>
               </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="w-full"
-                onClick={handleRegenerateAccessCode}
-                loading={isRegeneratingAccessCode}
-              >
-                Regenerate Access Code
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="flex-1"
+                  onClick={handleRegenerateAccessCode}
+                  loading={isRegeneratingAccessCode}
+                >
+                  Regenerate Code
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="flex-1"
+                  onClick={sendWelcomeEmail}
+                  loading={sendingEmail.welcome}
+                >
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  Welcome Email
+                </Button>
+              </div>
             </div>
           </CardBody>
         </Card>

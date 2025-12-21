@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { billing, clients } from '../services/api';
+import api from '../services/api';
 import { InvoicePDF } from '../components/InvoicePDF';
 import { pdf } from '@react-pdf/renderer';
 import { loadFilterState, saveFilterState, PAGE_KEYS } from '../utils/filterStorage';
@@ -45,6 +46,7 @@ export default function Billing() {
   const [clientFilter, setClientFilter] = useState(initialFilters.clientFilter);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(null);
+  const [sendingInvoice, setSendingInvoice] = useState({});
 
   // Save filter state when it changes
   useEffect(() => {
@@ -173,6 +175,33 @@ export default function Billing() {
       fetchData();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to cancel invoice');
+    }
+  };
+
+  const sendInvoiceEmail = async (invoice) => {
+    // Find client to get their email
+    const client = clientList.find(c => c.id === invoice.client_id);
+    const clientEmail = client?.email || client?.business_info?.contact_email;
+
+    if (!clientEmail) {
+      setError(`No contact email set for ${client?.name || 'this client'}. Add one in the client settings.`);
+      return;
+    }
+
+    setSendingInvoice(prev => ({ ...prev, [invoice.id]: true }));
+    try {
+      await api.post('/email/platform/test', {
+        to: clientEmail,
+        type: 'invoice',
+        invoiceId: invoice.id,
+        clientId: invoice.client_id,
+      });
+      setSuccessMessage(`Invoice #${invoice.id} sent to ${clientEmail}`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to send invoice email');
+    } finally {
+      setSendingInvoice(prev => ({ ...prev, [invoice.id]: false }));
     }
   };
 
@@ -445,6 +474,21 @@ export default function Billing() {
                           className="text-blue-600 hover:text-blue-800 text-sm"
                         >
                           View
+                        </button>
+                        <button
+                          onClick={() => sendInvoiceEmail(invoice)}
+                          disabled={sendingInvoice[invoice.id]}
+                          className="text-indigo-600 hover:text-indigo-800 text-sm disabled:opacity-50 flex items-center gap-1"
+                          title="Send invoice via email"
+                        >
+                          {sendingInvoice[invoice.id] ? (
+                            <div className="w-3 h-3 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent"></div>
+                          ) : (
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                          Send
                         </button>
                         {invoice.status === 'pending' && (
                           <>

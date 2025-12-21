@@ -1,5 +1,7 @@
 import { EmailChannel } from '../models/EmailChannel.js';
+import { PlatformConfig } from '../models/PlatformConfig.js';
 import { gmailService } from '../services/gmailService.js';
+import { transactionalEmailService } from '../services/transactionalEmailService.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -63,6 +65,25 @@ export async function handleOAuthCallback(req, res) {
         // Get email address from tokens
         const emailAddress = await gmailService.getEmailAddress(tokens);
 
+        // Handle platform email separately - save to database, don't create channel
+        if (clientId === 'platform') {
+            // Save to database
+            await PlatformConfig.setPlatformEmail(
+                emailAddress,
+                tokens.access_token,
+                tokens.refresh_token
+            );
+
+            // Refresh the transactional email service to pick up new config
+            await transactionalEmailService.refresh();
+
+            logger.log('[EmailController] Platform email configured', { email: emailAddress });
+
+            // Redirect back to admin settings with success
+            return res.redirect(`${process.env.ADMIN_DASHBOARD_URL || 'http://localhost:3002'}/settings?success=platform_email_connected`);
+        }
+
+        // Regular client email channel flow
         // Check if channel already exists
         let channel = await EmailChannel.findByClientAndEmail(clientId, emailAddress);
 

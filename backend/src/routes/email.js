@@ -3,6 +3,7 @@ import { authenticateAdmin } from '../middleware/adminAuth.js';
 import * as emailController from '../controllers/emailController.js';
 import { transactionalEmailService } from '../services/transactionalEmailService.js';
 import { gmailService } from '../services/gmailService.js';
+import { PlatformConfig } from '../models/PlatformConfig.js';
 import { Client } from '../models/Client.js';
 
 const router = express.Router();
@@ -129,15 +130,39 @@ router.post('/platform/test', authenticateAdmin, async (req, res) => {
  * GET /api/email/platform/status
  * Check if platform email is configured
  */
-router.get('/platform/status', authenticateAdmin, (req, res) => {
-    const isConfigured = transactionalEmailService.isReady();
-    res.json({
-        configured: isConfigured,
-        email: process.env.PLATFORM_EMAIL || null,
-        message: isConfigured
-            ? 'Platform email is configured and ready'
-            : 'Platform email not configured. Visit /api/email/platform/authorize to set it up.'
-    });
+router.get('/platform/status', authenticateAdmin, async (req, res) => {
+    try {
+        const config = await PlatformConfig.getPlatformEmail();
+        const isConfigured = config && config.email && config.accessToken;
+
+        res.json({
+            configured: isConfigured,
+            email: config?.email || null,
+            configuredAt: config?.configuredAt || null,
+            message: isConfigured
+                ? 'Platform email is configured and ready'
+                : 'Platform email not configured. Click "Connect Gmail Account" to set it up.'
+        });
+    } catch (error) {
+        console.error('[Platform Email] Status check error:', error);
+        res.status(500).json({ error: 'Failed to check platform email status' });
+    }
+});
+
+/**
+ * DELETE /api/email/platform/disconnect
+ * Disconnect the platform email
+ */
+router.delete('/platform/disconnect', authenticateAdmin, async (req, res) => {
+    try {
+        await PlatformConfig.deletePlatformEmail();
+        await transactionalEmailService.refresh();
+
+        res.json({ success: true, message: 'Platform email disconnected' });
+    } catch (error) {
+        console.error('[Platform Email] Disconnect error:', error);
+        res.status(500).json({ error: 'Failed to disconnect platform email' });
+    }
 });
 
 // =====================================================

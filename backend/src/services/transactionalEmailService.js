@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import { PlatformConfig } from '../models/PlatformConfig.js';
 
 /**
  * TransactionalEmailService
@@ -6,32 +7,34 @@ import { google } from 'googleapis';
  * Handles sending platform emails (access codes, invoices, notifications)
  * using the platform's Gmail account via OAuth2.
  *
- * This is separate from the GmailService which handles client-connected
- * email channels for AI multi-channel support.
+ * Configuration is loaded from the database (platform_config table),
+ * so changes take effect immediately without restart.
  */
 class TransactionalEmailService {
     constructor() {
-        this.platformEmail = process.env.PLATFORM_EMAIL || 'noreply@yourdomain.com';
         this.platformName = process.env.PLATFORM_NAME || 'CS AI Platform';
         this.oauth2Client = null;
+        this.platformEmail = null;
         this.initialized = false;
+        this.lastConfigCheck = null;
+        this.configCheckInterval = 60000; // Re-check config every 60 seconds
     }
 
     /**
-     * Initialize the service with platform OAuth credentials
-     * For transactional emails, we use the same OAuth credentials but with
-     * pre-stored tokens for the platform's own Gmail account.
+     * Initialize/refresh the service from database config
+     * Called automatically when needed
      */
     async initialize() {
-        if (this.initialized) return;
-
-        // Check if platform email tokens are configured
-        if (!process.env.PLATFORM_EMAIL_ACCESS_TOKEN || !process.env.PLATFORM_EMAIL_REFRESH_TOKEN) {
-            console.warn('[TransactionalEmail] Platform email not configured. Email features will use fallback logging.');
-            return;
-        }
-
         try {
+            const config = await PlatformConfig.getPlatformEmail();
+
+            if (!config || !config.accessToken || !config.refreshToken) {
+                this.initialized = false;
+                this.oauth2Client = null;
+                this.platformEmail = null;
+                return false;
+            }
+
             this.oauth2Client = new google.auth.OAuth2(
                 process.env.GMAIL_CLIENT_ID,
                 process.env.GMAIL_CLIENT_SECRET,
@@ -39,23 +42,61 @@ class TransactionalEmailService {
             );
 
             this.oauth2Client.setCredentials({
-                access_token: process.env.PLATFORM_EMAIL_ACCESS_TOKEN,
-                refresh_token: process.env.PLATFORM_EMAIL_REFRESH_TOKEN,
+                access_token: config.accessToken,
+                refresh_token: config.refreshToken,
                 token_type: 'Bearer'
             });
 
+            // Handle token refresh
+            this.oauth2Client.on('tokens', async (tokens) => {
+                console.log('[TransactionalEmail] Tokens refreshed');
+                await PlatformConfig.updatePlatformEmailTokens(
+                    tokens.access_token,
+                    tokens.refresh_token
+                );
+            });
+
+            this.platformEmail = config.email;
             this.initialized = true;
-            console.log('[TransactionalEmail] Service initialized successfully');
+            this.lastConfigCheck = Date.now();
+
+            console.log(`[TransactionalEmail] Initialized with ${config.email}`);
+            return true;
         } catch (error) {
             console.error('[TransactionalEmail] Failed to initialize:', error);
+            this.initialized = false;
+            return false;
         }
     }
 
     /**
+     * Ensure service is ready, re-checking config if stale
+     */
+    async ensureReady() {
+        const configStale = !this.lastConfigCheck ||
+            (Date.now() - this.lastConfigCheck > this.configCheckInterval);
+
+        if (!this.initialized || configStale) {
+            await this.initialize();
+        }
+
+        return this.initialized && this.oauth2Client !== null;
+    }
+
+    /**
      * Check if service is ready to send emails
+     * Use ensureReady() for async check with config refresh
      */
     isReady() {
         return this.initialized && this.oauth2Client !== null;
+    }
+
+    /**
+     * Force refresh configuration from database
+     */
+    async refresh() {
+        this.initialized = false;
+        return await this.initialize();
     }
 
     /**
@@ -66,10 +107,12 @@ class TransactionalEmailService {
      * @param {string} textBody - Plain text email body (fallback)
      */
     async sendEmail(to, subject, htmlBody, textBody = null) {
-        if (!this.isReady()) {
-            console.log(`[TransactionalEmail] Would send email to ${to}: ${subject}`);
-            console.log(`[TransactionalEmail] Body: ${textBody || htmlBody}`);
-            return { success: true, simulated: true };
+        // Ensure service is ready (checks/refreshes config from DB)
+        const ready = await this.ensureReady();
+
+        if (!ready) {
+            console.log(`[TransactionalEmail] Not configured. Would send email to ${to}: ${subject}`);
+            return { success: false, error: 'Platform email not configured' };
         }
 
         const gmail = google.gmail({ version: 'v1', auth: this.oauth2Client });
@@ -461,10 +504,5 @@ ${this.platformName}
 
 // Export singleton instance
 export const transactionalEmailService = new TransactionalEmailService();
-
-// Initialize on import (non-blocking)
-transactionalEmailService.initialize().catch(err => {
-    console.warn('[TransactionalEmail] Initialization warning:', err.message);
-});
 
 export default transactionalEmailService;

@@ -1,12 +1,18 @@
 import { google } from 'googleapis';
 import { EmailChannel } from '../models/EmailChannel.js';
 
-// Gmail API scopes required
-const GMAIL_SCOPES = [
+// Gmail API scopes - FULL access for AI email channels (read, send, modify)
+const GMAIL_SCOPES_FULL = [
     'https://www.googleapis.com/auth/gmail.readonly',   // Read emails
     'https://www.googleapis.com/auth/gmail.send',       // Send emails
     'https://www.googleapis.com/auth/gmail.modify',     // Mark as read/unread
     'https://www.googleapis.com/auth/gmail.labels',     // Create/manage labels
+    'https://www.googleapis.com/auth/userinfo.email'    // Get user email address
+];
+
+// Gmail API scopes - SEND ONLY for platform transactional emails
+const GMAIL_SCOPES_SEND_ONLY = [
+    'https://www.googleapis.com/auth/gmail.send',       // Send emails only
     'https://www.googleapis.com/auth/userinfo.email'    // Get user email address
 ];
 
@@ -30,14 +36,19 @@ class GmailService {
 
     /**
      * Generate OAuth2 authorization URL
-     * @param {number} clientId - The client ID (for state)
+     * @param {number|string} clientId - The client ID (for state), or 'platform' for platform email
      * @returns {string} Authorization URL
      */
     getAuthorizationUrl(clientId) {
         const oauth2Client = this.createOAuth2Client();
+
+        // Use minimal scopes for platform email (send only)
+        // Use full scopes for client email channels (AI needs to read and respond)
+        const scopes = clientId === 'platform' ? GMAIL_SCOPES_SEND_ONLY : GMAIL_SCOPES_FULL;
+
         return oauth2Client.generateAuthUrl({
             access_type: 'offline',
-            scope: GMAIL_SCOPES,
+            scope: scopes,
             prompt: 'consent', // Force consent to get refresh token
             state: JSON.stringify({ clientId })
         });
