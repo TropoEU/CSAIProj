@@ -89,38 +89,34 @@ class EmailMonitor {
      * @param {object} channel - The email channel to process
      */
     async processChannel(channel) {
-        try {
-            // Get unread emails
-            const emails = await gmailService.getUnreadEmails(channel.id);
+        // Get unread emails
+        const emails = await gmailService.getUnreadEmails(channel.id);
 
-            if (emails.length === 0) {
-                await EmailChannel.updateLastChecked(channel.id);
-                return;
-            }
-
-            logger.log(`[EmailMonitor] Found ${emails.length} unread email(s) in channel ${channel.id}`);
-
-            // Get client for this channel
-            const client = await Client.findById(channel.client_id);
-            if (!client) {
-                console.error(`[EmailMonitor] Client not found for channel ${channel.id}`);
-                return;
-            }
-
-            // Process each email
-            for (const email of emails) {
-                try {
-                    await this.processEmail(channel, client, email);
-                } catch (error) {
-                    console.error(`[EmailMonitor] Error processing email ${email.id}:`, error);
-                    // Continue with next email
-                }
-            }
-
+        if (emails.length === 0) {
             await EmailChannel.updateLastChecked(channel.id);
-        } catch (error) {
-            throw error;
+            return;
         }
+
+        logger.log(`[EmailMonitor] Found ${emails.length} unread email(s) in channel ${channel.id}`);
+
+        // Get client for this channel
+        const client = await Client.findById(channel.client_id);
+        if (!client) {
+            console.error(`[EmailMonitor] Client not found for channel ${channel.id}`);
+            return;
+        }
+
+        // Process each email
+        for (const email of emails) {
+            try {
+                await this.processEmail(channel, client, email);
+            } catch (error) {
+                console.error(`[EmailMonitor] Error processing email ${email.id}:`, error);
+                // Continue with next email
+            }
+        }
+
+        await EmailChannel.updateLastChecked(channel.id);
     }
 
     /**

@@ -11,13 +11,121 @@ env:
 
 jobs:
   # ===================================
-  # Build Frontend Apps
+  # Security: npm audit
   # ===================================
-  build-frontend:
-    name: Build Frontend
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Audit backend dependencies
+        working-directory: backend
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Audit admin dependencies
+        working-directory: frontend/admin
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Audit customer dependencies
+        working-directory: frontend/customer
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Audit widget dependencies
+        working-directory: frontend/widget
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+  # ===================================
+  # Lint: ESLint + Prettier
+  # ===================================
+  lint:
+    name: Lint (${{ matrix.project }})
     runs-on: ubuntu-latest
 
     strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: backend
+            path: backend
+          - project: admin
+            path: frontend/admin
+          - project: customer
+            path: frontend/customer
+          - project: widget
+            path: frontend/widget
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: ${{ matrix.path }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.path }}
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: ${{ matrix.path }}
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Check Prettier formatting
+        working-directory: ${{ matrix.path }}
+        run: npm run format:check
+        continue-on-error: true
+
+  # ===================================
+  # Unit Tests (Backend)
+  # ===================================
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run unit tests
+        working-directory: backend
+        run: npm run test:unit
+
+  # ===================================
+  # Build All Frontend Apps
+  # ===================================
+  build-frontend:
+    name: Build Frontend (${{ matrix.app }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
       matrix:
         app: [admin, customer, widget]
 
@@ -48,10 +156,10 @@ jobs:
           retention-days: 7
 
   # ===================================
-  # Backend Tests (with Docker services)
+  # Database & Model Tests
   # ===================================
-  test-backend:
-    name: Backend Tests
+  test-models:
+    name: Database & Model Tests
     runs-on: ubuntu-latest
 
     services:
@@ -98,21 +206,14 @@ jobs:
         working-directory: backend
         run: |
           cat > .env << EOF
-          # Database
           POSTGRES_HOST=localhost
           POSTGRES_PORT=5432
           POSTGRES_USER=csai
           POSTGRES_PASSWORD=csai_dev_password
           POSTGRES_DB=csai_dev
-
-          # Redis
           REDIS_HOST=localhost
           REDIS_PORT=6379
-
-          # JWT
           JWT_SECRET=test-jwt-secret-for-ci
-
-          # Server
           PORT=3000
           NODE_ENV=test
           EOF
@@ -120,43 +221,316 @@ jobs:
       - name: Run database migrations
         run: npm run migrate
 
-      - name: Run model tests
-        run: npm run test:models
-
-      - name: Run Redis tests
-        run: npm run test:redis
-
-      - name: Run all integration tests
+      - name: Run all model integration tests
         run: npm run test:all
 
   # ===================================
-  # Lint & Type Check (optional)
+  # Redis Cache Service Tests
   # ===================================
-  # lint:
-  #   name: Lint
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: ${{ env.NODE_VERSION }}
-  #     - run: npm ci
-  #     - run: npm run lint
+  test-redis:
+    name: Redis Cache Tests
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Create .env file
+        working-directory: backend
+        run: |
+          cat > .env << EOF
+          REDIS_HOST=localhost
+          REDIS_PORT=6379
+          NODE_ENV=test
+          EOF
+
+      - name: Run Redis cache tests
+        run: npm run test:redis
 
   # ===================================
-  # Summary Job
+  # LLM Service Tests (Groq)
+  # ===================================
+  test-llm:
+    name: LLM Service Tests (Groq)
+    runs-on: ubuntu-latest
+    # Only run on push to main repo (secrets not available for forks)
+    if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Create .env file
+        working-directory: backend
+        run: |
+          cat > .env << EOF
+          GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
+          LLM_PROVIDER=groq
+          GROQ_MODEL=llama-3.3-70b-versatile
+          NODE_ENV=test
+          EOF
+
+      - name: Run LLM service tests
+        run: npm run test:llm:ci
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+
+  # ===================================
+  # Billing & Usage Tests (Phase 6)
+  # ===================================
+  test-billing:
+    name: Billing & Usage Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: csai
+          POSTGRES_PASSWORD: csai_dev_password
+          POSTGRES_DB: csai_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Create .env file
+        working-directory: backend
+        run: |
+          cat > .env << EOF
+          POSTGRES_HOST=localhost
+          POSTGRES_PORT=5432
+          POSTGRES_USER=csai
+          POSTGRES_PASSWORD=csai_dev_password
+          POSTGRES_DB=csai_dev
+          REDIS_HOST=localhost
+          REDIS_PORT=6379
+          JWT_SECRET=test-jwt-secret-for-ci
+          PORT=3000
+          NODE_ENV=test
+          EOF
+
+      - name: Run database migrations
+        run: npm run migrate
+
+      - name: Generate mock data for billing tests
+        run: npm run mockdata
+
+      - name: Run billing & usage tests (Phase 6)
+        run: npm run test:phase6
+
+  # ===================================
+  # API Health Check
+  # ===================================
+  test-api-health:
+    name: API Health Check
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: csai
+          POSTGRES_PASSWORD: csai_dev_password
+          POSTGRES_DB: csai_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Create .env file
+        working-directory: backend
+        run: |
+          cat > .env << EOF
+          POSTGRES_HOST=localhost
+          POSTGRES_PORT=5432
+          POSTGRES_USER=csai
+          POSTGRES_PASSWORD=csai_dev_password
+          POSTGRES_DB=csai_dev
+          REDIS_HOST=localhost
+          REDIS_PORT=6379
+          JWT_SECRET=test-jwt-secret-for-ci
+          PORT=3000
+          NODE_ENV=test
+          EOF
+
+      - name: Run database migrations
+        run: npm run migrate
+
+      - name: Start server and test health endpoint
+        run: |
+          # Start server in background
+          node src/index.js &
+          SERVER_PID=$!
+
+          # Wait for server to start
+          sleep 5
+
+          # Test health endpoint
+          echo "Testing /health endpoint..."
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health)
+
+          if [ "$RESPONSE" = "200" ]; then
+            echo "✅ Health check passed (HTTP $RESPONSE)"
+          else
+            echo "❌ Health check failed (HTTP $RESPONSE)"
+            kill $SERVER_PID 2>/dev/null
+            exit 1
+          fi
+
+          # Test API root
+          echo "Testing / endpoint..."
+          RESPONSE=$(curl -s http://localhost:3000/)
+          echo "Response: $RESPONSE"
+
+          # Cleanup
+          kill $SERVER_PID 2>/dev/null
+          echo "✅ API health tests passed"
+        working-directory: backend
+
+  # ===================================
+  # CI Success Gate
   # ===================================
   ci-success:
     name: CI Success
-    needs: [build-frontend, test-backend]
+    needs:
+      [
+        security-audit,
+        lint,
+        unit-tests,
+        build-frontend,
+        test-models,
+        test-redis,
+        test-billing,
+        test-api-health,
+      ]
     runs-on: ubuntu-latest
     if: always()
+
     steps:
-      - name: Check all jobs passed
+      - name: Check required jobs
         run: |
-          if [[ "${{ needs.build-frontend.result }}" != "success" ]] || \
-             [[ "${{ needs.test-backend.result }}" != "success" ]]; then
-            echo "One or more jobs failed"
+          echo "Security Audit: ${{ needs.security-audit.result }}"
+          echo "Lint: ${{ needs.lint.result }}"
+          echo "Unit Tests: ${{ needs.unit-tests.result }}"
+          echo "Build Frontend: ${{ needs.build-frontend.result }}"
+          echo "Test Models: ${{ needs.test-models.result }}"
+          echo "Test Redis: ${{ needs.test-redis.result }}"
+          echo "Test Billing: ${{ needs.test-billing.result }}"
+          echo "Test API Health: ${{ needs.test-api-health.result }}"
+
+          # Required jobs (must pass)
+          if [[ "${{ needs.unit-tests.result }}" != "success" ]] || \
+             [[ "${{ needs.build-frontend.result }}" != "success" ]] || \
+             [[ "${{ needs.test-models.result }}" != "success" ]] || \
+             [[ "${{ needs.test-redis.result }}" != "success" ]] || \
+             [[ "${{ needs.test-billing.result }}" != "success" ]] || \
+             [[ "${{ needs.test-api-health.result }}" != "success" ]]; then
+            echo "❌ One or more required jobs failed"
             exit 1
           fi
-          echo "All CI checks passed!"
+
+          # Soft failures (warn but don't fail CI)
+          if [[ "${{ needs.security-audit.result }}" != "success" ]]; then
+            echo "⚠️  Security audit found issues - please review"
+          fi
+
+          if [[ "${{ needs.lint.result }}" != "success" ]]; then
+            echo "⚠️  Linting found issues - please review"
+          fi
+
+          echo "✅ All required CI checks passed!"
+
+      - name: Report LLM test status
+        if: always()
+        run: |
+          echo "Note: LLM tests run only on push to main repo (requires secrets)"

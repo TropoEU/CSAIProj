@@ -62,17 +62,6 @@ export class Client {
     }
 
     /**
-     * Find client by access code (for customer portal authentication)
-     */
-    static async findByAccessCode(accessCode) {
-        const result = await db.query(
-            'SELECT * FROM clients WHERE access_code = $1',
-            [accessCode]
-        );
-        return result.rows[0] || null;
-    }
-
-    /**
      * Get all clients
      */
     static async findAll(limit = 100, offset = 0) {

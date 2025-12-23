@@ -63,6 +63,13 @@
         "specifyBody": "json",
         "jsonBody": "={\n  \"date\": \"{{ $json.date }}\",\n  \"time\": \"{{ $json.time }}\",\n  \"serviceType\": \"{{ $json.serviceType }}\",\n  \"customerName\": \"{{ $json.customerName }}\",\n  \"customerEmail\": \"{{ $json.customerEmail }}\",\n  \"customerPhone\": \"{{ $json.customerPhone }}\",\n  \"partySize\": {{ $json.partySize }},\n  \"notes\": \"{{ $json.notes }}\"\n}",
         "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
           "timeout": 10000
         }
       },
@@ -71,6 +78,16 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract response from HTTP Request node\n// n8n HTTP Request with fullResponse: true returns { statusCode, body, headers, ... }\n// With neverError: true, we get the response even for error status codes\nconst response = $json.body || $json;\nconst statusCode = $json.statusCode || $json.status || 200;\n\n// Check if this is an error response (4xx or 5xx)\nif (statusCode >= 400) {\n  // For error responses, return the error message from the API\n  // The API should return { success: false, error: '...', message: '...' }\n  return {\n    success: false,\n    error: response.error || response.message || `API returned status ${statusCode}`,\n    message: response.message || response.error || `Request failed with status ${statusCode}`,\n    statusCode: statusCode,\n    ...(response.availableTimes && { availableTimes: response.availableTimes }),\n    ...(response.data && { data: response.data })\n  };\n}\n\n// For successful responses (2xx), return the response as-is\nreturn response;"
+      },
+      "id": "handle-response",
+      "name": "Handle Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 400]
     },
     {
       "parameters": {
@@ -137,6 +154,17 @@
       ]
     },
     "Call Client API": {
+      "main": [
+        [
+          {
+            "node": "Handle Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Response": {
       "main": [
         [
           {
