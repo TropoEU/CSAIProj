@@ -9,30 +9,37 @@ export default function Usage() {
   const [toolUsage, setToolUsage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [trendPeriod, setTrendPeriod] = useState('30d');
+
+  const fetchData = async (period = trendPeriod) => {
+    try {
+      setLoading(true);
+      const [current, trendsData, tools] = await Promise.all([
+        usage.getCurrent(),
+        usage.getTrends({ period }),
+        usage.getTools(),
+      ]);
+
+      setCurrentUsage(current.data);
+      setTrends(trendsData.data);
+      setToolUsage(tools.data);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to fetch usage data:', err);
+      setError(err.response?.data?.message || t('common.error'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [current, trendsData, tools] = await Promise.all([
-          usage.getCurrent(),
-          usage.getTrends({ period: '30d' }),
-          usage.getTools(),
-        ]);
-
-        setCurrentUsage(current.data);
-        setTrends(trendsData.data);
-        setToolUsage(tools.data);
-        setError(null);
-      } catch (err) {
-        console.error('Failed to fetch usage data:', err);
-        setError(err.response?.data?.message || t('common.error'));
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, []);
+
+  const handlePeriodChange = (newPeriod) => {
+    setTrendPeriod(newPeriod);
+    fetchData(newPeriod);
+  };
 
   if (loading) {
     return (
@@ -51,6 +58,11 @@ export default function Usage() {
   }
 
   const { usage: usageData, limits } = currentUsage || {};
+
+  // Calculate max conversations for bar chart scaling (avoid division by zero)
+  const maxConversations = trends?.daily?.length > 0
+    ? Math.max(...trends.daily.map(d => d.conversations), 1)
+    : 1;
 
   return (
     <div className="space-y-6">
@@ -144,9 +156,9 @@ export default function Usage() {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {toolUsage.tools.map((tool) => (
-                  <tr key={tool.toolName} className="hover:bg-gray-50">
+                  <tr key={tool.name} className="hover:bg-gray-50">
                     <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
-                      {tool.toolName}
+                      {tool.name}
                     </td>
                     <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-600 ${isRTL ? 'text-right' : 'text-left'}`}>
                       {formatNumber(tool.callCount)}
@@ -174,25 +186,76 @@ export default function Usage() {
       )}
 
       {/* Usage Trends */}
-      {trends && trends.daily && trends.daily.length > 0 && (
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold mb-4">{t('usage.usageTrends30')}</h2>
-          <div className="h-64 flex items-end justify-between gap-2">
-            {trends.daily.map((day, idx) => (
-              <div key={idx} className="flex-1 flex flex-col items-center">
-                <div className="w-full bg-primary-200 rounded-t relative" style={{ height: `${(day.conversations / Math.max(...trends.daily.map(d => d.conversations))) * 100}%` }}>
-                  <div className="absolute -top-6 left-0 right-0 text-center text-xs text-gray-600">
-                    {formatNumber(day.conversations)}
-                  </div>
-                </div>
-                <div className="text-xs text-gray-500 mt-1 rotate-45 origin-left">
-                  {formatDate(day.date, { month: 'short', day: 'numeric' })}
-                </div>
-              </div>
+      <div className="card p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold">{t('usage.usageTrends30')}</h2>
+          <div className="flex gap-2">
+            {['7d', '14d', '30d', '60d'].map((period) => (
+              <button
+                key={period}
+                onClick={() => handlePeriodChange(period)}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  trendPeriod === period
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {period.replace('d', ' days')}
+              </button>
             ))}
           </div>
         </div>
-      )}
+
+        {trends && trends.daily && trends.daily.length > 0 ? (
+          <div className="overflow-x-auto">
+            <div className="min-w-[600px]">
+              {/* Chart container with fixed height */}
+              <div className="h-56 flex items-end gap-1">
+                {trends.daily.map((day) => {
+                  const barHeight = maxConversations > 0
+                    ? (day.conversations / maxConversations) * 100
+                    : 0;
+                  return (
+                    <div
+                      key={day.date}
+                      className="flex-1 h-full flex items-end min-w-[8px]"
+                    >
+                      <div
+                        className="w-full rounded-t transition-all duration-200 relative group cursor-pointer"
+                        style={{
+                          height: `${Math.max(barHeight, 4)}%`,
+                          backgroundColor: '#a78bfa'
+                        }}
+                        title={`${formatDate(day.date, { month: 'short', day: 'numeric' })}: ${day.conversations} conversations`}
+                      >
+                        {/* Tooltip on hover */}
+                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                          {formatNumber(day.conversations)}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Date labels - show every nth day to avoid overcrowding */}
+              <div className="flex justify-between text-xs text-gray-500 mt-3 px-1">
+                {trends.daily.filter((_, idx, arr) => {
+                  const step = Math.max(1, Math.floor(arr.length / 7));
+                  return idx % step === 0 || idx === arr.length - 1;
+                }).map((day) => (
+                  <span key={`label-${day.date}`} className="whitespace-nowrap">
+                    {formatDate(day.date, { month: 'short', day: 'numeric' })}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="h-64 flex items-center justify-center text-gray-500">
+            {t('usage.noData') || 'No data available for this period'}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { transactionalEmailService } from '../services/transactionalEmailService
 import { gmailService } from '../services/gmailService.js';
 import { PlatformConfig } from '../models/PlatformConfig.js';
 import { Client } from '../models/Client.js';
+import { Invoice } from '../models/Invoice.js';
 
 const router = express.Router();
 
@@ -108,12 +109,45 @@ router.post('/platform/test', authenticateAdmin, async (req, res) => {
         } else if (type === 'custom' && subject && body) {
             // Send custom email
             result = await transactionalEmailService.sendEmail(to, subject, body);
+        } else if (type === 'invoice') {
+            // Send invoice email
+            const { invoiceId } = req.body;
+            if (!invoiceId) {
+                return res.status(400).json({ error: 'invoiceId is required for invoice emails' });
+            }
+
+            const invoice = await Invoice.findById(invoiceId);
+            if (!invoice) {
+                return res.status(404).json({ error: 'Invoice not found' });
+            }
+
+            const client = await Client.findById(invoice.client_id);
+            if (!client) {
+                return res.status(404).json({ error: 'Client not found' });
+            }
+
+            // Format invoice data for email template
+            const invoiceData = {
+                invoice_number: `INV-${invoice.id.toString().padStart(6, '0')}`,
+                billing_period_start: invoice.billing_period ? `${invoice.billing_period}-01` : invoice.created_at,
+                billing_period_end: invoice.billing_period ? new Date(new Date(`${invoice.billing_period}-01`).setMonth(new Date(`${invoice.billing_period}-01`).getMonth() + 1) - 1) : invoice.created_at,
+                due_date: invoice.due_date || invoice.created_at,
+                status: invoice.status,
+                total_amount: invoice.total_cost || 0
+            };
+
+            result = await transactionalEmailService.sendInvoice(
+                to,
+                client.name,
+                invoiceData
+            );
         } else {
             return res.status(400).json({
-                error: 'Invalid request. Provide: type (access_code/welcome/custom) with required fields',
+                error: 'Invalid request. Provide: type (access_code/welcome/invoice/custom) with required fields',
                 examples: {
                     access_code: { to: 'email@example.com', type: 'access_code', clientId: 1 },
                     welcome: { to: 'email@example.com', type: 'welcome', clientId: 1 },
+                    invoice: { to: 'email@example.com', type: 'invoice', invoiceId: 1 },
                     custom: { to: 'email@example.com', type: 'custom', subject: 'Test', body: '<p>Hello</p>' }
                 }
             });

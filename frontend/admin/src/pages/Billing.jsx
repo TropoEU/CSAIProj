@@ -535,17 +535,17 @@ export default function Billing() {
       >
         <form onSubmit={handleSubmitGenerate(onGenerateInvoice)} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Client
-            </label>
-            <Select {...registerGenerate('clientId', { required: 'Client is required' })}>
-              <option value="all">All Clients</option>
-              {clientList.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name}
-                </option>
-              ))}
-            </Select>
+            <Select
+              label="Client"
+              {...registerGenerate('clientId', { required: 'Client is required' })}
+              options={[
+                { value: 'all', label: 'All Clients' },
+                ...clientList.map((client) => ({
+                  value: client.id.toString(),
+                  label: client.name,
+                })),
+              ]}
+            />
             {errorsGenerate.clientId && (
               <p className="text-red-600 text-sm mt-1">{errorsGenerate.clientId.message}</p>
             )}

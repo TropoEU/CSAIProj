@@ -1,0 +1,162 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ===================================
+  # Build Frontend Apps
+  # ===================================
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        app: [admin, customer, widget]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/${{ matrix.app }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend/${{ matrix.app }}
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend/${{ matrix.app }}
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app }}-build
+          path: frontend/${{ matrix.app }}/dist
+          retention-days: 7
+
+  # ===================================
+  # Backend Tests (with Docker services)
+  # ===================================
+  test-backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: csai
+          POSTGRES_PASSWORD: csai_dev_password
+          POSTGRES_DB: csai_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Create .env file
+        working-directory: backend
+        run: |
+          cat > .env << EOF
+          # Database
+          POSTGRES_HOST=localhost
+          POSTGRES_PORT=5432
+          POSTGRES_USER=csai
+          POSTGRES_PASSWORD=csai_dev_password
+          POSTGRES_DB=csai_dev
+
+          # Redis
+          REDIS_HOST=localhost
+          REDIS_PORT=6379
+
+          # JWT
+          JWT_SECRET=test-jwt-secret-for-ci
+
+          # Server
+          PORT=3000
+          NODE_ENV=test
+          EOF
+
+      - name: Run database migrations
+        run: npm run migrate
+
+      - name: Run model tests
+        run: npm run test:models
+
+      - name: Run Redis tests
+        run: npm run test:redis
+
+      - name: Run all integration tests
+        run: npm run test:all
+
+  # ===================================
+  # Lint & Type Check (optional)
+  # ===================================
+  # lint:
+  #   name: Lint
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: ${{ env.NODE_VERSION }}
+  #     - run: npm ci
+  #     - run: npm run lint
+
+  # ===================================
+  # Summary Job
+  # ===================================
+  ci-success:
+    name: CI Success
+    needs: [build-frontend, test-backend]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        run: |
+          if [[ "${{ needs.build-frontend.result }}" != "success" ]] || \
+             [[ "${{ needs.test-backend.result }}" != "success" ]]; then
+            echo "One or more jobs failed"
+            exit 1
+          fi
+          echo "All CI checks passed!"
