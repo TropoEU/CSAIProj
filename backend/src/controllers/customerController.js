@@ -688,7 +688,12 @@ class CustomerController {
       const clientId = req.clientId;
       const { status, limit = 50, offset = 0 } = req.query;
 
-      const escalations = await Escalation.getByClient(clientId, { status, limit, offset });
+      // Parse limit and offset to integers (like admin route does)
+      const escalations = await Escalation.getByClient(clientId, { 
+        status, 
+        limit: parseInt(limit, 10), 
+        offset: parseInt(offset, 10) 
+      });
 
       // Get pending count for notification badge
       const pendingCount = escalations.filter(e => e.status === 'pending').length;

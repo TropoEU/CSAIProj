@@ -277,9 +277,11 @@ export default function EscalationDetail() {
                 <span className="text-sm">{formatDate(conversation.endedAt, { hour: 'numeric', minute: 'numeric' })}</span>
               </div>
             )}
+          </div>
+          <div className="mt-4 pt-4 border-t border-gray-200">
             <Link
               to={`/conversations/${conversation.id}`}
-              className="btn btn-secondary w-full mt-2"
+              className="btn btn-secondary w-full"
             >
               {t('escalations.viewFullConversation')}
             </Link>

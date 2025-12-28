@@ -71,7 +71,7 @@ export class Escalation {
       SELECT
         e.*,
         c.session_id,
-        c.status as conversation_status,
+        CASE WHEN c.ended_at IS NULL THEN 'active' ELSE 'ended' END as conversation_status,
         cl.name as client_name
       FROM escalations e
       JOIN conversations c ON e.conversation_id = c.id
@@ -89,7 +89,7 @@ export class Escalation {
     }
 
     query += ` ORDER BY e.escalated_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(limit, offset);
+    params.push(parseInt(limit), parseInt(offset));
 
     const result = await db.query(query, params);
     return result.rows;
@@ -103,7 +103,7 @@ export class Escalation {
       SELECT
         e.*,
         c.session_id,
-        c.status as conversation_status,
+        CASE WHEN c.ended_at IS NULL THEN 'active' ELSE 'ended' END as conversation_status,
         cl.name as client_name
       FROM escalations e
       JOIN conversations c ON e.conversation_id = c.id
@@ -113,7 +113,7 @@ export class Escalation {
       LIMIT $1 OFFSET $2
     `;
 
-    const result = await db.query(query, [limit, offset]);
+    const result = await db.query(query, [parseInt(limit), parseInt(offset)]);
     return result.rows;
   }
 

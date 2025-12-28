@@ -126,7 +126,7 @@ router.get('/escalations', customerController.getEscalations);
  * GET /api/customer/escalations/:id
  * Returns: escalation details with customer contact info
  */
-router.get('/escalations/:id', customerController.getEscalationDetail);
+router.get('/escalations/:id', customerController.getEscalationDetail.bind(customerController));
 
 /**
  * Acknowledge an escalation
