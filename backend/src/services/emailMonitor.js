@@ -162,7 +162,7 @@ class EmailMonitor {
                 }
             );
 
-            logger.log(`[EmailMonitor] Created new email conversation`, {
+            logger.log('[EmailMonitor] Created new email conversation', {
                 conversationId: conversation.id,
                 threadId: email.threadId,
                 from: email.from

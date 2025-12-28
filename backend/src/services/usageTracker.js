@@ -1,5 +1,4 @@
 import { db } from '../db.js';
-import { ApiUsage } from '../models/ApiUsage.js';
 
 /**
  * Enhanced Usage Tracking Service
@@ -367,7 +366,7 @@ export class UsageTracker {
    */
   static getDateFilter(period) {
     const filters = {
-      day: "CURRENT_DATE",
+      day: 'CURRENT_DATE',
       week: "CURRENT_DATE - INTERVAL '7 days'",
       month: "DATE_TRUNC('month', CURRENT_DATE)",
       last_month: "DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')",

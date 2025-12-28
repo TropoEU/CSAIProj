@@ -1,16 +1,16 @@
-import express from "express";
-import cors from "cors";
-import axios from "axios";
-import toolRoutes from "./routes/tools.js";
-import chatRoutes from "./routes/chat.js";
-import adminRoutes from "./routes/admin.js";
-import customerRoutes from "./routes/customer.js";
-import mockApiRoutes from "./routes/mockApi.js";
-import emailRoutes from "./routes/email.js";
-import { redisClient } from "./redis.js";
-import { db } from "./db.js";
-import conversationService from "./services/conversationService.js";
-import { emailMonitor } from "./services/emailMonitor.js";
+import express from 'express';
+import cors from 'cors';
+import axios from 'axios';
+import toolRoutes from './routes/tools.js';
+import chatRoutes from './routes/chat.js';
+import adminRoutes from './routes/admin.js';
+import customerRoutes from './routes/customer.js';
+import mockApiRoutes from './routes/mockApi.js';
+import emailRoutes from './routes/email.js';
+import { redisClient } from './redis.js';
+import { db } from './db.js';
+import conversationService from './services/conversationService.js';
+import { emailMonitor } from './services/emailMonitor.js';
 
 // Note: dotenv is loaded in config.js, no need to load it here
 
@@ -23,12 +23,12 @@ app.use(cors({
 }));
 
 app.use(express.json());
-app.use("/tools", toolRoutes);
-app.use("/chat", chatRoutes);
-app.use("/admin", adminRoutes);
-app.use("/api/customer", customerRoutes); // Customer portal API
-app.use("/api/email", emailRoutes); // Email channel management & OAuth
-app.use("/mock-api", mockApiRoutes); // Mock client APIs for testing
+app.use('/tools', toolRoutes);
+app.use('/chat', chatRoutes);
+app.use('/admin', adminRoutes);
+app.use('/api/customer', customerRoutes); // Customer portal API
+app.use('/api/email', emailRoutes); // Email channel management & OAuth
+app.use('/mock-api', mockApiRoutes); // Mock client APIs for testing
 
 //health check for services
 app.get('/health', async (req, res) => {

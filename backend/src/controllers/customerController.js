@@ -292,7 +292,7 @@ class CustomerController {
       daysAgo.setDate(daysAgo.getDate() - parseInt(days));
 
       // Build WHERE clause
-      let whereConditions = ['c.client_id = $1', 'c.started_at >= $2'];
+      const whereConditions = ['c.client_id = $1', 'c.started_at >= $2'];
       const queryParams = [clientId, daysAgo];
       let paramIndex = 3;
 

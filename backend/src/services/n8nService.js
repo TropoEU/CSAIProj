@@ -1,5 +1,3 @@
-import { logger } from '../utils/logger.js';
-
 /**
  * n8n Integration Service
  *
@@ -34,9 +32,9 @@ class N8nService {
       // Ensure webhook URL is complete
       const fullUrl = this.buildWebhookUrl(webhookUrl);
 
-      console.log(`\n========== N8N REQUEST DEBUG ==========`);
+      console.log('\n========== N8N REQUEST DEBUG ==========');
       console.log(`[n8n] Calling webhook: ${fullUrl}`);
-      console.log(`[n8n] Parameters:`, JSON.stringify(parameters, null, 2));
+      console.log('[n8n] Parameters:', JSON.stringify(parameters, null, 2));
 
       // Support both new (integrations) and legacy (integration) format
       const integrationsToUse = integrations || (integration ? { default: integration } : {});
@@ -44,7 +42,7 @@ class N8nService {
 
       console.log(`[n8n] Integrations provided: ${integrationCount}`);
       if (integrationCount > 0) {
-        console.log(`[n8n] Integration keys:`, Object.keys(integrationsToUse).join(', '));
+        console.log('[n8n] Integration keys:', Object.keys(integrationsToUse).join(', '));
         Object.entries(integrationsToUse).forEach(([key, int]) => {
           console.log(`[n8n] - ${key}:`, {
             type: int.type,
@@ -54,7 +52,7 @@ class N8nService {
           });
         });
       } else {
-        console.warn(`[n8n] ⚠️  NO INTEGRATIONS PROVIDED`);
+        console.warn('[n8n] ⚠️  NO INTEGRATIONS PROVIDED');
       }
 
       // Build request body - include integration credentials if provided
@@ -80,9 +78,9 @@ class N8nService {
         })
       };
 
-      console.log(`[n8n] Request body keys:`, Object.keys(requestBody).join(', '));
-      console.log(`[n8n] Has _integrations in body:`, !!requestBody._integrations);
-      console.log(`==========================================\n`);
+      console.log('[n8n] Request body keys:', Object.keys(requestBody).join(', '));
+      console.log('[n8n] Has _integrations in body:', !!requestBody._integrations);
+      console.log('==========================================\n');
 
       // Create abort controller for timeout
       const controller = new AbortController();

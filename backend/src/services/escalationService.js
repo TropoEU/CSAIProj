@@ -2,8 +2,11 @@ import { Escalation } from '../models/Escalation.js';
 import { Client } from '../models/Client.js';
 import { Conversation } from '../models/Conversation.js';
 import { Message } from '../models/Message.js';
-import { getEscalationMessage } from '../prompts/systemPrompt.js';
-// Logger not needed - using console.log/console.error directly
+import {
+  getAllClarificationPhrases,
+  getEscalationTriggers,
+  THRESHOLDS,
+} from '../config/phrases.js';
 
 /**
  * Escalation Service
@@ -116,7 +119,7 @@ class EscalationService {
     // For now, just log
     const emailContent = this.buildNotificationMessage(escalation, client, conversation);
 
-    console.log(`[Escalation] Email notification content:`, {
+    console.log('[Escalation] Email notification content:', {
       to: email,
       subject: `Customer Needs Help - ${client.name}`,
       body: emailContent
@@ -142,7 +145,7 @@ class EscalationService {
     // TODO: Implement actual WhatsApp sending when integration is ready
     const message = this.buildNotificationMessage(escalation, client, conversation, true);
 
-    console.log(`[Escalation] WhatsApp notification content:`, {
+    console.log('[Escalation] WhatsApp notification content:', {
       to: phone,
       message
     });
@@ -164,7 +167,7 @@ class EscalationService {
     // TODO: Implement actual SMS sending with Twilio
     const message = this.buildNotificationMessage(escalation, client, conversation, true);
 
-    console.log(`[Escalation] SMS notification content:`, {
+    console.log('[Escalation] SMS notification content:', {
       to: phone,
       message
     });
@@ -216,40 +219,30 @@ This is an automated notification from your AI Customer Service platform.
    * @returns {boolean} True if AI appears stuck
    */
   detectStuck(messages) {
-    if (!messages || messages.length < 4) {
+    if (!messages || messages.length < THRESHOLDS.MIN_MESSAGES_FOR_STUCK_DETECTION) {
       return false;
     }
 
-    // Look at last 6 messages (3 exchanges)
-    const recentMessages = messages.slice(-6);
-    const aiMessages = recentMessages.filter(m => m.role === 'assistant');
+    // Look at recent messages (configurable window)
+    const recentMessages = messages.slice(-THRESHOLDS.RECENT_MESSAGES_WINDOW);
+    const aiMessages = recentMessages.filter((m) => m.role === 'assistant');
 
-    if (aiMessages.length < 3) {
+    if (aiMessages.length < THRESHOLDS.MIN_AI_MESSAGES_FOR_STUCK) {
       return false;
     }
 
-    // Check for repeated clarification patterns
-    const clarificationPhrases = [
-      'could you clarify',
-      'can you provide more',
-      'need more information',
-      'could you tell me more',
-      'what do you mean',
-      'לתת פרטים נוספים', // Hebrew: "give more details"
-      'אפשר להבהיר', // Hebrew: "could you clarify"
-      'צריך יותר מידע' // Hebrew: "need more information"
-    ];
+    // Check for repeated clarification patterns using centralized phrases
+    const clarificationPhrases = getAllClarificationPhrases();
 
     let clarificationCount = 0;
     for (const msg of aiMessages) {
       const content = msg.content.toLowerCase();
-      if (clarificationPhrases.some(phrase => content.includes(phrase))) {
+      if (clarificationPhrases.some((phrase) => content.includes(phrase))) {
         clarificationCount++;
       }
     }
 
-    // If 2+ out of last 3 AI messages are asking for clarification, consider it stuck
-    return clarificationCount >= 2;
+    return clarificationCount >= THRESHOLDS.CLARIFICATION_COUNT_THRESHOLD;
   }
 
   /**
@@ -260,61 +253,8 @@ This is an automated notification from your AI Customer Service platform.
    */
   detectExplicitRequest(message, language = 'en') {
     const lowerMessage = message.toLowerCase();
-
-    const englishTriggers = [
-      'talk to a human',
-      'talk to human',
-      'speak to a person',
-      'speak to a human',
-      'speak with a human',
-      'speak with a person',
-      'talk with a human',
-      'talk with a person',
-      'human agent',
-      'real person',
-      'customer service',
-      'speak to someone',
-      'talk to someone',
-      'speak with someone',
-      'talk with someone',
-      'human support',
-      'human help',
-      'contact support',
-      'need a human',
-      'want a human',
-      'get a human',
-      'connect me to',
-      'transfer me to'
-    ];
-
-    const hebrewTriggers = [
-      'דבר עם אדם',
-      'דבר לאדם',
-      'דבר עם נציג',
-      'לדבר עם אדם',
-      'לדבר לאדם',
-      'נציג אנושי',
-      'אדם אמיתי',
-      'שירות לקוחות',
-      'לדבר עם מישהו',
-      'דבר עם מישהו',
-      'לדבר למישהו',
-      'צור קשר',
-      'צריך אדם',
-      'רוצה אדם',
-      'רוצה לדבר עם',
-      'צריך לדבר עם',
-      'העבר אותי ל',
-      'חבר אותי ל',
-      'תעביר אותי',
-      'אדם בבקשה',
-      'עזרה מאדם',
-      'תמיכה אנושית'
-    ];
-
-    const triggers = language === 'he' ? hebrewTriggers : englishTriggers;
-
-    return triggers.some(trigger => lowerMessage.includes(trigger));
+    const triggers = getEscalationTriggers(language);
+    return triggers.some((trigger) => lowerMessage.includes(trigger));
   }
 
   /**

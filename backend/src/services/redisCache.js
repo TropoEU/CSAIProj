@@ -390,7 +390,7 @@ export class RedisCache {
         try {
             const result = await redisClient.ping();
             return result === 'PONG';
-        } catch (error) {
+        } catch {
             return false;
         }
     }

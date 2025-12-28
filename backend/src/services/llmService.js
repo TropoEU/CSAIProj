@@ -289,7 +289,7 @@ class LLMService {
   /**
    * OpenAI Implementation
    */
-  async openaiChat(messages, options) {
+  async openaiChat(_messages, _options) {
     // TODO: Implement OpenAI API integration
     // Will use official OpenAI SDK
     throw new Error('OpenAI provider not yet implemented');
@@ -379,14 +379,35 @@ class LLMService {
 
   /**
    * Format messages for Ollama
+   * Ollama doesn't support 'tool' role natively, so we format tool results
+   * as clear assistant messages that the model can understand
    */
   formatMessagesForOllama(messages) {
-    return messages.map(msg => ({
-      role: msg.role,
-      content: msg.content,
-      ...(msg.tool_calls && { tool_calls: msg.tool_calls }),
-      ...(msg.tool_call_id && { tool_call_id: msg.tool_call_id })
-    }));
+    const formatted = [];
+
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+
+      if (msg.role === 'tool') {
+        // Convert tool result to a clear format the model understands
+        // Make it look like a system notification about the tool result
+        formatted.push({
+          role: 'assistant',
+          content: `[TOOL RESULT - USE THIS IN YOUR RESPONSE]\n${msg.content}\n[END TOOL RESULT - Now respond to the user using this information. Be brief and friendly.]`
+        });
+      } else if (msg.role === 'assistant' && msg.tool_calls) {
+        // Skip assistant messages that just contain tool calls
+        // The tool result will follow
+        continue;
+      } else {
+        formatted.push({
+          role: msg.role,
+          content: msg.content
+        });
+      }
+    }
+
+    return formatted;
   }
 
   /**
@@ -535,7 +556,7 @@ class LLMService {
    * - Most models are FREE during beta
    * - Future pricing TBD
    */
-  calculateGroqCost(usage) {
+  calculateGroqCost(_usage) {
     // Currently free during beta
     // TODO: Update when Groq announces pricing
     return 0;

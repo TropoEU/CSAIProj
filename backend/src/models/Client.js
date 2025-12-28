@@ -99,7 +99,7 @@ export class Client {
             throw new Error('No valid fields to update');
         }
 
-        fields.push(`updated_at = NOW()`);
+        fields.push('updated_at = NOW()');
         values.push(id);
 
         const query = `

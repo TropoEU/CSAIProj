@@ -123,7 +123,7 @@ describe('ToolManager', () => {
 
       expect(result).toContain('USE_TOOL:');
       expect(result).toContain('PARAMETERS:');
-      expect(result).toContain('CRITICAL FORMAT');
+      expect(result).toContain('FORMAT');
     });
 
     it('should include examples', () => {

@@ -1,7 +1,6 @@
 import conversationService from '../services/conversationService.js';
 import { logger } from '../utils/logger.js';
-import { Client } from '../models/Client.js';
-import { Conversation } from '../models/Conversation.js';  // Add this import
+import { Conversation } from '../models/Conversation.js';
 import { RedisCache } from '../services/redisCache.js';
 
 /**

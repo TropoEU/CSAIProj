@@ -55,7 +55,7 @@ export async function handleOAuthCallback(req, res) {
         try {
             const stateData = JSON.parse(state);
             clientId = stateData.clientId;
-        } catch (e) {
+        } catch {
             return res.redirect(`${process.env.ADMIN_DASHBOARD_URL || 'http://localhost:3002'}/email-channels?error=invalid_state`);
         }
 

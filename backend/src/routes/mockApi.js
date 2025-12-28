@@ -450,7 +450,7 @@ router.post('/bobs-pizza/bookings', (req, res) => {
   }
   
   // Normalize date: handle relative dates like "today", "tomorrow", etc.
-  let normalizedDate = date.toLowerCase().trim();
+  const normalizedDate = date.toLowerCase().trim();
   let actualDate;
   
   if (normalizedDate === 'today') {
@@ -486,7 +486,7 @@ router.post('/bobs-pizza/bookings', (req, res) => {
       month: 'long', 
       day: 'numeric' 
     });
-  } catch (e) {
+  } catch {
     formattedDate = dateStr;
   }
   

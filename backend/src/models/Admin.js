@@ -62,7 +62,7 @@ export class Admin {
     await this.updateLastLogin(admin.id);
 
     // Return admin without password hash
-    const { password_hash, ...safeAdmin } = admin;
+    const { password_hash: _password_hash, ...safeAdmin } = admin;
     return safeAdmin;
   }
 
@@ -111,7 +111,7 @@ export class Admin {
       throw new Error('No valid fields to update');
     }
 
-    fields.push(`updated_at = NOW()`);
+    fields.push('updated_at = NOW()');
     values.push(id);
 
     const result = await db.query(

@@ -185,7 +185,7 @@ class TransactionalEmailService {
      * @param {string} accessCode - The access code
      */
     async sendAccessCode(to, clientName, accessCode) {
-        const subject = `Your Customer Dashboard Access Code`;
+        const subject = 'Your Customer Dashboard Access Code';
         const htmlBody = `
 <!DOCTYPE html>
 <html>
@@ -338,7 +338,7 @@ ${this.platformName}
      * @param {object} payment - Payment details
      */
     async sendPaymentConfirmation(to, clientName, payment) {
-        const subject = `Payment Received - Thank You!`;
+        const subject = 'Payment Received - Thank You!';
         const htmlBody = `
 <!DOCTYPE html>
 <html>

@@ -176,7 +176,7 @@ export class Plan {
       return await this.findById(id);
     }
 
-    setClauses.push(`updated_at = NOW()`);
+    setClauses.push('updated_at = NOW()');
     values.push(id);
 
     const result = await db.query(

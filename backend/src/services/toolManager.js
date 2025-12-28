@@ -129,7 +129,7 @@ class ToolManager {
       `USE_TOOL: ${ex.tool}\nPARAMETERS: ${JSON.stringify(ex.params)}`
     ).join('\n\n');
 
-    return `\nTools:\n${toolList}\n\nIMPORTANT: Before calling a tool, check if all REQUIRED parameters are available. If missing, ask the user for them, then call the tool.\n\n**CRITICAL FORMAT** - You MUST use this EXACT format (no variations):\nUSE_TOOL: tool_name\nPARAMETERS: {"param":"value"}\n\nDo NOT use formats like "tool_name: {...}" - use the EXACT format above.\n\nExamples:\n${exampleText}`;
+    return `\n## Available Tools (READ THESE REQUIREMENTS):\n${toolList}\n\n## HOW TO CALL TOOLS:\n1. READ the REQUIRED parameters for the tool above\n2. If user already gave all required info → CALL THE TOOL IMMEDIATELY\n3. If missing required info → Ask ONE question to get it\n4. Once you have everything → CALL THE TOOL IN THE SAME RESPONSE\n\n**FORMAT** (use EXACTLY - no variations):\nUSE_TOOL: tool_name\nPARAMETERS: {"param":"value"}\n\nExamples:\n${exampleText}`;
   }
 
   /**
@@ -206,7 +206,7 @@ class ToolManager {
             try {
               const parameters = JSON.parse(sameLineParams[1]);
               addToolCall(toolName, parameters);
-            } catch (e) {
+            } catch {
               console.warn(`Failed to parse same-line parameters for ${toolName}:`, sameLineParams[1]);
             }
             continue;
@@ -220,7 +220,7 @@ class ToolManager {
               try {
                 const parameters = JSON.parse(nextLineParams[1]);
                 addToolCall(toolName, parameters);
-              } catch (e) {
+              } catch {
                 console.warn(`Failed to parse next-line parameters for ${toolName}:`, nextLineParams[1]);
               }
             }
@@ -238,14 +238,14 @@ class ToolManager {
           try {
             const parameters = JSON.parse(match[2]);
             addToolCall(toolName, parameters);
-          } catch (e) {
+          } catch {
             // Try to extract JSON from the line
             const jsonMatch = match[2].match(/\{.*\}/);
             if (jsonMatch) {
               try {
                 const parameters = JSON.parse(jsonMatch[0]);
                 addToolCall(toolName, parameters);
-              } catch (e2) {
+              } catch {
                 console.warn(`Failed to parse parameters for ${toolName}:`, match[2]);
               }
             }
@@ -260,7 +260,7 @@ class ToolManager {
         try {
           const parameters = JSON.parse(match[2]);
           addToolCall(toolName, parameters);
-        } catch (e) {
+        } catch {
           console.warn(`Failed to parse parameters for ${toolName}:`, match[2]);
         }
       }
@@ -322,16 +322,17 @@ class ToolManager {
 
   /**
    * Validate tool call arguments against schema
+   * Also performs type coercion (e.g., "1" -> 1) before validation
    * @param {Object} tool - Tool definition with parameters_schema
-   * @param {Object} args - Arguments provided in tool call
-   * @returns {Object} { valid: Boolean, errors: Array }
+   * @param {Object} args - Arguments provided in tool call (MUTATED with coerced values)
+   * @returns {Object} { valid: Boolean, errors: Array, coercedArgs: Object }
    */
   validateToolArguments(tool, args) {
     const schema = tool.parameters_schema;
     const errors = [];
 
     if (!schema) {
-      return { valid: true, errors: [] };
+      return { valid: true, errors: [], coercedArgs: args };
     }
 
     // Check required parameters
@@ -343,23 +344,49 @@ class ToolManager {
       }
     }
 
-    // Check parameter types (basic validation)
+    // Type coercion and validation
     if (schema.properties) {
       for (const [paramName, paramValue] of Object.entries(args)) {
         const paramSchema = schema.properties[paramName];
 
         if (!paramSchema) {
-          errors.push(`Unknown parameter: ${paramName}`);
+          // Allow unknown parameters - don't fail, just skip validation
           continue;
         }
 
-        // Type checking
-        const actualType = typeof paramValue;
         const expectedType = paramSchema.type;
+        let actualType = typeof paramValue;
 
+        // TYPE COERCION: LLMs often output numbers as strings
+        if (expectedType === 'number' && actualType === 'string') {
+          const num = parseFloat(paramValue);
+          if (!isNaN(num)) {
+            args[paramName] = num; // Mutate the args object
+            actualType = 'number';
+            console.log(`[ToolManager] Coerced ${paramName}: "${paramValue}" -> ${num}`);
+          }
+        } else if (expectedType === 'integer' && actualType === 'string') {
+          const num = parseInt(paramValue, 10);
+          if (!isNaN(num)) {
+            args[paramName] = num;
+            actualType = 'number';
+            console.log(`[ToolManager] Coerced ${paramName}: "${paramValue}" -> ${num}`);
+          }
+        } else if (expectedType === 'boolean' && actualType === 'string') {
+          const lower = paramValue.toLowerCase();
+          if (lower === 'true' || lower === '1' || lower === 'yes') {
+            args[paramName] = true;
+            actualType = 'boolean';
+          } else if (lower === 'false' || lower === '0' || lower === 'no') {
+            args[paramName] = false;
+            actualType = 'boolean';
+          }
+        }
+
+        // Type checking (after coercion)
         if (expectedType === 'string' && actualType !== 'string') {
           errors.push(`Parameter ${paramName} should be a string`);
-        } else if (expectedType === 'number' && actualType !== 'number') {
+        } else if ((expectedType === 'number' || expectedType === 'integer') && actualType !== 'number') {
           errors.push(`Parameter ${paramName} should be a number`);
         } else if (expectedType === 'boolean' && actualType !== 'boolean') {
           errors.push(`Parameter ${paramName} should be a boolean`);
@@ -373,7 +400,8 @@ class ToolManager {
 
     return {
       valid: errors.length === 0,
-      errors
+      errors,
+      coercedArgs: args
     };
   }
 

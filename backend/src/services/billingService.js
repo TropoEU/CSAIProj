@@ -1,6 +1,5 @@
 import { Invoice } from '../models/Invoice.js';
 import { Client } from '../models/Client.js';
-import { ApiUsage } from '../models/ApiUsage.js';
 import { Plan } from '../models/Plan.js';
 import { db } from '../db.js';
 
@@ -392,7 +391,7 @@ export class BillingService {
      * @param {Object} payload - Webhook payload
      * @returns {Object} Processing result
      */
-    static async handleWebhook(provider, payload) {
+    static async handleWebhook(provider, _payload) {
         // PLACEHOLDER: Parse and handle webhook events
         // Example for Stripe:
         // const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);

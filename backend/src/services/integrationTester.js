@@ -60,12 +60,12 @@ class IntegrationTester {
       // http://host.docker.internal:3000/mock-api/bobs-pizza/orders/{orderNumber}/status
       // For testing, we extract the origin: http://host.docker.internal:3000
       let testBaseUrl;
-      let fullEndpointUrl = apiUrl;
+      const fullEndpointUrl = apiUrl;
 
       try {
         const parsedUrl = new URL(apiUrl);
         testBaseUrl = parsedUrl.origin; // Just protocol + host + port
-      } catch (e) {
+      } catch {
         testBaseUrl = apiUrl;
       }
 

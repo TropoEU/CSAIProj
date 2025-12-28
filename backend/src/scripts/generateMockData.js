@@ -3,7 +3,6 @@ import { Client } from '../models/Client.js';
 import { ApiUsage } from '../models/ApiUsage.js';
 import { Invoice } from '../models/Invoice.js';
 import { BillingService } from '../services/billingService.js';
-import crypto from 'crypto';
 
 /**
  * Mock Data Generator for Phase 6 Testing
@@ -14,8 +13,6 @@ import crypto from 'crypto';
  * - Sample invoices with various statuses
  * - Varied usage patterns to test analytics and limits
  */
-
-const PLAN_TYPES = ['free', 'starter', 'pro', 'enterprise'];
 
 // Mock company names for test clients
 const MOCK_COMPANIES = [
@@ -256,9 +253,9 @@ async function createLimitTestClients() {
   );
 
   console.log(`  ✅ Created near-limit client: ${nearLimitClient.name}`);
-  console.log(`     - Messages: 475/500 (95%)`);
-  console.log(`     - Tokens: 48K/50K (96%)`);
-  console.log(`     - Tool calls: 23/25 (92%)`);
+  console.log('     - Messages: 475/500 (95%)');
+  console.log('     - Tokens: 48K/50K (96%)');
+  console.log('     - Tool calls: 23/25 (92%)');
 
   return nearLimitClient;
 }

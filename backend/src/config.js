@@ -1,4 +1,4 @@
-import dotenv from "dotenv";
+import dotenv from 'dotenv';
 import { existsSync, readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -29,7 +29,7 @@ const isRunningInDocker = () => {
         return true;
       }
     }
-  } catch (e) {
+  } catch {
     // Ignore errors
   }
   return false;

@@ -111,7 +111,7 @@ export class ClientTool {
             throw new Error('No valid fields to update');
         }
 
-        fields.push(`updated_at = NOW()`);
+        fields.push('updated_at = NOW()');
         values.push(clientId, toolId);
 
         const query = `

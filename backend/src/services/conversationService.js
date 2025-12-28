@@ -8,7 +8,14 @@ import toolManager from './toolManager.js';
 import n8nService from './n8nService.js';
 import integrationService from './integrationService.js';
 import escalationService from './escalationService.js';
-import { logger } from '../utils/logger.js';
+import {
+  STRONG_ENDING_PHRASES,
+  WEAK_ENDING_PHRASES,
+  ACTION_CLAIM_WORDS,
+  TOOL_SIMULATION_PHRASES,
+  USER_ACTION_REQUEST_PATTERN,
+  THRESHOLDS,
+} from '../config/phrases.js';
 
 /**
  * Conversation Service
@@ -18,39 +25,58 @@ import { logger } from '../utils/logger.js';
 
 class ConversationService {
   constructor() {
-    this.maxContextMessages = 10; // Keep last 10 messages in context (reduced from 20 to save tokens)
-    this.contextTokenLimit = 100000; // Approximate token limit for context
+    this.maxContextMessages = 10;
+    this.contextTokenLimit = 100000;
   }
 
   /**
-   * Normalize tool arguments (e.g., convert "today" to actual date)
-   * @param {Object} args - Tool arguments
-   * @param {Object} tool - Tool definition
-   * @returns {Object} Normalized arguments
+   * Normalize tool arguments (e.g., convert "today" to actual date, coerce types)
    */
   normalizeToolArguments(args, tool) {
     const normalized = { ...args };
     const schema = tool?.parameters_schema;
-    
+
     if (!schema || !schema.properties) {
       return normalized;
     }
 
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
+    const todayStr = today.toISOString().split('T')[0];
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
-    // Check for date parameters that need normalization
     for (const [paramName, paramValue] of Object.entries(args)) {
       const paramSchema = schema.properties[paramName];
-      
-      // If this is a date parameter and value is a string
-      if (paramSchema && paramSchema.type === 'string' && typeof paramValue === 'string') {
+
+      if (!paramSchema) continue;
+
+      // Type coercion: LLMs sometimes output numbers as strings
+      if (paramSchema.type === 'number' || paramSchema.type === 'integer') {
+        if (typeof paramValue === 'string') {
+          const num = paramSchema.type === 'integer' ? parseInt(paramValue, 10) : parseFloat(paramValue);
+          if (!isNaN(num)) {
+            normalized[paramName] = num;
+            console.log(`[Conversation] Coerced ${paramName} from string "${paramValue}" to number ${num}`);
+          }
+        }
+      }
+
+      // Type coercion: boolean strings
+      if (paramSchema.type === 'boolean' && typeof paramValue === 'string') {
+        const lower = paramValue.toLowerCase();
+        if (lower === 'true' || lower === '1' || lower === 'yes') {
+          normalized[paramName] = true;
+          console.log(`[Conversation] Coerced ${paramName} from string "${paramValue}" to boolean true`);
+        } else if (lower === 'false' || lower === '0' || lower === 'no') {
+          normalized[paramName] = false;
+          console.log(`[Conversation] Coerced ${paramName} from string "${paramValue}" to boolean false`);
+        }
+      }
+
+      if (paramSchema.type === 'string' && typeof paramValue === 'string') {
         const lowerValue = paramValue.toLowerCase().trim();
-        
-        // Handle relative date strings
+
         if (lowerValue === 'today') {
           normalized[paramName] = todayStr;
         } else if (lowerValue === 'tomorrow') {
@@ -59,22 +85,18 @@ class ConversationService {
           const yesterday = new Date(today);
           yesterday.setDate(yesterday.getDate() - 1);
           normalized[paramName] = yesterday.toISOString().split('T')[0];
-        }
-        // If it's a date field, validate and correct if needed
-        else if (paramName.toLowerCase().includes('date')) {
-          // If it's already in YYYY-MM-DD format, validate it
+        } else if (paramName.toLowerCase().includes('date')) {
           if (/^\d{4}-\d{2}-\d{2}$/.test(paramValue)) {
             const parsed = new Date(paramValue + 'T12:00:00');
-            // If the date is more than 1 year in the past, it's likely wrong (AI hallucinated)
-            // Replace with today's date
             const oneYearAgo = new Date(today);
             oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
             if (parsed < oneYearAgo) {
-              console.warn(`[Conversation] Date ${paramValue} is too far in the past, correcting to today: ${todayStr}`);
+              console.warn(
+                `[Conversation] Date ${paramValue} is too far in the past, correcting to today: ${todayStr}`
+              );
               normalized[paramName] = todayStr;
             }
           } else {
-            // Try to parse other date formats
             const parsed = new Date(paramValue);
             if (!isNaN(parsed.getTime())) {
               normalized[paramName] = parsed.toISOString().split('T')[0];
@@ -85,31 +107,22 @@ class ConversationService {
     }
 
     // Fix phone number/email mix-ups
-    // If customerEmail looks like a phone number (only digits, no @), move it to customerPhone
     if (normalized.customerEmail && /^\d+$/.test(normalized.customerEmail) && !normalized.customerPhone) {
-      console.warn(`[Conversation] Phone number found in customerEmail field, moving to customerPhone`);
+      console.warn('[Conversation] Phone number found in customerEmail field, moving to customerPhone');
       normalized.customerPhone = normalized.customerEmail;
       normalized.customerEmail = '';
     }
-    // If customerPhone looks like an email (contains @), move it to customerEmail
     if (normalized.customerPhone && normalized.customerPhone.includes('@') && !normalized.customerEmail) {
-      console.warn(`[Conversation] Email found in customerPhone field, moving to customerEmail`);
+      console.warn('[Conversation] Email found in customerPhone field, moving to customerEmail');
       normalized.customerEmail = normalized.customerPhone;
       normalized.customerPhone = '';
     }
-
 
     return normalized;
   }
 
   /**
    * Create a new conversation
-   * @param {String} clientId - Client ID
-   * @param {String} sessionId - Session ID
-   * @param {String} userIdentifier - Optional user identifier (email, phone, etc.)
-   * @param {String} llmProvider - LLM provider used for this conversation
-   * @param {String} modelName - Model name used for this conversation
-   * @returns {Object} Conversation record
    */
   async createConversation(clientId, sessionId, userIdentifier = null, llmProvider = null, modelName = null) {
     return await Conversation.create(clientId, sessionId, userIdentifier, llmProvider, modelName);
@@ -117,23 +130,20 @@ class ConversationService {
 
   /**
    * Get or create conversation by session ID
-   * @param {String} clientId - Client ID
-   * @param {String} sessionId - Session ID
-   * @param {String} userIdentifier - Optional user identifier
-   * @param {String} llmProvider - LLM provider used for this conversation
-   * @param {String} modelName - Model name used for this conversation
-   * @returns {Object} Conversation record
    */
-  async getOrCreateConversation(clientId, sessionId, userIdentifier = null, llmProvider = null, modelName = null) {
-    // Try to find existing conversation
+  async getOrCreateConversation(
+    clientId,
+    sessionId,
+    userIdentifier = null,
+    llmProvider = null,
+    modelName = null
+  ) {
     let conversation = await Conversation.findBySession(sessionId);
 
-    // If conversation exists but has ended, create a new one
     if (conversation && conversation.ended_at) {
       console.log(`[Conversation] Session ${sessionId} has ended, creating new conversation`);
       conversation = await this.createConversation(clientId, sessionId, userIdentifier, llmProvider, modelName);
     } else if (!conversation) {
-      // Create new if not found
       conversation = await this.createConversation(clientId, sessionId, userIdentifier, llmProvider, modelName);
     }
 
@@ -142,27 +152,15 @@ class ConversationService {
 
   /**
    * Add a message to the conversation
-   * @param {String} conversationId - Conversation ID
-   * @param {String} role - Message role (user, assistant, system, tool)
-   * @param {String} content - Message content
-   * @param {Number} tokensUsed - Optional token count
-   * @param {Object} metadata - Optional metadata (tool calls, etc.)
-   * @returns {Object} Message record
    */
-  async addMessage(conversationId, role, content, tokensUsed = 0, metadata = null) {
+  async addMessage(conversationId, role, content, tokensUsed = 0, _metadata = null) {
     const message = await Message.create(conversationId, role, content, tokensUsed);
-
-    // Update conversation stats
     await this.updateConversationStats(conversationId);
-
     return message;
   }
 
   /**
    * Get conversation history with context window management
-   * @param {String} conversationId - Conversation ID
-   * @param {Number} limit - Max messages to retrieve
-   * @returns {Array} Array of messages
    */
   async getConversationHistory(conversationId, limit = null) {
     if (limit) {
@@ -173,26 +171,18 @@ class ConversationService {
 
   /**
    * Get conversation context from cache or DB
-   * @param {String} sessionId - Session ID
-   * @param {Object} client - Client configuration
-   * @param {Array} tools - Available tools
-   * @returns {Array} Formatted messages array for LLM
    */
   async getConversationContext(sessionId, client, tools = [], includeSystemPrompt = true) {
-    // Try to get from Redis cache first
     const cached = await RedisCache.getConversationContext(sessionId);
     if (cached) {
-      // If we don't need system prompt and it's cached, remove it
       if (!includeSystemPrompt && cached.messages?.[0]?.role === 'system') {
         return cached.messages.slice(1);
       }
       return cached.messages;
     }
 
-    // Get from database
     const conversation = await Conversation.findBySession(sessionId);
     if (!conversation) {
-      // New conversation - return just system message
       if (!includeSystemPrompt) {
         return [];
       }
@@ -200,36 +190,26 @@ class ConversationService {
       return [{ role: 'system', content: systemMessage }];
     }
 
-    // Get message history
     const messages = await this.getConversationHistory(conversation.id);
 
-    // Format messages for LLM
-    const formattedMessages = [];
-
-    // Only include system prompt if requested (for first message or if system prompt changed)
-    if (includeSystemPrompt) {
-      formattedMessages.push({ role: 'system', content: getContextualSystemPrompt(client, tools) });
-    }
-    
-    formattedMessages.push(...messages.map(msg => ({
+    // Map messages once to avoid duplication
+    const mappedMessages = messages.map((msg) => ({
       role: msg.role,
       content: msg.content,
-      ...(msg.metadata && { metadata: JSON.parse(msg.metadata) })
-    })));
+      ...(msg.metadata && { metadata: JSON.parse(msg.metadata) }),
+    }));
 
-    // Cache in Redis (always cache with system prompt for consistency)
-    const messagesWithSystem = [
-      { role: 'system', content: getContextualSystemPrompt(client, tools) },
-      ...messages.map(msg => ({
-        role: msg.role,
-        content: msg.content,
-        ...(msg.metadata && { metadata: JSON.parse(msg.metadata) })
-      }))
-    ];
-    
+    const systemPrompt = { role: 'system', content: getContextualSystemPrompt(client, tools) };
+
+    // Build formatted messages (may or may not include system prompt)
+    const formattedMessages = includeSystemPrompt
+      ? [systemPrompt, ...mappedMessages]
+      : [...mappedMessages];
+
+    // Cache always includes system prompt for consistency
     await RedisCache.setConversationContext(sessionId, {
       conversationId: conversation.id,
-      messages: messagesWithSystem
+      messages: [systemPrompt, ...mappedMessages],
     });
 
     return formattedMessages;
@@ -237,25 +217,19 @@ class ConversationService {
 
   /**
    * Update conversation context in cache
-   * @param {String} sessionId - Session ID
-   * @param {String} conversationId - Conversation ID
-   * @param {Array} messages - Updated messages array
    */
   async updateConversationContext(sessionId, conversationId, messages) {
     await RedisCache.updateConversationContext(sessionId, {
       conversationId,
       messages,
-      last_activity: new Date().toISOString()
+      last_activity: new Date().toISOString(),
     });
   }
 
   /**
    * Manage context window - truncate old messages if needed
-   * @param {Array} messages - Messages array
-   * @returns {Array} Truncated messages array
    */
   manageContextWindow(messages) {
-    // Always keep system message (first message)
     if (messages.length <= this.maxContextMessages) {
       return messages;
     }
@@ -267,32 +241,23 @@ class ConversationService {
   }
 
   /**
-   * Summarize old conversation context for long conversations
-   * (Advanced feature - can implement later)
-   * @param {Array} messages - Messages to summarize
-   * @returns {String} Summary
+   * Summarize old conversation context (placeholder for future implementation)
    */
-  async summarizeContext(messages) {
-    // TODO: Use LLM to summarize old messages
-    // For now, just keep recent messages
+  async summarizeContext(_messages) {
     return null;
   }
 
   /**
    * Update conversation statistics
-   * @param {String} conversationId - Conversation ID
    */
   async updateConversationStats(conversationId) {
     const messageCount = await Message.count(conversationId);
     const tokensTotal = await Message.getTotalTokens(conversationId);
-
     await Conversation.updateStats(conversationId, messageCount, tokensTotal);
   }
 
   /**
    * End a conversation
-   * @param {String} sessionId - Session ID
-   * @returns {Object} Updated conversation
    */
   async endConversation(sessionId) {
     const conversation = await Conversation.findBySession(sessionId);
@@ -301,60 +266,42 @@ class ConversationService {
     }
 
     const updated = await Conversation.end(conversation.id);
-
-    // Clear cache
     await RedisCache.deleteConversationContext(sessionId);
-
     return updated;
   }
 
   /**
    * Auto-end inactive conversations
-   * Ends conversations that have been inactive for more than the specified minutes
-   * @param {Number} inactivityMinutes - Minutes of inactivity before auto-ending (default: 15)
-   * @returns {Object} Summary of ended conversations
    */
   async autoEndInactiveConversations(inactivityMinutes = 15) {
     try {
       const inactiveConversations = await Conversation.findInactive(inactivityMinutes);
-      
+
       if (inactiveConversations.length === 0) {
-        return {
-          ended: 0,
-          conversations: []
-        };
+        return { ended: 0, conversations: [] };
       }
 
       const endedConversations = [];
-      
+
       for (const conv of inactiveConversations) {
         try {
-          // End the conversation
           await Conversation.end(conv.id);
-          
-          // Clear Redis cache if session_id exists
           if (conv.session_id) {
             await RedisCache.deleteConversationContext(conv.session_id);
           }
-          
           endedConversations.push({
             id: conv.id,
             session_id: conv.session_id,
             client_id: conv.client_id,
-            last_activity: conv.last_activity
+            last_activity: conv.last_activity,
           });
         } catch (error) {
           console.error(`[Conversation] Failed to auto-end conversation ${conv.id}:`, error);
-          // Continue with other conversations even if one fails
         }
       }
 
       console.log(`[Conversation] Auto-ended ${endedConversations.length} inactive conversation(s)`);
-      
-      return {
-        ended: endedConversations.length,
-        conversations: endedConversations
-      };
+      return { ended: endedConversations.length, conversations: endedConversations };
     } catch (error) {
       console.error('[Conversation] Error auto-ending inactive conversations:', error);
       throw error;
@@ -363,8 +310,6 @@ class ConversationService {
 
   /**
    * Get conversation by ID
-   * @param {String} conversationId - Conversation ID
-   * @returns {Object} Conversation with messages
    */
   async getConversationById(conversationId) {
     const conversation = await Conversation.findById(conversationId);
@@ -373,19 +318,11 @@ class ConversationService {
     }
 
     const messages = await Message.findByConversationId(conversationId);
-
-    return {
-      ...conversation,
-      messages
-    };
+    return { ...conversation, messages };
   }
 
   /**
    * Get all conversations for a client
-   * @param {String} clientId - Client ID
-   * @param {Number} limit - Max conversations to retrieve
-   * @param {Number} offset - Offset for pagination
-   * @returns {Array} Array of conversations
    */
   async getClientConversations(clientId, limit = 50, offset = 0) {
     return await Conversation.findByClientId(clientId, limit, offset);
@@ -393,9 +330,6 @@ class ConversationService {
 
   /**
    * Search conversations by user identifier
-   * @param {String} clientId - Client ID
-   * @param {String} userIdentifier - User identifier (email, phone, etc.)
-   * @returns {Array} Array of conversations
    */
   async searchConversationsByUser(clientId, userIdentifier) {
     return await Conversation.findByUserIdentifier(clientId, userIdentifier);
@@ -403,8 +337,6 @@ class ConversationService {
 
   /**
    * Detect if user message indicates conversation should end
-   * @param {String} message - User's message
-   * @returns {Boolean} True if message indicates conversation should end
    */
   detectConversationEnd(message) {
     if (!message || typeof message !== 'string') {
@@ -412,73 +344,25 @@ class ConversationService {
     }
 
     const normalizedMessage = message.toLowerCase().trim();
-    
-    // Common ending phrases
-    const endingPhrases = [
-      'thank you',
-      'thanks',
-      'thank you very much',
-      'thanks a lot',
-      'thank you so much',
-      'goodbye',
-      'bye',
-      'bye bye',
-      'see you',
-      'see ya',
-      'that\'s all',
-      'thats all',
-      'that is all',
-      'i\'m done',
-      'im done',
-      'i am done',
-      'we\'re done',
-      'were done',
-      'we are done',
-      'i\'m finished',
-      'im finished',
-      'i am finished',
-      'we\'re finished',
-      'were finished',
-      'we are finished',
-      'end conversation',
-      'end the conversation',
-      'close conversation',
-      'close the conversation',
-      'that\'s it',
-      'thats it',
-      'that is it',
-      'all done',
-      'all set',
-      'no more questions',
-      'no further questions',
-      'nothing else',
-      'nothing more',
-      'have a good day',
-      'have a nice day',
-      'have a great day',
-      'take care',
-      'talk to you later',
-      'catch you later',
-      'until next time'
-    ];
 
-    // Check for exact matches or phrases that end with these
-    for (const phrase of endingPhrases) {
+    // STRONG endings: Match if at end of message or standalone
+    for (const phrase of STRONG_ENDING_PHRASES) {
       // Exact match
       if (normalizedMessage === phrase) {
         return true;
       }
-      
-      // Ends with the phrase (with optional punctuation)
-      const regex = new RegExp(`^.*${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[.!?,;]*$`, 'i');
-      if (regex.test(normalizedMessage)) {
+      // Phrase at end of short message (e.g., "ok bye", "alright goodbye")
+      const endsWithPhrase = new RegExp(`${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[.!?,;]*$`, 'i');
+      if (endsWithPhrase.test(normalizedMessage) && normalizedMessage.length < THRESHOLDS.MAX_MESSAGE_LENGTH_FOR_ENDING) {
         return true;
       }
-      
-      // Contains the phrase as a complete word/phrase
-      const wordBoundaryRegex = new RegExp(`\\b${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-      if (wordBoundaryRegex.test(normalizedMessage) && normalizedMessage.length < 100) {
-        // Only if message is short (to avoid false positives in long messages)
+    }
+
+    // WEAK endings (like "thanks"): Only match on EXACT match
+    // Users often say "thanks" but want to continue, so be conservative
+    for (const phrase of WEAK_ENDING_PHRASES) {
+      // Only exact match for weak phrases - no partial matching
+      if (normalizedMessage === phrase || normalizedMessage === phrase + '!' || normalizedMessage === phrase + '.') {
         return true;
       }
     }
@@ -486,101 +370,314 @@ class ConversationService {
     return false;
   }
 
+  // ============================================================
+  // PRIVATE HELPER METHODS FOR processMessage
+  // ============================================================
+
+  /**
+   * Handle conversation end gracefully
+   * @private
+   */
+  async _handleConversationEnd(conversation, sessionId, userMessage) {
+    console.log(`[Conversation] Detected conversation end signal: "${userMessage}"`);
+
+    await this.addMessage(conversation.id, 'user', userMessage);
+    await Conversation.end(conversation.id);
+    await RedisCache.deleteConversationContext(sessionId);
+
+    const goodbyeMessages = [
+      'Thank you for chatting with us! Have a great day!',
+      "Thanks for reaching out! We're here if you need anything else.",
+      'Thank you! Feel free to come back anytime if you have more questions.',
+      'Thanks for the conversation! Have a wonderful day!',
+      'Thank you! We appreciate your time. Take care!',
+    ];
+    const goodbyeResponse = goodbyeMessages[Math.floor(Math.random() * goodbyeMessages.length)];
+
+    await this.addMessage(conversation.id, 'assistant', goodbyeResponse, 0);
+
+    return {
+      response: goodbyeResponse,
+      toolsUsed: [],
+      tokensUsed: 0,
+      conversationId: conversation.id,
+      iterations: 0,
+      conversationEnded: true,
+    };
+  }
+
+  /**
+   * Prepare messages array for LLM call
+   * @private
+   */
+  async _prepareMessagesForLLM(sessionId, client, clientTools, conversation, userMessage, options) {
+    const isFirstMessage = !conversation || conversation.message_count === 0;
+    const messages = await this.getConversationContext(sessionId, client, clientTools, isFirstMessage);
+
+    let userMessageContent = userMessage;
+
+    // Include email subject for context if applicable
+    if (options.channel === 'email' && options.channelMetadata?.subject) {
+      const subject = options.channelMetadata.subject;
+      if (!subject.toLowerCase().startsWith('re:')) {
+        userMessageContent = `Subject: ${subject}\n\n${userMessage}`;
+      } else {
+        const subjectWithoutRe = subject.replace(/^Re:\s*/i, '').trim();
+        if (subjectWithoutRe && subjectWithoutRe.length > 0) {
+          userMessageContent = `Subject: ${subjectWithoutRe}\n\n${userMessage}`;
+        }
+      }
+    }
+
+    messages.push({ role: 'user', content: userMessageContent });
+    return messages;
+  }
+
+  /**
+   * Execute a single tool call
+   * @private
+   */
+  async _executeSingleTool(toolCall, client, conversation, messages) {
+    const { id, name, arguments: toolArgs } = toolCall;
+
+    console.log(`[Conversation] Executing tool: ${name}`);
+
+    const tool = await toolManager.getToolByName(client.id, name);
+
+    if (!tool) {
+      console.error(`[Conversation] Tool not found: ${name}`);
+      const errorMessage = `Error: Tool "${name}" is not available`;
+
+      messages.push({ role: 'tool', content: errorMessage, tool_call_id: id });
+
+      await ToolExecution.create(conversation.id, name, toolArgs, { error: 'Tool not found' }, false, 0);
+
+      return { success: false, error: errorMessage };
+    }
+
+    // Validate tool arguments
+    const validation = toolManager.validateToolArguments(tool, toolArgs);
+    if (!validation.valid) {
+      console.error(`[Conversation] Invalid arguments for ${name}:`, validation.errors);
+      const errorMessage = `Error: Invalid arguments - ${validation.errors.join(', ')}`;
+
+      messages.push({ role: 'tool', content: errorMessage, tool_call_id: id });
+
+      await ToolExecution.create(conversation.id, name, toolArgs, { error: validation.errors }, false, 0);
+
+      return { success: false, error: errorMessage };
+    }
+
+    // Normalize and prepare arguments
+    const normalizedArgs = this.normalizeToolArguments(toolArgs, tool);
+    const finalArgs = normalizedArgs || toolArgs;
+
+    // Fetch integration credentials
+    let integrations = {};
+    const requiredIntegrations = tool.required_integrations || [];
+    const integrationMapping = tool.integration_mapping || {};
+
+    console.log('\n========== TOOL EXECUTION DEBUG ==========');
+    console.log(`[Conversation] Processing tool: ${name}`);
+    console.log('[Conversation] Tool required_integrations:', requiredIntegrations);
+    console.log('[Conversation] Integration mapping:', integrationMapping);
+
+    if (requiredIntegrations.length > 0) {
+      try {
+        console.log(`[Conversation] Fetching ${requiredIntegrations.length} integrations for tool`);
+        integrations = await integrationService.getIntegrationsForTool(
+          client.id,
+          integrationMapping,
+          requiredIntegrations
+        );
+
+        const integrationCount = Object.keys(integrations).length;
+        console.log(`[Conversation] ✅ Loaded ${integrationCount} integrations:`, Object.keys(integrations).join(', '));
+      } catch (error) {
+        console.error('[Conversation] ❌ Failed to load integrations:', error.message);
+        messages.push({
+          role: 'tool',
+          content: `Error: ${error.message}. Please configure the required integrations in the admin panel.`,
+          tool_call_id: id,
+        });
+        return { success: false, error: error.message };
+      }
+    } else {
+      console.log(`[Conversation] ⚠️  Tool ${name} has no required integrations`);
+    }
+
+    // Execute via n8n
+    console.log(`[Conversation] Calling n8n with ${Object.keys(integrations).length} integrations`);
+    console.log('==========================================\n');
+
+    const result = await n8nService.executeTool(tool.n8n_webhook_url, finalArgs, { integrations });
+
+    // Log execution
+    await ToolExecution.create(
+      conversation.id,
+      name,
+      finalArgs,
+      result.data,
+      result.success,
+      result.executionTimeMs
+    );
+
+    // Format result for LLM
+    const formattedResult = n8nService.formatResponseForLLM(result.data);
+
+    messages.push({
+      role: 'tool',
+      content: result.success ? formattedResult : result.error,
+      tool_call_id: id,
+    });
+
+    console.log(`[Conversation] Tool ${name} ${result.success ? 'succeeded' : 'failed'} (${result.executionTimeMs}ms)`);
+
+    return {
+      success: result.success,
+      name,
+      executionTime: result.executionTimeMs,
+    };
+  }
+
+  /**
+   * Check if LLM is hallucinating tool usage
+   * @private
+   */
+  _isHallucinatingToolUsage(responseContent, userMessage) {
+    const responseLower = responseContent.toLowerCase();
+    const hasActionClaim = ACTION_CLAIM_WORDS.some((word) => responseLower.includes(word));
+    const hasToolSimulation = TOOL_SIMULATION_PHRASES.some((phrase) => responseLower.includes(phrase));
+    const userRequestedAction = userMessage.toLowerCase().match(USER_ACTION_REQUEST_PATTERN);
+
+    return (hasActionClaim || hasToolSimulation) && userRequestedAction;
+  }
+
+  /**
+   * Extract fallback response from tool results when LLM fails
+   * @private
+   */
+  _extractFallbackResponse(messages) {
+    const lastToolMessage = messages.filter((m) => m.role === 'tool').pop();
+
+    if (!lastToolMessage || !lastToolMessage.content) {
+      return 'I apologize, but I encountered an issue processing your request. Please try again or rephrase your question.';
+    }
+
+    try {
+      const toolContent = lastToolMessage.content;
+
+      if (toolContent.includes('message') || toolContent.includes('Message')) {
+        const jsonMatch = toolContent.match(/"message"\s*:\s*"([^"]+)"/);
+        if (jsonMatch) {
+          return jsonMatch[1];
+        }
+        return toolContent.length < 500 ? toolContent : toolContent.substring(0, 200) + '...';
+      }
+
+      return toolContent.length < 500 ? toolContent : `Based on the results: ${toolContent.substring(0, 200)}...`;
+    } catch {
+      return 'I apologize, but I encountered an issue processing your request. Please try again or rephrase your question.';
+    }
+  }
+
+  /**
+   * Record usage and finalize the conversation response
+   * @private
+   */
+  async _recordUsageAndFinalize(client, conversation, sessionId, messages, finalResponse, stats) {
+    const { totalTokens, totalTokensInput, totalTokensOutput, toolsUsed, iterationCount, isNewConversation } = stats;
+
+    // Restore base system prompt before caching
+    if (stats.baseSystemPrompt && messages?.[0]?.role === 'system') {
+      messages[0].content = stats.baseSystemPrompt;
+    }
+
+    // Save assistant response
+    await this.addMessage(conversation.id, 'assistant', finalResponse, totalTokens);
+
+    // Update context in cache
+    messages.push({ role: 'assistant', content: finalResponse });
+    await this.updateConversationContext(sessionId, conversation.id, messages);
+
+    // Record usage for billing/analytics
+    try {
+      const { ApiUsage } = await import('../models/ApiUsage.js');
+      const tokensInput = totalTokensInput || Math.floor(totalTokens * 0.7);
+      const tokensOutput = totalTokensOutput || Math.floor(totalTokens * 0.3);
+      const toolCallsCount = toolsUsed.length;
+
+      console.log(
+        `[Conversation] Recording usage: client=${client.id}, tokens=${tokensInput + tokensOutput} (input: ${tokensInput}, output: ${tokensOutput}), tools=${toolCallsCount}, newConversation=${isNewConversation}`
+      );
+      await ApiUsage.recordUsage(client.id, tokensInput, tokensOutput, toolCallsCount, isNewConversation);
+      console.log('[Conversation] Usage recorded successfully');
+    } catch (usageError) {
+      console.error('[Conversation] Failed to record usage:', usageError);
+    }
+
+    // Auto-detect escalation needs
+    try {
+      const language = client.language || 'en';
+      await escalationService.autoDetect(conversation.id, stats.userMessage, language);
+    } catch (escalationError) {
+      console.error('[Conversation] Failed to auto-detect escalation:', escalationError);
+    }
+
+    return {
+      response: finalResponse,
+      toolsUsed,
+      tokensUsed: totalTokens,
+      conversationId: conversation.id,
+      iterations: iterationCount,
+      conversationEnded: false,
+    };
+  }
+
   /**
    * Process a user message with full tool execution flow
-   * @param {Object} client - Client configuration
-   * @param {String} sessionId - Session ID
-   * @param {String} userMessage - User's message
-   * @param {Object} options - Optional parameters
-   * @returns {Object} { response, toolsUsed, tokensUsed, conversationId, conversationEnded }
    */
   async processMessage(client, sessionId, userMessage, options = {}) {
     const { userIdentifier = null, maxToolIterations = 3 } = options;
 
     try {
-      // Get or create conversation (track if it's new)
+      // Get or create conversation
       let conversation = await Conversation.findBySession(sessionId);
-      const isNewConversation = !conversation; // Track if this is a new conversation
-      
-      // Get effective provider/model (use client's settings or defaults)
+      const isNewConversation = !conversation;
+
       const effectiveProvider = client.llm_provider || 'ollama';
       const effectiveModel = client.model_name || null;
-      
+
       if (!conversation) {
-        conversation = await this.createConversation(client.id, sessionId, userIdentifier, effectiveProvider, effectiveModel);
+        conversation = await this.createConversation(
+          client.id,
+          sessionId,
+          userIdentifier,
+          effectiveProvider,
+          effectiveModel
+        );
       }
 
       // Check if user wants to end the conversation
-      const shouldEndConversation = this.detectConversationEnd(userMessage);
-      
-      if (shouldEndConversation) {
-        console.log(`[Conversation] Detected conversation end signal: "${userMessage}"`);
-        
-        // Save user message
-        await this.addMessage(conversation.id, 'user', userMessage);
-        
-        // End the conversation
-        await Conversation.end(conversation.id);
-        
-        // Clear Redis cache
-        await RedisCache.deleteConversationContext(sessionId);
-        
-        // Generate a friendly goodbye response
-        const goodbyeMessages = [
-          'Thank you for chatting with us! Have a great day!',
-          'Thanks for reaching out! We\'re here if you need anything else.',
-          'Thank you! Feel free to come back anytime if you have more questions.',
-          'Thanks for the conversation! Have a wonderful day!',
-          'Thank you! We appreciate your time. Take care!'
-        ];
-        const goodbyeResponse = goodbyeMessages[Math.floor(Math.random() * goodbyeMessages.length)];
-        
-        // Save assistant response
-        await this.addMessage(conversation.id, 'assistant', goodbyeResponse, 0);
-        
-        return {
-          response: goodbyeResponse,
-          toolsUsed: [],
-          tokensUsed: 0,
-          conversationId: conversation.id,
-          iterations: 0,
-          conversationEnded: true
-        };
+      if (this.detectConversationEnd(userMessage)) {
+        return await this._handleConversationEnd(conversation, sessionId, userMessage);
       }
 
-      // Save user message (unless it was already saved by the caller, e.g., emailMonitor)
+      // Save user message
       if (!options.skipUserMessageSave) {
         await this.addMessage(conversation.id, 'user', userMessage);
       }
 
-      // Get enabled tools for this client
+      // Get enabled tools and prepare context
       const clientTools = await toolManager.getClientTools(client.id);
-
-      // Get conversation context
-      // For Ollama, we can skip system prompt on subsequent requests (it's cached)
-      // But we need it for the first request to establish the cache
-      const isFirstMessage = !conversation || conversation.message_count === 0;
-      let messages = await this.getConversationContext(sessionId, client, clientTools, isFirstMessage);
-
-      // Add the new user message to context
-      let userMessageContent = userMessage;
-
-      // If this is an email conversation, include the subject for context
-      if (options.channel === 'email' && options.channelMetadata?.subject) {
-        const subject = options.channelMetadata.subject;
-        // Only include subject if it's not just "Re: ..." (which is less informative)
-        if (!subject.toLowerCase().startsWith('re:')) {
-          userMessageContent = `Subject: ${subject}\n\n${userMessage}`;
-        } else {
-          // For replies, the subject might still have useful info after "Re:"
-          const subjectWithoutRe = subject.replace(/^Re:\s*/i, '').trim();
-          if (subjectWithoutRe && subjectWithoutRe.length > 0) {
-            userMessageContent = `Subject: ${subjectWithoutRe}\n\n${userMessage}`;
-          }
-        }
-      }
-
-      messages.push({ role: 'user', content: userMessageContent });
+      const messages = await this._prepareMessagesForLLM(
+        sessionId,
+        client,
+        clientTools,
+        conversation,
+        userMessage,
+        options
+      );
 
       // Track tool usage and tokens
       const toolsUsed = [];
@@ -589,467 +686,184 @@ class ConversationService {
       let totalTokensOutput = 0;
       let iterationCount = 0;
       let finalResponse = null;
-      let lastLLMResponse = null; // Track last LLM response for token counting
+      let lastLLMResponse = null;
+      let lastExecutedToolKeys = null;
 
-      // effectiveProvider was already determined above when creating the conversation
-
-      // Format tools for LLM (once, before the loop) - pass provider to get correct format
+      // Format tools for LLM
       const formattedTools = toolManager.formatToolsForLLM(clientTools, effectiveProvider);
-      
-      // For Ollama, we use prompt-engineering tool instructions.
-      // IMPORTANT: do NOT permanently mutate/cache the system prompt with tool instructions,
-      // otherwise it will grow every request (and token usage will explode).
-      // Also, for Ollama, we can rely on caching - if system prompt is missing, add it only for this request
+
+      // Handle Ollama's prompt-engineering approach for tools
       let baseSystemPrompt = messages?.[0]?.role === 'system' ? messages[0].content : null;
-      
+
       if (effectiveProvider === 'ollama') {
-        // If no system prompt in messages (because we skipped it for caching), add it for this request
-        // Ollama will cache it, so subsequent requests won't need it
         if (!baseSystemPrompt) {
           baseSystemPrompt = getContextualSystemPrompt(client, clientTools);
           messages.unshift({ role: 'system', content: baseSystemPrompt });
         }
-        
-        // Append tool instructions to system prompt for this request only
         if (formattedTools && baseSystemPrompt) {
           messages[0].content = `${baseSystemPrompt}${formattedTools}`;
         }
       }
 
-      // Track last executed tool calls to detect if LLM tries to call them again
-      let lastExecutedToolKeys = null;
-
-      // Tool execution loop (handle multi-turn tool calls)
+      // Tool execution loop
       while (iterationCount < maxToolIterations) {
         iterationCount++;
 
-        // Call LLM (with per-client model/provider if specified)
+        // Call LLM
         let llmResponse;
         try {
           llmResponse = await llmService.chat(messages, {
             tools: llmService.supportsNativeFunctionCalling(effectiveProvider) ? formattedTools : null,
             maxTokens: 2048,
             temperature: 0.3,
-            model: client.model_name || null,      // Per-client model override
-            provider: client.llm_provider || null  // Per-client provider override
+            model: effectiveModel,
+            provider: effectiveProvider,
           });
         } catch (llmError) {
           console.error(`[Conversation] LLM call failed on iteration ${iterationCount}:`, llmError);
-          // If we have tool results from previous iteration, try to use them to generate a response
           if (lastExecutedToolKeys && lastLLMResponse && lastLLMResponse.content) {
-            console.log(`[Conversation] Using previous LLM response as fallback after error`);
+            console.log('[Conversation] Using previous LLM response as fallback after error');
             finalResponse = lastLLMResponse.content;
             break;
           }
-          throw llmError; // Re-throw if we can't recover
+          throw llmError;
         }
 
-        lastLLMResponse = llmResponse; // Track last response
+        lastLLMResponse = llmResponse;
         totalTokens += llmResponse.tokens.total;
-        // Track input/output tokens separately if available, otherwise estimate
+
         if (llmResponse.tokens.input !== undefined && llmResponse.tokens.output !== undefined) {
           totalTokensInput += llmResponse.tokens.input;
           totalTokensOutput += llmResponse.tokens.output;
         } else {
-          // Estimate: input is typically 70% of total, output is 30%
           totalTokensInput += Math.floor(llmResponse.tokens.total * 0.7);
           totalTokensOutput += Math.floor(llmResponse.tokens.total * 0.3);
         }
 
-        // Check for tool calls (native or parsed from content)
+        // Check for tool calls
         let toolCalls = llmResponse.toolCalls;
 
-        // For Ollama, parse tool calls from content
         if (!toolCalls && effectiveProvider === 'ollama') {
           toolCalls = toolManager.parseToolCallsFromContent(llmResponse.content);
         }
 
-        // If LLM is trying to call the same tools we just executed, break to prevent infinite loop
+        // Prevent infinite loop if LLM tries to call same tools again
         if (toolCalls && toolCalls.length > 0 && lastExecutedToolKeys) {
-          const currentToolKeys = toolCalls.map(tc => `${tc.name}:${JSON.stringify(tc.arguments)}`);
-          const isSameAsLastExecution = currentToolKeys.every(key => lastExecutedToolKeys.includes(key)) &&
-                                        currentToolKeys.length === lastExecutedToolKeys.length;
-          
+          const currentToolKeys = toolCalls.map((tc) => `${tc.name}:${JSON.stringify(tc.arguments)}`);
+          const isSameAsLastExecution =
+            currentToolKeys.every((key) => lastExecutedToolKeys.includes(key)) &&
+            currentToolKeys.length === lastExecutedToolKeys.length;
+
           if (isSameAsLastExecution) {
-            console.log(`[Conversation] LLM tried to call same tools again after execution. Breaking loop to prevent infinite recursion.`);
-            // Use any content as final response, or generate a fallback
-            if (llmResponse.content && llmResponse.content.trim().length > 0) {
-              finalResponse = llmResponse.content;
-            } else {
-              finalResponse = 'I apologize, but I encountered an issue processing your request. Please try again.';
-            }
+            console.log('[Conversation] LLM tried to call same tools again. Breaking loop.');
+            finalResponse =
+              llmResponse.content?.trim()?.length > 0
+                ? llmResponse.content
+                : 'I apologize, but I encountered an issue processing your request. Please try again.';
             break;
           }
         }
 
-        // Check finish_reason/stopReason - if it's 'stop' and we have content, use it as final response
-        // This prevents infinite loops when LLM returns content but also has tool_calls
-        if (llmResponse.stopReason === 'stop' && llmResponse.content && llmResponse.content.trim().length > 0) {
-          // For Ollama, we need to check if there are tool calls embedded in the content
-          // because Ollama often returns descriptive text along with tool call patterns
+        // Handle finish_reason='stop' with content
+        if (llmResponse.stopReason === 'stop' && llmResponse.content?.trim()?.length > 0) {
           if (effectiveProvider === 'ollama') {
-            // Parse tool calls from content even if stopReason is 'stop'
-            // Only ignore if we truly have no tool calls after parsing
             const parsedToolCalls = toolManager.parseToolCallsFromContent(llmResponse.content);
             if (parsedToolCalls && parsedToolCalls.length > 0) {
-              // We found tool calls, use them instead of ignoring
               toolCalls = parsedToolCalls;
-              console.log(`[Conversation] Ollama returned stopReason='stop' but found ${toolCalls.length} tool call(s) in content. Executing tools.`);
-            } else {
-              // No tool calls found, use content as final response
-              console.log(`[Conversation] LLM returned content with finish_reason='stop' and no tool calls. Using content as final response.`);
+              console.log(
+                `[Conversation] Ollama returned stopReason='stop' but found ${toolCalls.length} tool call(s) in content.`
+              );
             }
-          } else {
-            // For native function calling providers (Claude, OpenAI, Groq)
-            // If we have both content and tool calls, prefer content if finish_reason is 'stop'
-            if (toolCalls && toolCalls.length > 0) {
-              console.log(`[Conversation] LLM returned both content and tool_calls with finish_reason='stop'. Using content as final response.`);
-              toolCalls = null; // Ignore tool calls, use content instead
-            }
+          } else if (toolCalls && toolCalls.length > 0) {
+            console.log(
+              "[Conversation] LLM returned both content and tool_calls with finish_reason='stop'. Using content."
+            );
+            toolCalls = null;
           }
         }
 
         // No tool calls - we have the final response
         if (!toolCalls || toolCalls.length === 0) {
-          // If we have content, use it as final response
-          if (llmResponse.content && llmResponse.content.trim().length > 0) {
-            // Check if AI claimed to have done something without calling a tool (hallucination detection)
-            const responseLower = llmResponse.content.toLowerCase();
-            const actionWords = ['booked', 'reserved', 'confirmed', 'scheduled', 'completed', 'done', 'finished'];
-            const hasActionClaim = actionWords.some(word => responseLower.includes(word));
-            
-            // Also check for tool-related phrases that indicate the AI is pretending to use tools
-            const toolSimulationPhrases = [
-              'waits', 'waiting', 'checking', 'loading', 'processing',
-              'status from the system', 'information you asked for',
-              'hold for a moment', 'may take a moment', 'please hold'
-            ];
-            const hasToolSimulation = toolSimulationPhrases.some(phrase => responseLower.includes(phrase));
-            
-            // Check if user requested an action that requires a tool
-            const userRequestedAction = userMessage.toLowerCase().match(/(book|reserve|schedule|check|get.*status|what.*status|order.*status)/i);
-            
-            // If AI is simulating tool usage or claimed an action but no tool was called
-            if ((hasActionClaim || hasToolSimulation) && userRequestedAction) {
-              console.warn(`[Conversation] AI is simulating tool usage or claimed action but no tool was called. Response: "${responseLower.substring(0, 100)}"`);
-              
-              // If we haven't reached max iterations, continue the loop to give AI another chance
+          if (llmResponse.content?.trim()?.length > 0) {
+            // Check for hallucination
+            if (this._isHallucinatingToolUsage(llmResponse.content, userMessage)) {
+              console.warn('[Conversation] AI is simulating tool usage without actually calling tools.');
+
               if (iterationCount < maxToolIterations) {
-                console.log(`[Conversation] Retrying (iteration ${iterationCount + 1}/${maxToolIterations}) - AI needs to actually call the tool`);
-                
-                // Add a system message to remind the AI to use the tool format
+                console.log(`[Conversation] Retrying (iteration ${iterationCount + 1}/${maxToolIterations})`);
                 messages.push({
                   role: 'system',
-                  content: 'You described checking the order but did not use the USE_TOOL format. Please call the tool using: USE_TOOL: get_order_status PARAMETERS: {"orderNumber": "12345"}'
+                  content:
+                    'You described checking the order but did not use the USE_TOOL format. Please call the tool using: USE_TOOL: get_order_status PARAMETERS: {"orderNumber": "12345"}',
                 });
-                
-                continue; // Continue the loop to retry
-              } else {
-                // Max iterations reached, use the response anyway
-                console.warn(`[Conversation] Max iterations reached. Using AI response despite tool simulation.`);
-                finalResponse = llmResponse.content;
-                break;
+                continue;
               }
-            } else {
-              // Normal response, no tool needed
-              finalResponse = llmResponse.content;
-              break;
+              console.warn('[Conversation] Max iterations reached. Using AI response despite tool simulation.');
             }
-          } else {
-            // No content and no tool calls - this is unusual
-            // If we just executed tools, the LLM should respond with the results
-            if (lastExecutedToolKeys) {
-              console.warn(`[Conversation] LLM returned empty content after tool execution (iteration ${iterationCount}). Using tool result as fallback.`);
-              // Try to extract a message from the last tool result if available
-              const lastToolMessage = messages.filter(m => m.role === 'tool').pop();
-              if (lastToolMessage && lastToolMessage.content) {
-                // Try to extract a user-friendly message from the tool result
-                const toolContent = lastToolMessage.content;
-                // The tool result should already be formatted by n8nService.formatResponseForLLM
-                // which extracts the "message" field if available
-                // So we can use it directly
-                finalResponse = toolContent;
-                console.log(`[Conversation] Using tool result message as fallback response`);
-                break;
-              }
-            }
-            // If no tool results to fall back on, continue loop (might help on next iteration)
-            // But if we're at max iterations, we'll use the fallback error message
+            finalResponse = llmResponse.content;
+            break;
+          } else if (lastExecutedToolKeys) {
+            console.warn(`[Conversation] LLM returned empty content after tool execution (iteration ${iterationCount}).`);
+            finalResponse = this._extractFallbackResponse(messages);
+            if (finalResponse) break;
           }
+          continue;
         }
 
         // Execute tool calls
         console.log(`[Conversation] Executing ${toolCalls.length} tool(s)`);
-        
-        // For native function calling (Groq/OpenAI), if finish_reason was 'tool_calls',
-        // the LLM explicitly requested these tools. After execution, the next call should return final response.
-        // If it returns tool_calls again, that's unexpected - break to prevent infinite loop.
-        const wasToolCallRequest = llmResponse.stopReason === 'tool_calls';
 
         // Add assistant message with tool calls to context
-        // For Groq/OpenAI, we need to include tool_calls in the assistant message
         const assistantMessage = {
           role: 'assistant',
-          content: llmResponse.content || ''
+          content: llmResponse.content || '',
         };
-        
-        // Include tool_calls for providers that support native function calling
-        if (llmService.supportsNativeFunctionCalling(effectiveProvider) && toolCalls && toolCalls.length > 0) {
-          assistantMessage.tool_calls = toolCalls.map(tc => ({
+
+        if (llmService.supportsNativeFunctionCalling(effectiveProvider) && toolCalls.length > 0) {
+          assistantMessage.tool_calls = toolCalls.map((tc) => ({
             id: tc.id,
             type: 'function',
             function: {
               name: tc.name,
-              arguments: typeof tc.arguments === 'string' 
-                ? tc.arguments 
-                : JSON.stringify(tc.arguments)
-            }
+              arguments: typeof tc.arguments === 'string' ? tc.arguments : JSON.stringify(tc.arguments),
+            },
           }));
         }
-        
+
         messages.push(assistantMessage);
 
+        // Execute each tool
         for (const toolCall of toolCalls) {
-          const { id, name, arguments: toolArgs } = toolCall;
-
-          console.log(`[Conversation] Executing tool: ${name}`);
-
-          // Find tool definition
-          const tool = await toolManager.getToolByName(client.id, name);
-
-          if (!tool) {
-            console.error(`[Conversation] Tool not found: ${name}`);
-            const errorMessage = `Error: Tool "${name}" is not available`;
-
-            // Add error as tool result
-            messages.push({
-              role: 'tool',
-              content: errorMessage,
-              tool_call_id: id
+          const result = await this._executeSingleTool(toolCall, client, conversation, messages);
+          if (result.success !== false) {
+            toolsUsed.push({
+              name: result.name,
+              success: result.success,
+              executionTime: result.executionTime,
             });
-
-            // Log failed execution
-            await ToolExecution.create(
-              conversation.id,
-              name,
-              toolArgs,
-              { error: 'Tool not found' },
-              false,
-              0
-            );
-
-            continue;
           }
-
-          // Validate tool arguments
-          const validation = toolManager.validateToolArguments(tool, toolArgs);
-          if (!validation.valid) {
-            console.error(`[Conversation] Invalid arguments for ${name}:`, validation.errors);
-            const errorMessage = `Error: Invalid arguments - ${validation.errors.join(', ')}`;
-
-            messages.push({
-              role: 'tool',
-              content: errorMessage,
-              tool_call_id: id
-            });
-
-            await ToolExecution.create(
-              conversation.id,
-              name,
-              toolArgs,
-              { error: validation.errors },
-              false,
-              0
-            );
-
-            continue;
-          }
-
-          // Normalize dates in tool arguments (convert "today", "tomorrow" to actual dates)
-          const normalizedArgs = this.normalizeToolArguments(toolArgs, tool);
-
-          // Use normalized arguments for execution
-          const finalArgs = normalizedArgs || toolArgs;
-
-          // Fetch integration credentials if tool requires any
-          let integrations = {};
-          console.log(`\n========== TOOL EXECUTION DEBUG ==========`);
-          console.log(`[Conversation] Processing tool: ${name}`);
-          console.log(`[Conversation] Tool required_integrations:`, tool.required_integrations || '[]');
-          console.log(`[Conversation] Integration mapping:`, tool.integration_mapping || '{}');
-          console.log(`[Conversation] Client ID:`, client.id);
-
-          // Check if tool has required integrations (new architecture)
-          const requiredIntegrations = tool.required_integrations || [];
-          const integrationMapping = tool.integration_mapping || {};
-
-          if (requiredIntegrations.length > 0) {
-            try {
-              console.log(`[Conversation] Fetching ${requiredIntegrations.length} integrations for tool`);
-              integrations = await integrationService.getIntegrationsForTool(
-                client.id,
-                integrationMapping,
-                requiredIntegrations
-              );
-
-              const integrationCount = Object.keys(integrations).length;
-              console.log(`[Conversation] ✅ Loaded ${integrationCount} integrations:`, Object.keys(integrations).join(', '));
-              Object.entries(integrations).forEach(([key, int]) => {
-                console.log(`[Conversation] - ${key}:`, {
-                  type: int.type,
-                  apiUrl: int.apiUrl,
-                  hasApiKey: !!int.apiKey
-                });
-              });
-            } catch (error) {
-              console.error(`[Conversation] ❌ Failed to load integrations:`, error.message);
-              // If required integrations are missing, skip this tool
-              messages.push({
-                role: 'tool',
-                content: `Error: ${error.message}. Please configure the required integrations in the admin panel.`,
-                tool_call_id: id
-              });
-              continue;
-            }
-          } else {
-            console.log(`[Conversation] ⚠️  Tool ${name} has no required integrations`);
-          }
-
-          // Execute via n8n (with integration credentials if available)
-          const startTime = Date.now();
-          const integrationCount = Object.keys(integrations).length;
-          console.log(`[Conversation] Calling n8n with ${integrationCount} integrations`);
-          console.log(`==========================================\n`);
-
-          const result = await n8nService.executeTool(
-            tool.n8n_webhook_url,
-            finalArgs,
-            { integrations }
-          );
-
-          const executionTime = Date.now() - startTime;
-
-            // Log execution
-            await ToolExecution.create(
-              conversation.id,
-              name,
-              finalArgs,
-            result.data,
-            result.success,
-            result.executionTimeMs
-          );
-
-          // Format result for LLM
-          let formattedResult = n8nService.formatResponseForLLM(result.data);
-
-          // REMOVED: Tool result simplification was causing Groq to retry the same tool
-          // The LLM needs to see structured data to understand the tool actually returned useful info
-          // The formatResponseForLLM already handles truncation appropriately
-
-          // Add tool result to messages
-          messages.push({
-            role: 'tool',
-            content: result.success ? formattedResult : result.error,
-            tool_call_id: id
-          });
-
-          // Track tool usage
-          toolsUsed.push({
-            name,
-            success: result.success,
-            executionTime: result.executionTimeMs
-          });
-
-          console.log(`[Conversation] Tool ${name} ${result.success ? 'succeeded' : 'failed'} (${result.executionTimeMs}ms)`);
         }
 
-        // Track what we just executed to detect if LLM tries to call them again in next iteration
-        lastExecutedToolKeys = toolCalls.map(tc => `${tc.name}:${JSON.stringify(tc.arguments)}`);
-        
-        // Continue loop to get final response with tool results
+        // Track what we just executed
+        lastExecutedToolKeys = toolCalls.map((tc) => `${tc.name}:${JSON.stringify(tc.arguments)}`);
       }
 
       // If we hit max iterations without a final response
       if (!finalResponse) {
-        // Before using generic error, try to extract a message from the last successful tool execution
-        const lastToolMessage = messages.filter(m => m.role === 'tool').pop();
-        if (lastToolMessage && lastToolMessage.content) {
-          // Try to extract a user-friendly message from the tool result
-          try {
-            const toolContent = lastToolMessage.content;
-            // If the tool result contains a "message" field (common in our API responses)
-            if (toolContent.includes('message') || toolContent.includes('Message')) {
-              // Try to parse JSON if possible, or extract message text
-              const jsonMatch = toolContent.match(/"message"\s*:\s*"([^"]+)"/);
-              if (jsonMatch) {
-                finalResponse = jsonMatch[1];
-                console.log(`[Conversation] Using tool result message as fallback: ${finalResponse.substring(0, 50)}...`);
-              } else {
-                // Use the tool content directly if it looks like a message
-                finalResponse = toolContent.length < 500 ? toolContent : toolContent.substring(0, 200) + '...';
-              }
-            } else {
-              // Use tool content as fallback
-              finalResponse = toolContent.length < 500 ? toolContent : `Based on the results: ${toolContent.substring(0, 200)}...`;
-            }
-          } catch (e) {
-            // If parsing fails, use generic error
-            finalResponse = 'I apologize, but I encountered an issue processing your request. Please try again or rephrase your question.';
-          }
-        } else {
-          // No tool results available, use generic error
-          finalResponse = 'I apologize, but I encountered an issue processing your request. Please try again or rephrase your question.';
-        }
+        finalResponse = this._extractFallbackResponse(messages);
       }
 
-      // Restore base system prompt before caching, to prevent tool-prompt duplication across turns
-      if (baseSystemPrompt && messages?.[0]?.role === 'system') {
-        messages[0].content = baseSystemPrompt;
-      }
-
-      // Save assistant response
-      // Store ACCUMULATED tokens from ALL LLM calls in this message processing (including tool call iterations)
-      await this.addMessage(conversation.id, 'assistant', finalResponse, totalTokens);
-
-      // Update context in cache
-      messages.push({ role: 'assistant', content: finalResponse });
-      await this.updateConversationContext(sessionId, conversation.id, messages);
-
-      // Record usage for billing/analytics
-      try {
-        const { ApiUsage } = await import('../models/ApiUsage.js');
-        const tokensInput = totalTokensInput || Math.floor(totalTokens * 0.7); // Fallback to estimate if not available
-        const tokensOutput = totalTokensOutput || Math.floor(totalTokens * 0.3); // Fallback to estimate if not available
-        const toolCallsCount = toolsUsed.length;
-        const actualTotalTokens = tokensInput + tokensOutput; // This is what gets billed
-        
-        console.log(`[Conversation] Recording usage: client=${client.id}, tokens=${actualTotalTokens} (input: ${tokensInput}, output: ${tokensOutput}), tools=${toolCallsCount}, newConversation=${isNewConversation}`);
-        await ApiUsage.recordUsage(client.id, tokensInput, tokensOutput, toolCallsCount, isNewConversation);
-        // Note: conversation.tokens_total is calculated from message tokens at display time
-        console.log(`[Conversation] Usage recorded successfully`);
-      } catch (usageError) {
-        console.error('[Conversation] Failed to record usage:', usageError);
-        // Don't throw - usage tracking failure shouldn't break the conversation
-      }
-
-      // Auto-detect escalation needs (do this after saving AI response)
-      try {
-        const language = client.language || 'en';
-        await escalationService.autoDetect(conversation.id, userMessage, language);
-      } catch (escalationError) {
-        console.error('[Conversation] Failed to auto-detect escalation:', escalationError);
-        // Don't throw - escalation detection failure shouldn't break the conversation
-      }
-
-      return {
-        response: finalResponse,
+      // Record usage and finalize
+      return await this._recordUsageAndFinalize(client, conversation, sessionId, messages, finalResponse, {
+        totalTokens,
+        totalTokensInput,
+        totalTokensOutput,
         toolsUsed,
-        tokensUsed: totalTokens,
-        conversationId: conversation.id,
-        iterations: iterationCount,
-        conversationEnded: false
-      };
-
+        iterationCount,
+        isNewConversation,
+        baseSystemPrompt,
+        userMessage,
+      });
     } catch (error) {
       console.error('[Conversation] Error processing message:', error);
       throw error;
