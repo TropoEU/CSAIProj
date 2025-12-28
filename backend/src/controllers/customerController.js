@@ -10,6 +10,7 @@ import { Message } from '../models/Message.js';
 import { ToolExecution } from '../models/ToolExecution.js';
 import { Invoice } from '../models/Invoice.js';
 import { ApiUsage } from '../models/ApiUsage.js';
+import { Escalation } from '../models/Escalation.js';
 import { db } from '../db.js';
 
 class CustomerController {
@@ -672,6 +673,307 @@ class CustomerController {
       res.status(500).json({
         error: 'Failed to update settings',
         message: 'An error occurred while updating your settings'
+      });
+    }
+  }
+
+  // ==================== Escalations ====================
+
+  /**
+   * Get escalations for this client
+   * GET /api/customer/escalations
+   */
+  async getEscalations(req, res) {
+    try {
+      const clientId = req.clientId;
+      const { status, limit = 50, offset = 0 } = req.query;
+
+      const escalations = await Escalation.getByClient(clientId, { status, limit, offset });
+
+      // Get pending count for notification badge
+      const pendingCount = escalations.filter(e => e.status === 'pending').length;
+
+      res.json({
+        escalations: escalations.map(e => ({
+          id: e.id,
+          conversationId: e.conversation_id,
+          sessionId: e.session_id,
+          reason: e.reason,
+          status: e.status,
+          escalatedAt: e.escalated_at,
+          acknowledgedAt: e.acknowledged_at,
+          resolvedAt: e.resolved_at,
+          assignedTo: e.assigned_to,
+          notes: e.notes
+        })),
+        pendingCount
+      });
+    } catch (error) {
+      console.error('[CustomerController] Get escalations error:', error);
+      res.status(500).json({
+        error: 'Failed to load escalations',
+        message: 'An error occurred while loading escalations'
+      });
+    }
+  }
+
+  /**
+   * Get escalation detail with customer contact info
+   * GET /api/customer/escalations/:id
+   */
+  async getEscalationDetail(req, res) {
+    try {
+      const clientId = req.clientId;
+      const escalationId = req.params.id;
+
+      // Get escalation and verify ownership
+      const escalation = await Escalation.findById(escalationId);
+
+      if (!escalation) {
+        return res.status(404).json({
+          error: 'Escalation not found',
+          message: 'The requested escalation could not be found'
+        });
+      }
+
+      if (escalation.client_id !== clientId) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'You do not have permission to view this escalation'
+        });
+      }
+
+      // Get conversation details
+      const conversation = await Conversation.findById(escalation.conversation_id);
+
+      // Get messages to find customer info
+      const messages = await Message.getAll(escalation.conversation_id);
+
+      // Extract customer contact info from various sources
+      const customerInfo = this.extractCustomerInfo(conversation, messages);
+
+      // Get the trigger message if available
+      let triggerMessage = null;
+      if (escalation.trigger_message_id) {
+        const triggerMsg = messages.find(m => m.id === escalation.trigger_message_id);
+        if (triggerMsg) {
+          triggerMessage = {
+            content: triggerMsg.content,
+            timestamp: triggerMsg.timestamp,
+            role: triggerMsg.role
+          };
+        }
+      }
+
+      // Get recent messages for context (last 10)
+      const recentMessages = messages.slice(-10).map(m => ({
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp
+      }));
+
+      res.json({
+        escalation: {
+          id: escalation.id,
+          conversationId: escalation.conversation_id,
+          reason: escalation.reason,
+          status: escalation.status,
+          escalatedAt: escalation.escalated_at,
+          acknowledgedAt: escalation.acknowledged_at,
+          resolvedAt: escalation.resolved_at,
+          assignedTo: escalation.assigned_to,
+          notes: escalation.notes
+        },
+        conversation: {
+          id: conversation.id,
+          sessionId: conversation.session_id,
+          channel: conversation.channel,
+          startedAt: conversation.started_at,
+          endedAt: conversation.ended_at,
+          messageCount: conversation.message_count
+        },
+        customerInfo,
+        triggerMessage,
+        recentMessages
+      });
+    } catch (error) {
+      console.error('[CustomerController] Get escalation detail error:', error);
+      res.status(500).json({
+        error: 'Failed to load escalation',
+        message: 'An error occurred while loading the escalation details'
+      });
+    }
+  }
+
+  /**
+   * Extract customer contact info from conversation and messages
+   * @private
+   */
+  extractCustomerInfo(conversation, messages) {
+    const info = {
+      email: null,
+      phone: null,
+      name: null,
+      channel: conversation?.channel || 'widget',
+      identifier: conversation?.user_identifier || null
+    };
+
+    // Extract from channel metadata (email channel has sender info)
+    if (conversation?.channel_metadata) {
+      const metadata = typeof conversation.channel_metadata === 'string'
+        ? JSON.parse(conversation.channel_metadata)
+        : conversation.channel_metadata;
+
+      if (metadata.senderEmail) info.email = metadata.senderEmail;
+      if (metadata.senderName) info.name = metadata.senderName;
+      if (metadata.senderPhone) info.phone = metadata.senderPhone;
+      if (metadata.from) info.email = metadata.from;
+    }
+
+    // Look through messages for contact info (from tool calls like book_appointment)
+    for (const msg of messages) {
+      if (msg.metadata) {
+        const metadata = typeof msg.metadata === 'string'
+          ? JSON.parse(msg.metadata)
+          : msg.metadata;
+
+        // Check tool calls for customer info
+        if (metadata.tool_calls) {
+          for (const toolCall of metadata.tool_calls) {
+            const args = toolCall.arguments || toolCall.input || {};
+            if (args.email && !info.email) info.email = args.email;
+            if (args.phone && !info.phone) info.phone = args.phone;
+            if (args.name && !info.name) info.name = args.name;
+            if (args.customerName && !info.name) info.name = args.customerName;
+            if (args.customer_name && !info.name) info.name = args.customer_name;
+          }
+        }
+      }
+
+      // Check channel_metadata on messages too
+      if (msg.channel_metadata) {
+        const metadata = typeof msg.channel_metadata === 'string'
+          ? JSON.parse(msg.channel_metadata)
+          : msg.channel_metadata;
+
+        if (metadata.from && !info.email) info.email = metadata.from;
+        if (metadata.senderEmail && !info.email) info.email = metadata.senderEmail;
+      }
+    }
+
+    return info;
+  }
+
+  /**
+   * Acknowledge an escalation
+   * POST /api/customer/escalations/:id/acknowledge
+   */
+  async acknowledgeEscalation(req, res) {
+    try {
+      const clientId = req.clientId;
+      const escalationId = req.params.id;
+
+      // Verify ownership
+      const escalation = await Escalation.findById(escalationId);
+      if (!escalation) {
+        return res.status(404).json({ error: 'Escalation not found' });
+      }
+      if (escalation.client_id !== clientId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      if (escalation.status !== 'pending') {
+        return res.status(400).json({ error: 'Escalation is not pending' });
+      }
+
+      const updated = await Escalation.updateStatus(escalationId, 'acknowledged');
+
+      res.json({
+        success: true,
+        escalation: {
+          id: updated.id,
+          status: updated.status,
+          acknowledgedAt: updated.acknowledged_at
+        }
+      });
+    } catch (error) {
+      console.error('[CustomerController] Acknowledge escalation error:', error);
+      res.status(500).json({
+        error: 'Failed to acknowledge escalation',
+        message: 'An error occurred while acknowledging the escalation'
+      });
+    }
+  }
+
+  /**
+   * Resolve an escalation
+   * POST /api/customer/escalations/:id/resolve
+   */
+  async resolveEscalation(req, res) {
+    try {
+      const clientId = req.clientId;
+      const escalationId = req.params.id;
+      const { notes } = req.body;
+
+      // Verify ownership
+      const escalation = await Escalation.findById(escalationId);
+      if (!escalation) {
+        return res.status(404).json({ error: 'Escalation not found' });
+      }
+      if (escalation.client_id !== clientId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      if (escalation.status === 'resolved' || escalation.status === 'cancelled') {
+        return res.status(400).json({ error: 'Escalation is already resolved or cancelled' });
+      }
+
+      const updated = await Escalation.updateStatus(escalationId, 'resolved', { notes });
+
+      res.json({
+        success: true,
+        escalation: {
+          id: updated.id,
+          status: updated.status,
+          resolvedAt: updated.resolved_at,
+          notes: updated.notes
+        }
+      });
+    } catch (error) {
+      console.error('[CustomerController] Resolve escalation error:', error);
+      res.status(500).json({
+        error: 'Failed to resolve escalation',
+        message: 'An error occurred while resolving the escalation'
+      });
+    }
+  }
+
+  /**
+   * Get escalation stats summary
+   * GET /api/customer/escalations/stats
+   */
+  async getEscalationStats(req, res) {
+    try {
+      const clientId = req.clientId;
+      const stats = await Escalation.getStats(clientId);
+
+      res.json({
+        total: parseInt(stats.total_escalations) || 0,
+        pending: parseInt(stats.pending_count) || 0,
+        acknowledged: parseInt(stats.acknowledged_count) || 0,
+        resolved: parseInt(stats.resolved_count) || 0,
+        byReason: {
+          userRequested: parseInt(stats.user_requested_count) || 0,
+          aiStuck: parseInt(stats.ai_stuck_count) || 0,
+          lowConfidence: parseInt(stats.low_confidence_count) || 0
+        },
+        avgResolutionTimeMinutes: stats.avg_resolution_time_seconds
+          ? Math.round(parseFloat(stats.avg_resolution_time_seconds) / 60)
+          : null
+      });
+    } catch (error) {
+      console.error('[CustomerController] Escalation stats error:', error);
+      res.status(500).json({
+        error: 'Failed to load escalation stats',
+        message: 'An error occurred while loading escalation statistics'
       });
     }
   }

@@ -69,4 +69,13 @@ export const settings = {
   update: (data) => api.put('/settings', data),
 };
 
+// Escalations endpoints
+export const escalations = {
+  getAll: (params) => api.get('/escalations', { params }),
+  getById: (id) => api.get(`/escalations/${id}`),
+  getStats: () => api.get('/escalations/stats'),
+  acknowledge: (id) => api.post(`/escalations/${id}/acknowledge`),
+  resolve: (id, notes) => api.post(`/escalations/${id}/resolve`, { notes }),
+};
+
 export default api;

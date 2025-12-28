@@ -5,6 +5,8 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Conversations from './pages/Conversations';
 import ConversationDetail from './pages/ConversationDetail';
+import Escalations from './pages/Escalations';
+import EscalationDetail from './pages/EscalationDetail';
 import Billing from './pages/Billing';
 import Usage from './pages/Usage';
 import Settings from './pages/Settings';
@@ -40,6 +42,8 @@ function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/conversations" element={<Conversations />} />
                 <Route path="/conversations/:id" element={<ConversationDetail />} />
+                <Route path="/escalations" element={<Escalations />} />
+                <Route path="/escalations/:id" element={<EscalationDetail />} />
                 <Route path="/billing" element={<Billing />} />
                 <Route path="/usage" element={<Usage />} />
                 <Route path="/settings" element={<Settings />} />

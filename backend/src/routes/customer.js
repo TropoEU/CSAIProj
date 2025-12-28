@@ -104,4 +104,43 @@ router.get('/settings', customerController.getSettings);
  */
 router.put('/settings', customerController.updateSettings);
 
+// ==================== Escalations ====================
+
+/**
+ * Get escalation stats summary
+ * GET /api/customer/escalations/stats
+ * Returns: pending, acknowledged, resolved counts
+ */
+router.get('/escalations/stats', customerController.getEscalationStats);
+
+/**
+ * Get escalations list
+ * GET /api/customer/escalations
+ * Query params: status, limit, offset
+ * Returns: list of escalations for this client
+ */
+router.get('/escalations', customerController.getEscalations);
+
+/**
+ * Get escalation detail
+ * GET /api/customer/escalations/:id
+ * Returns: escalation details with customer contact info
+ */
+router.get('/escalations/:id', customerController.getEscalationDetail);
+
+/**
+ * Acknowledge an escalation
+ * POST /api/customer/escalations/:id/acknowledge
+ * Marks escalation as acknowledged
+ */
+router.post('/escalations/:id/acknowledge', customerController.acknowledgeEscalation);
+
+/**
+ * Resolve an escalation
+ * POST /api/customer/escalations/:id/resolve
+ * Body: { notes }
+ * Marks escalation as resolved with optional notes
+ */
+router.post('/escalations/:id/resolve', customerController.resolveEscalation);
+
 export default router;
