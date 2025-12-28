@@ -24,7 +24,7 @@ This directory contains n8n workflows that support the **Integration System** - 
 │  Calls n8n webhook with:                                                     │
 │  {                                                                           │
 │    orderNumber: "ORD-001",              // Tool parameters                   │
-│    _integrations: {                     // Client's API credentials          │
+│    _integrations: {                     // Client's API credentials (plural) │
 │      "order_api": {                     // Keyed by integration type         │
 │        apiUrl: "https://api.client.com/orders/{orderNumber}/status",        │
 │        apiKey: "client_api_key",                                            │

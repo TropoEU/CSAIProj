@@ -34,7 +34,7 @@ CSAI is a **multi-tenant AI customer service platform** that provides businesses
 - 💰 **Billing & Analytics** - Invoice generation, usage tracking, plan management
 - 🔐 **Multi-tenant Architecture** - Isolated data per client
 - 🔄 **Real-time Integrations** - Connect to Shopify, Gmail, CRMs, databases via n8n
-- 🌐 **Multi-language Support** - English and Hebrew (Hebrew in progress)
+- 🌐 **Multi-language Support** - English and Hebrew with full RTL support
 - 🔒 **Private Model Support** - Use Ollama for local/private deployments
 
 ---
@@ -81,7 +81,12 @@ CSAI is a **multi-tenant AI customer service platform** that provides businesses
    ```bash
    npm run widget      # Widget dev server (port 3001)
    npm run admin       # Admin dashboard (port 3002)
-   cd frontend/customer && npm run dev  # Customer dashboard (port 3003)
+   npm run customer    # Customer dashboard (port 3003)
+   ```
+
+   Or start all services at once:
+   ```bash
+   npm run startall    # Start backend + all frontends in parallel
    ```
 
 5. **Access dashboards**
@@ -147,7 +152,8 @@ npm run migrate        # Run database migrations
 # Frontend
 npm run widget         # Widget dev server (port 3001)
 npm run admin          # Admin dashboard (port 3002)
-cd frontend/customer && npm run dev  # Customer dashboard (port 3003)
+npm run customer       # Customer dashboard (port 3003)
+npm run startall       # Start all services in parallel
 
 # Docker
 npm run dockerup       # Start containers
@@ -163,14 +169,15 @@ npm run mockdata       # Generate test data
 Key variables in `backend/.env`:
 
 ```env
-# Database
-POSTGRES_HOST=postgres
+# Database (use localhost for local dev, container names for Docker deployment)
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
 POSTGRES_USER=aiuser
 POSTGRES_PASSWORD=your_password
 POSTGRES_DB=aiclient
 
-# Redis
-REDIS_HOST=redis
+# Redis (use localhost for local dev)
+REDIS_HOST=localhost
 REDIS_PORT=6379
 
 # LLM (choose one)
@@ -276,10 +283,11 @@ See [docs/TOOLS_INTEGRATIONS_ARCHITECTURE.md](docs/TOOLS_INTEGRATIONS_ARCHITECTU
 
 ## 🧪 Testing
 
+Tests run automatically via GitHub Actions CI. To run locally:
+
 ```bash
-npm test               # Run all tests
-npm run test:models    # Database model tests
-npm run test:llm       # LLM service tests
+npm run test:unit      # Unit tests (Vitest)
+npm run test:all       # Integration tests
 npm run mockdata       # Generate test data
 ```
 
