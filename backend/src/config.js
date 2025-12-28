@@ -76,3 +76,40 @@ export const N8N_CONFIG = {
   port: parseInt(process.env.N8N_PORT) || 5678,
   webhookUrl: process.env.WEBHOOK_URL || 'http://localhost:5678/'
 };
+
+/**
+ * Validate required environment variables on startup
+ * Logs warnings for missing critical variables
+ */
+export function validateEnvironment() {
+  const required = [
+    { name: 'POSTGRES_USER', value: process.env.POSTGRES_USER },
+    { name: 'POSTGRES_PASSWORD', value: process.env.POSTGRES_PASSWORD },
+    { name: 'POSTGRES_DB', value: process.env.POSTGRES_DB },
+    { name: 'JWT_SECRET', value: process.env.JWT_SECRET },
+  ];
+
+  const recommended = [
+    { name: 'OLLAMA_URL', value: process.env.OLLAMA_URL },
+    { name: 'WEBHOOK_URL', value: process.env.WEBHOOK_URL },
+  ];
+
+  const missingRequired = required.filter(v => !v.value);
+  const missingRecommended = recommended.filter(v => !v.value);
+
+  if (missingRequired.length > 0) {
+    console.error('[Config] CRITICAL: Missing required environment variables:');
+    missingRequired.forEach(v => console.error(`  - ${v.name}`));
+    console.error('[Config] The application may not function correctly.');
+  }
+
+  if (missingRecommended.length > 0) {
+    console.warn('[Config] Warning: Missing recommended environment variables:');
+    missingRecommended.forEach(v => console.warn(`  - ${v.name} (using default)`));
+  }
+
+  return missingRequired.length === 0;
+}
+
+// Run validation on import
+validateEnvironment();

@@ -32,6 +32,11 @@ export async function sendMessage(req, res) {
       modelName: client?.model_name || null
     });
 
+    // Input length limits (prevent DoS)
+    const MAX_MESSAGE_LENGTH = 10000; // 10KB max message
+    const MAX_SESSION_ID_LENGTH = 100;
+    const MAX_USER_IDENTIFIER_LENGTH = 255;
+
     // Validation
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return res.status(400).json({
@@ -39,10 +44,31 @@ export async function sendMessage(req, res) {
       });
     }
 
+    if (message.length > MAX_MESSAGE_LENGTH) {
+      return res.status(400).json({
+        error: `Message too long. Maximum ${MAX_MESSAGE_LENGTH} characters allowed.`
+      });
+    }
+
     if (!sessionId || typeof sessionId !== 'string') {
       return res.status(400).json({
         error: 'Session ID is required'
       });
+    }
+
+    if (sessionId.length > MAX_SESSION_ID_LENGTH) {
+      return res.status(400).json({
+        error: `Session ID too long. Maximum ${MAX_SESSION_ID_LENGTH} characters allowed.`
+      });
+    }
+
+    // Validate userIdentifier if provided
+    if (userIdentifier !== undefined && userIdentifier !== null) {
+      if (typeof userIdentifier !== 'string' || userIdentifier.length > MAX_USER_IDENTIFIER_LENGTH) {
+        return res.status(400).json({
+          error: `User identifier must be a string with maximum ${MAX_USER_IDENTIFIER_LENGTH} characters.`
+        });
+      }
     }
 
     logger.log('[ChatController] Processing message for client', { 

@@ -75,10 +75,13 @@ export class Message {
      * Delete messages older than N days (for retention policy)
      */
     static async deleteOlderThan(days) {
+        // Validate days is a positive integer to prevent injection
+        const safeDays = Math.max(1, Math.floor(Number(days) || 30));
         const result = await db.query(
             `DELETE FROM messages
-             WHERE timestamp < NOW() - INTERVAL '${days} days'
+             WHERE timestamp < NOW() - INTERVAL '1 day' * $1
              RETURNING id`,
+            [safeDays]
         );
         return result.rowCount;
     }
@@ -87,11 +90,14 @@ export class Message {
      * Get messages older than N days (for aggregation before deletion)
      */
     static async getOlderThan(days) {
+        // Validate days is a positive integer to prevent injection
+        const safeDays = Math.max(1, Math.floor(Number(days) || 30));
         const result = await db.query(
             `SELECT conversation_id, SUM(tokens_used) as total_tokens, COUNT(*) as message_count
              FROM messages
-             WHERE timestamp < NOW() - INTERVAL '${days} days'
+             WHERE timestamp < NOW() - INTERVAL '1 day' * $1
              GROUP BY conversation_id`,
+            [safeDays]
         );
         return result.rows;
     }

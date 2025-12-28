@@ -16,11 +16,45 @@ import { emailMonitor } from './services/emailMonitor.js';
 
 const app = express();
 
-// Enable CORS for all origins (can be restricted to specific origins in production)
-app.use(cors({
-  origin: true, // Allow all origins for development
+// CORS configuration - restrictive in production, permissive in development
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // In production, use whitelist from environment
+    const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
+      ? process.env.CORS_ALLOWED_ORIGINS.split(',').map(o => o.trim())
+      : null;
+
+    if (allowedOrigins) {
+      // Production mode: strict whitelist
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    } else {
+      // Development mode: allow localhost and common dev ports
+      const devPatterns = [
+        /^http:\/\/localhost(:\d+)?$/,
+        /^http:\/\/127\.0\.0\.1(:\d+)?$/,
+      ];
+
+      if (devPatterns.some(pattern => pattern.test(origin))) {
+        callback(null, true);
+      } else {
+        // Still allow in dev for flexibility, but log warning
+        console.warn(`[CORS] Allowing unrecognized origin in dev mode: ${origin}`);
+        callback(null, true);
+      }
+    }
+  },
   credentials: true,
-}));
+};
+app.use(cors(corsOptions));
 
 app.use(express.json());
 app.use('/tools', toolRoutes);
@@ -93,7 +127,9 @@ function startScheduledTasks() {
   runAutoEndTask(INACTIVITY_TIMEOUT_MINUTES);
 
   setInterval(() => {
-    runAutoEndTask(INACTIVITY_TIMEOUT_MINUTES);
+    runAutoEndTask(INACTIVITY_TIMEOUT_MINUTES).catch(err => {
+      console.error('[Scheduler] Unhandled error in auto-end task:', err);
+    });
   }, CHECK_INTERVAL_MS);
 
   // Start email monitor for multi-channel AI support

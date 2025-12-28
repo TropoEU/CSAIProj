@@ -76,6 +76,7 @@ export const escalations = {
   getStats: () => api.get('/escalations/stats'),
   acknowledge: (id) => api.post(`/escalations/${id}/acknowledge`),
   resolve: (id, notes) => api.post(`/escalations/${id}/resolve`, { notes }),
+  cancel: (id, notes) => api.post(`/escalations/${id}/cancel`, { notes }),
 };
 
 export default api;

@@ -85,10 +85,13 @@ export class ToolExecution {
      * Delete executions older than N days (for retention policy)
      */
     static async deleteOlderThan(days) {
+        // Validate days is a positive integer to prevent injection
+        const safeDays = Math.max(1, Math.floor(Number(days) || 30));
         const result = await db.query(
             `DELETE FROM tool_executions
-             WHERE timestamp < NOW() - INTERVAL '${days} days'
+             WHERE timestamp < NOW() - INTERVAL '1 day' * $1
              RETURNING id`,
+            [safeDays]
         );
         return result.rowCount;
     }

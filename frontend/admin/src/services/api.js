@@ -89,7 +89,7 @@ export const integrations = {
   toggle: (id) => api.post(`/admin/integrations/${id}/toggle`),
   test: (id) => api.post(`/admin/integrations/${id}/test`),
   // Get available integration types for tools
-  getTypes: () => api.get('/admin/integration-types'),
+  getTypes: () => api.get('/admin/integrations/types'),
 };
 
 // Analytics endpoints

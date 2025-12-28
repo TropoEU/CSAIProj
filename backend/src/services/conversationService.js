@@ -8,6 +8,7 @@ import toolManager from './toolManager.js';
 import n8nService from './n8nService.js';
 import integrationService from './integrationService.js';
 import escalationService from './escalationService.js';
+import { safeJsonParse } from '../utils/jsonUtils.js';
 import {
   STRONG_ENDING_PHRASES,
   WEAK_ENDING_PHRASES,
@@ -193,11 +194,14 @@ class ConversationService {
     const messages = await this.getConversationHistory(conversation.id);
 
     // Map messages once to avoid duplication
-    const mappedMessages = messages.map((msg) => ({
-      role: msg.role,
-      content: msg.content,
-      ...(msg.metadata && { metadata: JSON.parse(msg.metadata) }),
-    }));
+    const mappedMessages = messages.map((msg) => {
+      const parsedMeta = msg.metadata ? safeJsonParse(msg.metadata, null) : null;
+      return {
+        role: msg.role,
+        content: msg.content,
+        ...(parsedMeta && { metadata: parsedMeta }),
+      };
+    });
 
     const systemPrompt = { role: 'system', content: getContextualSystemPrompt(client, tools) };
 

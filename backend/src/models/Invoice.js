@@ -252,6 +252,8 @@ export class Invoice {
      * @param {number} months - Number of months to look back
      */
     static async getRevenueByMonth(months = 12) {
+        // Validate months is a positive integer to prevent injection
+        const safeMonths = Math.max(1, Math.min(120, Math.floor(Number(months) || 12)));
         const result = await db.query(
             `SELECT
                 billing_period,
@@ -260,10 +262,10 @@ export class Invoice {
                 SUM(CASE WHEN status = 'paid' THEN total_cost ELSE 0 END) as paid_revenue,
                 SUM(CASE WHEN status = 'pending' THEN total_cost ELSE 0 END) as pending_revenue
             FROM invoices
-            WHERE billing_period >= TO_CHAR(NOW() - INTERVAL '${months} months', 'YYYY-MM')
+            WHERE billing_period >= TO_CHAR(NOW() - INTERVAL '1 month' * $1, 'YYYY-MM')
             GROUP BY billing_period
             ORDER BY billing_period DESC`,
-            []
+            [safeMonths]
         );
         return result.rows;
     }

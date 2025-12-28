@@ -14,6 +14,14 @@ import { db } from '../db.js';
  */
 export class BillingService {
     /**
+     * Round to cents (2 decimal places) to avoid floating point errors
+     * @param {number} value - Value to round
+     * @returns {number} Rounded value
+     */
+    static roundToCents(value) {
+        return Math.round(value * 100) / 100;
+    }
+    /**
      * Fallback pricing structure (used if database is unavailable)
      */
     static FALLBACK_PRICING = {
@@ -117,6 +125,7 @@ export class BillingService {
 
     /**
      * Internal method to calculate cost from usage and pricing
+     * Uses cents-based arithmetic to avoid floating point errors
      */
     static _calculateCost(usage, pricing) {
         // If any pricing component is null, return 0 (not configured yet)
@@ -130,11 +139,12 @@ export class BillingService {
                           (parseInt(usage.total_tokens_output) || 0);
         const tokensInThousands = totalTokens / 1000;
 
-        const tokenCost = tokensInThousands * (pricing.costPerThousandTokens || 0);
-        const messageCost = (parseInt(usage.total_messages) || 0) * (pricing.costPerMessage || 0);
-        const toolCallCost = (parseInt(usage.total_tool_calls) || 0) * (pricing.costPerToolCall || 0);
+        // Calculate each component and round to avoid accumulating errors
+        const tokenCost = this.roundToCents(tokensInThousands * (pricing.costPerThousandTokens || 0));
+        const messageCost = this.roundToCents((parseInt(usage.total_messages) || 0) * (pricing.costPerMessage || 0));
+        const toolCallCost = this.roundToCents((parseInt(usage.total_tool_calls) || 0) * (pricing.costPerToolCall || 0));
 
-        return parseFloat((tokenCost + messageCost + toolCallCost).toFixed(2));
+        return this.roundToCents(tokenCost + messageCost + toolCallCost);
     }
 
     /**
@@ -171,9 +181,9 @@ export class BillingService {
 
         // Calculate costs (using async pricing from database)
         const pricing = await this.getPricingConfigAsync(client.plan_type);
-        const baseCost = pricing.baseCost || 0;
+        const baseCost = this.roundToCents(pricing.baseCost || 0);
         const usageCost = await this.calculateUsageCostAsync(usageData, client.plan_type);
-        const totalCost = parseFloat((baseCost + usageCost).toFixed(2));
+        const totalCost = this.roundToCents(baseCost + usageCost);
 
         // Set due date (30 days from invoice creation)
         const dueDate = new Date();
@@ -493,21 +503,17 @@ export class BillingService {
         };
 
         outstanding.forEach(inv => {
-            const amount = parseFloat(inv.total_cost);
-            summary.total_amount += amount;
+            const amount = this.roundToCents(parseFloat(inv.total_cost) || 0);
+            summary.total_amount = this.roundToCents(summary.total_amount + amount);
 
             if (inv.status === 'pending') {
                 summary.pending_count++;
-                summary.pending_amount += amount;
+                summary.pending_amount = this.roundToCents(summary.pending_amount + amount);
             } else if (inv.status === 'overdue') {
                 summary.overdue_count++;
-                summary.overdue_amount += amount;
+                summary.overdue_amount = this.roundToCents(summary.overdue_amount + amount);
             }
         });
-
-        summary.total_amount = parseFloat(summary.total_amount.toFixed(2));
-        summary.pending_amount = parseFloat(summary.pending_amount.toFixed(2));
-        summary.overdue_amount = parseFloat(summary.overdue_amount.toFixed(2));
 
         return summary;
     }

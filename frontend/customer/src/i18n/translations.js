@@ -252,6 +252,9 @@ export const translations = {
       markResolved: 'Mark as Resolved',
       acknowledgeFailed: 'Failed to acknowledge escalation',
       resolveFailed: 'Failed to resolve escalation',
+      cancel: 'Cancel',
+      cancelConfirm: 'Are you sure you want to cancel this escalation?',
+      cancelFailed: 'Failed to cancel escalation',
     },
 
     // Common
@@ -529,6 +532,9 @@ export const translations = {
       markResolved: 'סמן כנפתר',
       acknowledgeFailed: 'אישור ההסלמה נכשל',
       resolveFailed: 'פתרון ההסלמה נכשל',
+      cancel: 'בטל',
+      cancelConfirm: 'האם אתה בטוח שברצונך לבטל את ההסלמה הזו?',
+      cancelFailed: 'ביטול ההסלמה נכשל',
     },
 
     // Common

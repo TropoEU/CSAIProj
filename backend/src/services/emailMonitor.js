@@ -40,9 +40,11 @@ class EmailMonitor {
         // Run immediately on start
         this.checkAllChannels();
 
-        // Then run on interval
+        // Then run on interval (with proper async error handling)
         this.checkInterval = setInterval(() => {
-            this.checkAllChannels();
+            this.checkAllChannels().catch(err => {
+                console.error('[EmailMonitor] Unhandled error in checkAllChannels:', err);
+            });
         }, this.intervalMs);
     }
 

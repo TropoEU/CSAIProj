@@ -14,6 +14,7 @@ export default function EscalationDetail() {
   const [isResolving, setIsResolving] = useState(false);
   const [isAcknowledging, setIsAcknowledging] = useState(false);
   const [showResolveModal, setShowResolveModal] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const fetchEscalation = async () => {
     try {
@@ -56,6 +57,22 @@ export default function EscalationDetail() {
       alert(t('escalations.resolveFailed'));
     } finally {
       setIsResolving(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!confirm(t('escalations.cancelConfirm'))) {
+      return;
+    }
+    try {
+      setIsCancelling(true);
+      await escalations.cancel(id);
+      await fetchEscalation();
+    } catch (err) {
+      console.error('Failed to cancel:', err);
+      alert(t('escalations.cancelFailed'));
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -172,12 +189,21 @@ export default function EscalationDetail() {
             </button>
           )}
           {(escalation.status === 'pending' || escalation.status === 'acknowledged') && (
-            <button
-              onClick={() => setShowResolveModal(true)}
-              className="btn btn-primary"
-            >
-              {t('escalations.resolve')}
-            </button>
+            <>
+              <button
+                onClick={() => setShowResolveModal(true)}
+                className="btn btn-primary"
+              >
+                {t('escalations.resolve')}
+              </button>
+              <button
+                onClick={handleCancel}
+                disabled={isCancelling}
+                className="btn bg-red-600 hover:bg-red-700 text-white"
+              >
+                {isCancelling ? t('common.loading') : t('escalations.cancel')}
+              </button>
+            </>
           )}
         </div>
       </div>

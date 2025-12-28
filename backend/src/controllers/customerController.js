@@ -12,6 +12,7 @@ import { Invoice } from '../models/Invoice.js';
 import { ApiUsage } from '../models/ApiUsage.js';
 import { Escalation } from '../models/Escalation.js';
 import { db } from '../db.js';
+import { safeJsonParse, safeJsonGet } from '../utils/jsonUtils.js';
 
 class CustomerController {
   /**
@@ -424,7 +425,7 @@ class CustomerController {
           timestamp: msg.timestamp,
           tokens: msg.tokens,
           tokensCumulative: msg.tokens_cumulative,
-          toolsCalled: msg.metadata ? (typeof msg.metadata === 'string' ? JSON.parse(msg.metadata).tools_called : msg.metadata.tools_called) : null
+          toolsCalled: safeJsonGet(msg.metadata, 'tools_called', null)
         })),
         toolExecutions: toolExecutions.map(te => ({
           id: te.id,
@@ -825,22 +826,20 @@ class CustomerController {
 
     // Extract from channel metadata (email channel has sender info)
     if (conversation?.channel_metadata) {
-      const metadata = typeof conversation.channel_metadata === 'string'
-        ? JSON.parse(conversation.channel_metadata)
-        : conversation.channel_metadata;
-
-      if (metadata.senderEmail) info.email = metadata.senderEmail;
-      if (metadata.senderName) info.name = metadata.senderName;
-      if (metadata.senderPhone) info.phone = metadata.senderPhone;
-      if (metadata.from) info.email = metadata.from;
+      const metadata = safeJsonParse(conversation.channel_metadata, null);
+      if (metadata) {
+        if (metadata.senderEmail) info.email = metadata.senderEmail;
+        if (metadata.senderName) info.name = metadata.senderName;
+        if (metadata.senderPhone) info.phone = metadata.senderPhone;
+        if (metadata.from) info.email = metadata.from;
+      }
     }
 
     // Look through messages for contact info (from tool calls like book_appointment)
     for (const msg of messages) {
       if (msg.metadata) {
-        const metadata = typeof msg.metadata === 'string'
-          ? JSON.parse(msg.metadata)
-          : msg.metadata;
+        const metadata = safeJsonParse(msg.metadata, null);
+        if (!metadata) continue;
 
         // Check tool calls for customer info
         if (metadata.tool_calls) {
@@ -857,9 +856,8 @@ class CustomerController {
 
       // Check channel_metadata on messages too
       if (msg.channel_metadata) {
-        const metadata = typeof msg.channel_metadata === 'string'
-          ? JSON.parse(msg.channel_metadata)
-          : msg.channel_metadata;
+        const metadata = safeJsonParse(msg.channel_metadata, null);
+        if (!metadata) continue;
 
         if (metadata.from && !info.email) info.email = metadata.from;
         if (metadata.senderEmail && !info.email) info.email = metadata.senderEmail;
@@ -979,6 +977,59 @@ class CustomerController {
       res.status(500).json({
         error: 'Failed to load escalation stats',
         message: 'An error occurred while loading escalation statistics'
+      });
+    }
+  }
+
+  /**
+   * Cancel an escalation
+   * POST /api/customer/escalations/:id/cancel
+   */
+  async cancelEscalation(req, res) {
+    try {
+      const clientId = req.clientId;
+      const escalationId = parseInt(req.params.id);
+
+      // Verify escalation belongs to this client
+      const escalation = await Escalation.findById(escalationId);
+
+      if (!escalation) {
+        return res.status(404).json({
+          error: 'Escalation not found',
+          message: 'The requested escalation does not exist'
+        });
+      }
+
+      if (escalation.client_id !== clientId) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'You do not have permission to cancel this escalation'
+        });
+      }
+
+      if (escalation.status === 'resolved' || escalation.status === 'cancelled') {
+        return res.status(400).json({
+          error: 'Invalid action',
+          message: `Cannot cancel an escalation that is already ${escalation.status}`
+        });
+      }
+
+      // Update status to cancelled
+      const updated = await Escalation.updateStatus(escalationId, 'cancelled', {
+        notes: req.body.notes || 'Cancelled by customer'
+      });
+
+      console.log(`[CustomerController] Escalation ${escalationId} cancelled by client ${clientId}`);
+
+      res.json({
+        success: true,
+        escalation: updated
+      });
+    } catch (error) {
+      console.error('[CustomerController] Cancel escalation error:', error);
+      res.status(500).json({
+        error: 'Failed to cancel escalation',
+        message: 'An error occurred while cancelling the escalation'
       });
     }
   }

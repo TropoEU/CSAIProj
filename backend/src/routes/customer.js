@@ -143,4 +143,12 @@ router.post('/escalations/:id/acknowledge', customerController.acknowledgeEscala
  */
 router.post('/escalations/:id/resolve', customerController.resolveEscalation);
 
+/**
+ * Cancel an escalation
+ * POST /api/customer/escalations/:id/cancel
+ * Body: { notes } (optional)
+ * Marks escalation as cancelled
+ */
+router.post('/escalations/:id/cancel', customerController.cancelEscalation);
+
 export default router;
