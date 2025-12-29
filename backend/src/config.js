@@ -40,18 +40,20 @@ const isRunningInDocker = () => {
 // - In Docker: use Docker service names
 // - Local development: use localhost
 const getHost = (envHost, dockerServiceName) => {
-  // If explicit host is provided in env, always use it (cloud deployments like Railway)
+  // If explicit host is provided and it's NOT a Docker service name, use it directly
+  // (This handles Railway/cloud deployments with real hostnames)
   if (envHost && envHost !== dockerServiceName) {
     return envHost;
   }
 
   // If running in Docker/container environment, use Docker service name
-  if (isRunningInDocker() && dockerServiceName) {
-    return dockerServiceName;
+  if (isRunningInDocker()) {
+    return dockerServiceName || 'localhost';
   }
 
-  // Local development fallback
-  return envHost || 'localhost';
+  // Local development - always use localhost
+  // (envHost might be 'postgres' or 'redis' from .env, but those don't work outside Docker)
+  return 'localhost';
 };
 
 export const POSTGRES_CONFIG = {
