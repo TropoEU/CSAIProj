@@ -421,14 +421,15 @@ export default function ClientDetail() {
   };
 
   const getWidgetEmbedCode = () => {
-    const widgetUrl = window.location.hostname === 'localhost'
-      ? 'http://localhost:3001/widget.js'
-      : `${window.location.protocol}//${window.location.hostname}:3001/widget.js`;
+    // Use environment variables for URLs, with sensible defaults for local dev
+    const widgetUrl = import.meta.env.VITE_WIDGET_URL || 'http://localhost:3001/widget.js';
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
     return `<!-- AI Chat Widget -->
 <script
   src="${widgetUrl}"
   data-api-key="${client?.api_key || 'YOUR_API_KEY'}"
+  data-api-url="${apiUrl}"
   data-position="${widgetConfig.position}"
   data-primary-color="${widgetConfig.primaryColor}"
   data-background-color="${widgetConfig.backgroundColor}"
