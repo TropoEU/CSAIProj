@@ -21,7 +21,7 @@ const pool = new Pool({
     database: process.env.POSTGRES_DB
 });
 
-const MIGRATIONS_DIR = path.join(__dirname, '../../../db/migrations');
+const MIGRATIONS_DIR = path.join(__dirname, '../../db/migrations');
 
 // Ensure migrations table exists
 async function ensureMigrationsTable() {

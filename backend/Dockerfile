@@ -38,8 +38,8 @@ RUN npm ci --only=production && \
 # Copy source code from builder
 COPY --from=builder /app/src ./src
 
-# Note: Migrations are mounted via docker-compose volume
-# This allows running migrations separately from the main app
+# Copy database migrations
+COPY --from=builder /app/db ./db
 
 # Change ownership to non-root user
 RUN chown -R nodejs:nodejs /app
@@ -54,5 +54,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD node -e "require('http').get('http://localhost:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
 
-# Start the application
-CMD ["node", "src/index.js"]
+# Start the application (runs migrations first)
+CMD ["node", "src/scripts/startup.js"]
