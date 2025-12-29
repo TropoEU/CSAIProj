@@ -187,15 +187,23 @@ jobs:
 
     steps:
       - name: Trigger Cloudflare Pages webhook
-        if: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK_ADMIN != '' }}
         run: |
-          # Admin Dashboard
-          curl -X POST "${{ secrets.CLOUDFLARE_DEPLOY_HOOK_ADMIN }}" || true
+          # Admin Dashboard (skip if not configured)
+          if [ -n "$ADMIN_HOOK" ]; then
+            curl -X POST "$ADMIN_HOOK" && echo "Admin deploy triggered"
+          else
+            echo "Skipping admin hook (not configured)"
+          fi
 
-          # Customer Dashboard
-          curl -X POST "${{ secrets.CLOUDFLARE_DEPLOY_HOOK_CUSTOMER }}" || true
-
-          echo "✅ Cloudflare Pages deploy hooks triggered"
+          # Customer Dashboard (skip if not configured)
+          if [ -n "$CUSTOMER_HOOK" ]; then
+            curl -X POST "$CUSTOMER_HOOK" && echo "Customer deploy triggered"
+          else
+            echo "Skipping customer hook (not configured)"
+          fi
+        env:
+          ADMIN_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK_ADMIN }}
+          CUSTOMER_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK_CUSTOMER }}
         continue-on-error: true
 
   # ===================================
