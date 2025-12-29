@@ -1,10 +1,13 @@
-# Docker Compose for Staging/Production Environment
-# This runs the complete CSAI stack
+# Docker Compose for Self-Hosted Staging/Production Environment
+# This runs the complete CSAI stack on a VM/VPS with Docker
+#
+# NOTE: This is NOT used for Railway deployment (Railway has its own build system)
+#       Use this for self-hosted deployments on any VPS (DigitalOcean, Hetzner, etc.)
 #
 # Usage:
 #   docker-compose -f docker/docker-compose.staging.yml up -d
 #
-# For Oracle Cloud Free Tier (ARM):
+# For ARM-based servers (e.g., AWS Graviton, Oracle ARM):
 #   docker-compose -f docker/docker-compose.staging.yml --profile arm up -d
 
 services:
@@ -90,7 +93,7 @@ services:
   backend:
     # Use pre-built image from GitHub Container Registry (set by CI/CD)
     # Or build locally if IMAGE_TAG is not set
-    image: ${BACKEND_IMAGE:-ghcr.io/tropoeu/csai-backend:latest}
+    image: ${BACKEND_IMAGE:-csai-backend:latest}
     build:
       context: ../backend
       dockerfile: Dockerfile
@@ -176,7 +179,7 @@ services:
       - "80"
 
   widget:
-    image: ${WIDGET_IMAGE:-ghcr.io/tropoeu/csai-widget:latest}
+    image: ${WIDGET_IMAGE:-csai-widget:latest}
     build:
       context: ../frontend/widget
       dockerfile: Dockerfile
