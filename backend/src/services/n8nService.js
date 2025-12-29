@@ -22,6 +22,7 @@ const buildN8nUrl = () => {
 };
 
 const N8N_BASE_URL = buildN8nUrl();
+console.log(`[n8n] Base URL: ${N8N_BASE_URL}`);
 
 class N8nService {
   /**

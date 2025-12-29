@@ -74,11 +74,17 @@ export const OLLAMA_CONFIG = {
   model: process.env.OLLAMA_MODEL || 'dolphin-llama3'
 };
 
-// n8n configuration
+// n8n configuration - build URL from components
+const n8nHost = process.env.N8N_HOST || 'localhost';
+const n8nPort = process.env.N8N_PORT || '5678';
+const n8nProtocol = process.env.N8N_PROTOCOL || 'http';
+const n8nWebhookUrl = process.env.WEBHOOK_URL || `${n8nProtocol}://${n8nHost}:${n8nPort}/`;
+
 export const N8N_CONFIG = {
-  host: process.env.N8N_HOST || 'localhost',
-  port: parseInt(process.env.N8N_PORT) || 5678,
-  webhookUrl: process.env.WEBHOOK_URL || 'http://localhost:5678/'
+  host: n8nHost,
+  port: parseInt(n8nPort),
+  protocol: n8nProtocol,
+  webhookUrl: n8nWebhookUrl
 };
 
 /**
@@ -95,7 +101,7 @@ export function validateEnvironment() {
 
   const recommended = [
     { name: 'OLLAMA_URL', value: process.env.OLLAMA_URL },
-    { name: 'WEBHOOK_URL', value: process.env.WEBHOOK_URL },
+    { name: 'N8N_HOST', value: process.env.N8N_HOST },
   ];
 
   const missingRequired = required.filter(v => !v.value);
