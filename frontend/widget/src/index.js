@@ -20,7 +20,7 @@ function getConfigFromScript() {
 
   const config = {
     apiKey: script.getAttribute('data-api-key'),
-    // API URL is hardcoded in widget - no need to expose it in snippet
+    apiUrl: script.getAttribute('data-api-url'),
     position: script.getAttribute('data-position'),
     primaryColor: script.getAttribute('data-primary-color'),
     backgroundColor: script.getAttribute('data-background-color'),

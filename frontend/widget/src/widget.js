@@ -39,9 +39,8 @@ export class ChatWidget {
 
     return {
       apiKey: config.apiKey,
-      // API URL is hardcoded in widget code - backend services communicate internally
-      // Set via VITE_API_URL environment variable at build time, or defaults to production
-      apiUrl: import.meta.env.VITE_API_URL || 'https://api.yourdomain.com',
+      // API URL priority: config.apiUrl (from data attribute) > VITE_API_URL (build time) > localhost (dev)
+      apiUrl: config.apiUrl || import.meta.env.VITE_API_URL || 'http://localhost:3000',
       position: config.position || 'bottom-right',
       primaryColor: config.primaryColor || '#667eea',
       backgroundColor: config.backgroundColor || '#ffffff',
