@@ -35,32 +35,35 @@ const isRunningInDocker = () => {
   return false;
 };
 
-// When running locally (outside Docker), convert Docker service names to localhost
-// When running inside Docker, use the service names as-is (they resolve in Docker network)
-const getHost = (dockerServiceName) => {
-  if (!dockerServiceName) {
-    return 'localhost';
+// Determine the appropriate host for services
+// - In production/cloud (Railway, etc.): use env vars directly
+// - In Docker: use Docker service names
+// - Local development: use localhost
+const getHost = (envHost, dockerServiceName) => {
+  // If explicit host is provided in env, always use it (cloud deployments like Railway)
+  if (envHost && envHost !== dockerServiceName) {
+    return envHost;
   }
 
-  // If host is a Docker service name and we're running locally, use localhost
-  // (Docker service names only work inside Docker network)
-  if ((dockerServiceName === 'postgres' || dockerServiceName === 'redis') && !isRunningInDocker()) {
-    return 'localhost';
+  // If running in Docker/container environment, use Docker service name
+  if (isRunningInDocker() && dockerServiceName) {
+    return dockerServiceName;
   }
 
-  return dockerServiceName;
+  // Local development fallback
+  return envHost || 'localhost';
 };
 
 export const POSTGRES_CONFIG = {
   user: process.env.POSTGRES_USER || '',
   password: String(process.env.POSTGRES_PASSWORD || ''),
-  host: getHost(process.env.POSTGRES_HOST),
+  host: getHost(process.env.POSTGRES_HOST, 'postgres'),
   database: process.env.POSTGRES_DB || '',
   port: parseInt(process.env.POSTGRES_PORT) || 5432,
 };
 
 export const REDIS_CONFIG = {
-  host: getHost(process.env.REDIS_HOST),
+  host: getHost(process.env.REDIS_HOST, 'redis'),
   port: parseInt(process.env.REDIS_PORT) || 6379,
 };
 
