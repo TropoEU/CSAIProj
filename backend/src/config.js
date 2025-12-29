@@ -65,6 +65,7 @@ export const POSTGRES_CONFIG = {
 export const REDIS_CONFIG = {
   host: getHost(process.env.REDIS_HOST, 'redis'),
   port: parseInt(process.env.REDIS_PORT) || 6379,
+  password: process.env.REDIS_PASSWORD || undefined,
 };
 
 // Ollama configuration (runs on Windows host, accessible via localhost)
