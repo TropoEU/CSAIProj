@@ -5,7 +5,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node src/index.js",
+    "start": "node src/scripts/startup.js",
+    "start:dev": "node src/index.js",
     "migrate": "node src/scripts/migrate.js up",
     "migrate:down": "node src/scripts/migrate.js down",
     "migrate:status": "node src/scripts/migrate.js status",

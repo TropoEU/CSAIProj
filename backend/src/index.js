@@ -11,6 +11,7 @@ import { redisClient } from './redis.js';
 import { db } from './db.js';
 import conversationService from './services/conversationService.js';
 import { emailMonitor } from './services/emailMonitor.js';
+import n8nService from './services/n8nService.js';
 
 // Note: dotenv is loaded in config.js, no need to load it here
 
@@ -105,9 +106,17 @@ app.get('/health', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Backend running on port ${PORT}`);
-  
+
+  // Check n8n connectivity on startup
+  const n8nHealth = await n8nService.checkHealth();
+  if (n8nHealth.available) {
+    console.log(`n8n Connected (version: ${n8nHealth.version})`);
+  } else {
+    console.warn(`n8n Connection Warning: ${n8nHealth.error}`);
+  }
+
   // Start scheduled tasks
   startScheduledTasks();
 });
