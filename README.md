@@ -49,11 +49,9 @@ CSAI is a **multi-tenant AI customer service platform** that provides businesses
 
 ### Installation
 
-1. **Clone and install dependencies**
+1. **Install dependencies**
 
    ```bash
-   git clone https://github.com/yourusername/CSAIProj.git
-   cd CSAIProj
    npm install
    cd backend && npm install
    cd ../frontend/widget && npm install
@@ -128,12 +126,13 @@ Client Website → AI Widget → Backend (Node.js/Express)
 
 ```
 CSAIProj/
-├── backend/          # Node.js/Express backend
+├── backend/
+│   ├── src/          # Node.js/Express backend
+│   └── db/migrations/# SQL migration files
 ├── frontend/
 │   ├── widget/       # Embeddable chat widget
 │   ├── admin/        # Admin dashboard (React)
 │   └── customer/     # Customer dashboard (React)
-├── db/migrations/    # SQL migration files
 ├── docker/           # Docker Compose configuration
 └── n8n-workflows/    # Demo n8n workflows
 ```
@@ -190,7 +189,6 @@ OLLAMA_BASE_URL=http://localhost:11434
 # n8n
 N8N_HOST=localhost
 N8N_PORT=5678
-WEBHOOK_URL=http://localhost:5678
 
 PORT=3000
 ```

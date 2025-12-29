@@ -133,25 +133,32 @@ export class MessageList {
     const errorDiv = document.createElement('div');
     errorDiv.className = 'csai-error-message';
 
-    const retryText = this.translations.errorRetry || 'Retry';
-    errorDiv.innerHTML = `
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-      </svg>
-      <div>
-        <div>${errorText}</div>
-        ${onRetry ? `<button class="csai-retry-button">${retryText}</button>` : ''}
-      </div>
-    `;
+    // Create SVG icon
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z');
+    svg.appendChild(path);
+    errorDiv.appendChild(svg);
+
+    // Create text container
+    const textContainer = document.createElement('div');
+    const errorTextDiv = document.createElement('div');
+    errorTextDiv.textContent = errorText; // Safe: uses textContent
+    textContainer.appendChild(errorTextDiv);
 
     if (onRetry) {
-      const retryBtn = errorDiv.querySelector('.csai-retry-button');
+      const retryBtn = document.createElement('button');
+      retryBtn.className = 'csai-retry-button';
+      retryBtn.textContent = this.translations.errorRetry || 'Retry'; // Safe: uses textContent
       retryBtn.addEventListener('click', () => {
         errorDiv.remove();
         onRetry();
       });
+      textContainer.appendChild(retryBtn);
     }
 
+    errorDiv.appendChild(textContainer);
     this.element.appendChild(errorDiv);
     this.scrollToBottom();
   }
@@ -196,14 +203,24 @@ export class MessageList {
     const emptyState = document.createElement('div');
     emptyState.className = 'csai-empty-state';
 
-    const emptyTitle = this.translations.emptyTitle || 'Start a conversation';
-    emptyState.innerHTML = `
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
-      </svg>
-      <div class="csai-empty-title">${emptyTitle}</div>
-      <div class="csai-empty-subtitle">${greeting}</div>
-    `;
+    // Create SVG icon
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z');
+    svg.appendChild(path);
+    emptyState.appendChild(svg);
+
+    // Create title and subtitle safely
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'csai-empty-title';
+    titleDiv.textContent = this.translations.emptyTitle || 'Start a conversation';
+    emptyState.appendChild(titleDiv);
+
+    const subtitleDiv = document.createElement('div');
+    subtitleDiv.className = 'csai-empty-subtitle';
+    subtitleDiv.textContent = greeting; // Safe: uses textContent
+    emptyState.appendChild(subtitleDiv);
 
     this.element.appendChild(emptyState);
   }

@@ -1,8 +1,12 @@
 import jwt from 'jsonwebtoken';
 import { Admin } from '../models/Admin.js';
 
-// JWT secret - in production, use environment variable
-const JWT_SECRET = process.env.JWT_SECRET || 'csai-admin-secret-key-change-in-production';
+// JWT secret - required, no fallback for security
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('[Auth] CRITICAL: JWT_SECRET environment variable is required');
+  process.exit(1);
+}
 const JWT_EXPIRES_IN = '24h';
 
 /**
