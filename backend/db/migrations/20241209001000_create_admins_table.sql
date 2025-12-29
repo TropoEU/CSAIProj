@@ -17,10 +17,10 @@ CREATE TABLE IF NOT EXISTS admins (
 CREATE INDEX idx_admins_username ON admins(username);
 
 -- Insert default admin user (password: admin123)
--- Password hash generated with bcrypt, rounds=10
+-- Password hash generated with: node -e "require('bcrypt').hash('admin123',10).then(console.log)"
 INSERT INTO admins (username, password_hash, email, role) VALUES (
     'admin',
-    '$2b$10$rQZ7.yVnHJ9NJQH9YhVKyOPbP.3OYHLrRPv.Ub0JLHFuV7pL.u6Ey',
+    '$2b$10$vQ2b/4IeYP.FYm64E7x4COEE2NILtdR1Gz8uX6A79zhYuW4qmTYia',
     'admin@csai.local',
     'super_admin'
 ) ON CONFLICT (username) DO NOTHING;
