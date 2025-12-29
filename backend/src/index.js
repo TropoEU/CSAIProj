@@ -89,8 +89,8 @@ app.get('/health', async (req, res) => {
     // Check n8n
     let n8nStatus = 'error';
     try {
-      const n8nUrl = process.env.WEBHOOK_URL || `http://${process.env.N8N_HOST || 'localhost'}:${process.env.N8N_PORT || 5678}`;
-      const response = await axios.get(`${n8nUrl.replace(/\/$/, '')}/healthz`, {
+      const n8nUrl = `${process.env.N8N_PROTOCOL || 'http'}://${process.env.N8N_HOST || 'localhost'}:${process.env.N8N_PORT || 5678}`;
+      const response = await axios.get(`${n8nUrl}/healthz`, {
         timeout: 2000,
         validateStatus: (status) => status < 500
       });

@@ -10,18 +10,11 @@
 
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 
-// Build n8n URL from components, with WEBHOOK_URL as override
-const buildN8nUrl = () => {
-  if (process.env.WEBHOOK_URL) {
-    return process.env.WEBHOOK_URL;
-  }
-  const host = process.env.N8N_HOST || 'localhost';
-  const port = process.env.N8N_PORT || '5678';
-  const protocol = process.env.N8N_PROTOCOL || 'http';
-  return `${protocol}://${host}:${port}/`;
-};
-
-const N8N_BASE_URL = buildN8nUrl();
+// Build n8n URL from components
+const n8nHost = process.env.N8N_HOST || 'localhost';
+const n8nPort = process.env.N8N_PORT || '5678';
+const n8nProtocol = process.env.N8N_PROTOCOL || 'http';
+const N8N_BASE_URL = `${n8nProtocol}://${n8nHost}:${n8nPort}/`;
 console.log(`[n8n] Base URL: ${N8N_BASE_URL}`);
 
 class N8nService {

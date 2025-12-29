@@ -78,13 +78,12 @@ export const OLLAMA_CONFIG = {
 const n8nHost = process.env.N8N_HOST || 'localhost';
 const n8nPort = process.env.N8N_PORT || '5678';
 const n8nProtocol = process.env.N8N_PROTOCOL || 'http';
-const n8nWebhookUrl = process.env.WEBHOOK_URL || `${n8nProtocol}://${n8nHost}:${n8nPort}/`;
 
 export const N8N_CONFIG = {
   host: n8nHost,
   port: parseInt(n8nPort),
   protocol: n8nProtocol,
-  webhookUrl: n8nWebhookUrl
+  baseUrl: `${n8nProtocol}://${n8nHost}:${n8nPort}/`
 };
 
 /**
