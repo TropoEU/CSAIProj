@@ -10,5 +10,10 @@ pool.on('error', (err) => {
   process.exit(-1);
 });
 
+// Test connection on startup
+pool.query('SELECT 1')
+  .then(() => console.log('PostgreSQL Connected'))
+  .catch(err => console.error('PostgreSQL Connection Error:', err.message));
+
 export const db = pool;
 
