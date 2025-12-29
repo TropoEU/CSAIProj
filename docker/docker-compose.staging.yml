@@ -1,0 +1,224 @@
+# Docker Compose for Staging/Production Environment
+# This runs the complete CSAI stack
+#
+# Usage:
+#   docker-compose -f docker/docker-compose.staging.yml up -d
+#
+# For Oracle Cloud Free Tier (ARM):
+#   docker-compose -f docker/docker-compose.staging.yml --profile arm up -d
+
+services:
+  # =============================================================================
+  # Infrastructure Services
+  # =============================================================================
+
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-n8n-schema.sql:/docker-entrypoint-initdb.d/init-n8n-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - csai-network
+    # Note: In staging, don't expose ports externally - use internal network only
+    # Uncomment for debugging:
+    # ports:
+    #   - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - csai-network
+
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_POSTGRESDB_SCHEMA=n8n
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
+      - N8N_HOST=${N8N_HOST:-0.0.0.0}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - GENERIC_TIMEZONE=${TIMEZONE:-Asia/Jerusalem}
+    volumes:
+      - n8ndata:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - csai-network
+    # Expose n8n on port 5678 for webhook access
+    ports:
+      - "5678:5678"
+
+  # =============================================================================
+  # Application Services
+  # =============================================================================
+
+  backend:
+    # Use pre-built image from GitHub Container Registry (set by CI/CD)
+    # Or build locally if IMAGE_TAG is not set
+    image: ${BACKEND_IMAGE:-ghcr.io/tropoeu/csai-backend:latest}
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # Database
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # Redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      # n8n
+      - N8N_HOST=n8n
+      - N8N_PORT=5678
+      - WEBHOOK_URL=http://n8n:5678
+      # LLM Configuration
+      - LLM_PROVIDER=${LLM_PROVIDER:-anthropic}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OLLAMA_HOST=${OLLAMA_HOST:-}
+      # JWT
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-24h}
+      # Gmail OAuth (optional)
+      - GMAIL_CLIENT_ID=${GMAIL_CLIENT_ID:-}
+      - GMAIL_CLIENT_SECRET=${GMAIL_CLIENT_SECRET:-}
+      - GMAIL_REDIRECT_URI=${GMAIL_REDIRECT_URI:-}
+    volumes:
+      # Mount migrations for running them
+      - ../db/migrations:/app/../db/migrations:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - csai-network
+    # Internal only - accessed via reverse proxy
+    expose:
+      - "3000"
+
+  admin:
+    build:
+      context: ../frontend/admin
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${API_BASE_URL:-http://localhost:3000}
+    restart: unless-stopped
+    environment:
+      - API_URL=http://backend:3000
+    depends_on:
+      - backend
+    networks:
+      - csai-network
+    expose:
+      - "80"
+
+  customer:
+    build:
+      context: ../frontend/customer
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${API_BASE_URL:-http://localhost:3000}
+    restart: unless-stopped
+    environment:
+      - API_URL=http://backend:3000
+    depends_on:
+      - backend
+    networks:
+      - csai-network
+    expose:
+      - "80"
+
+  widget:
+    image: ${WIDGET_IMAGE:-ghcr.io/tropoeu/csai-widget:latest}
+    build:
+      context: ../frontend/widget
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${API_BASE_URL:-http://localhost:3000}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - csai-network
+    expose:
+      - "80"
+
+  # =============================================================================
+  # Reverse Proxy (Caddy - automatic HTTPS)
+  # =============================================================================
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      - backend
+      - admin
+      - customer
+      - widget
+    networks:
+      - csai-network
+
+networks:
+  csai-network:
+    driver: bridge
+
+volumes:
+  pgdata:
+  redisdata:
+  n8ndata:
+  caddydata:
+  caddyconfig:

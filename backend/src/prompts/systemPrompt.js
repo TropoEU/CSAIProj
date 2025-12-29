@@ -180,7 +180,7 @@ export function getContextualSystemPrompt(client, tools = [], context = {}) {
 export const toolInstructions = {
   get_order_status: 'When a customer asks about their order, always use the get_order_status tool. Ask for their order number if they haven\'t provided it.',
 
-  book_appointment: 'When a customer wants to schedule an appointment, reservation, or pickup, use the book_appointment tool immediately. Extract date and time from natural language (e.g., "today at 12:23 pm" = current date + "12:23"). Accept service types like "Pizza Pickup", "Table Reservation", "Delivery", etc. If customer provides name, email, phone, use them. If missing, use reasonable defaults or ask once, then proceed. DO NOT ask multiple times for the same information.',
+  book_appointment: 'When a customer wants to schedule an appointment, reservation, or pickup, use the book_appointment tool immediately. Extract date and time from natural language (e.g., "today at 12:23 pm" = current date + "12:23"). Accept service types like "Pizza Pickup", "Table Reservation", "Delivery", etc. If customer provides name, email, phone, use them. If missing, use reasonable defaults or ask once, then proceed. DO NOT ask multiple times for the same information. DO NOT make up information that the customer did not provide.',
 
   check_inventory: 'When a customer asks if a product is available, use the check_inventory tool with the product name or SKU.',
 

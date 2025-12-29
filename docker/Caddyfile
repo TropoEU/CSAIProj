@@ -1,0 +1,76 @@
+# Caddyfile - Reverse Proxy Configuration for CSAI
+# Caddy provides automatic HTTPS via Let's Encrypt
+#
+# Set DOMAIN environment variable before starting:
+#   export DOMAIN=staging.yourdomain.com
+#
+# For local testing without HTTPS, set:
+#   export DOMAIN=localhost
+
+# Main API domain - serves admin dashboard, API, and widget
+{$DOMAIN} {
+    # API endpoints
+    handle /api/* {
+        reverse_proxy backend:3000
+    }
+
+    # Chat endpoints
+    handle /chat/* {
+        reverse_proxy backend:3000
+    }
+
+    # Health check
+    handle /health {
+        reverse_proxy backend:3000
+    }
+
+    # Widget JS file (served from widget service)
+    handle /widget.js* {
+        reverse_proxy widget:80
+    }
+
+    # Default: Admin dashboard
+    handle {
+        reverse_proxy admin:80
+    }
+
+    # Logging
+    log {
+        output stdout
+        format console
+    }
+}
+
+# Customer dashboard on subdomain
+customer.{$DOMAIN} {
+    reverse_proxy customer:80
+
+    log {
+        output stdout
+        format console
+    }
+}
+
+# n8n on subdomain (for webhook access)
+n8n.{$DOMAIN} {
+    reverse_proxy n8n:5678
+
+    log {
+        output stdout
+        format console
+    }
+}
+
+# Widget CDN on subdomain (alternative to /widget.js path)
+widget.{$DOMAIN} {
+    reverse_proxy widget:80
+
+    # Extra CORS headers for widget
+    header Access-Control-Allow-Origin *
+    header Access-Control-Allow-Methods "GET, OPTIONS"
+
+    log {
+        output stdout
+        format console
+    }
+}

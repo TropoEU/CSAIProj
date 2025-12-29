@@ -1,0 +1,43 @@
+# Dependencies
+node_modules
+npm-debug.log*
+
+# Environment files (use Docker secrets or env vars instead)
+.env
+.env.*
+!.env.example
+
+# Test files
+tests/
+*.test.js
+*.spec.js
+coverage/
+
+# Development files
+.eslintrc*
+.prettierrc*
+eslint.config.js
+.editorconfig
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Docker files (no need to copy these into image)
+Dockerfile*
+docker-compose*
+.dockerignore

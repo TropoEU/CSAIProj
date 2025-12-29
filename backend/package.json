@@ -30,7 +30,6 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.24.0",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
     "ajv": "^8.17.1",

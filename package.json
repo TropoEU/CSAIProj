@@ -38,7 +38,7 @@
         "test:redis": "cd backend && node tests/services/redisCache.test.js",
         "//test:redis": "Run Redis cache service tests",
         "test:all": "cd backend && node tests/integration/all-models.test.js",
-        "//test:all": "Same as 'pnpm test' - runs all model tests",
+        "//test:all": "Same as 'npm test' - runs all model tests",
         "test:llm": "cd backend && node tests/services/llmService.test.js",
         "//test:llm": "Run LLM service tests (requires Ollama or API keys)",
         "test:llm:ci": "cd backend && node tests/services/llmService.ci.test.js",
