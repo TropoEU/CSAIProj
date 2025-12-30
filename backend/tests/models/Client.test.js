@@ -36,13 +36,19 @@ async function testClientModel() {
         const regenerated = await Client.regenerateApiKey(client.id);
         console.log('✅ API key regenerated:', oldKey.substring(0, 10) !== regenerated.api_key.substring(0, 10));
 
-        // Test 7: Deactivate client
-        console.log('\n7. Deactivating client...');
+        // Test 7: Update API key manually
+        console.log('\n7. Updating API key manually...');
+        const customKey = 'custom_api_key_12345';
+        const updatedWithKey = await Client.updateApiKey(client.id, customKey);
+        console.log('✅ API key updated:', updatedWithKey.api_key === customKey);
+
+        // Test 8: Deactivate client
+        console.log('\n8. Deactivating client...');
         const deactivated = await Client.deactivate(client.id);
         console.log('✅ Client deactivated:', deactivated.status === 'inactive');
 
-        // Test 8: Delete client
-        console.log('\n8. Deleting client...');
+        // Test 9: Delete client
+        console.log('\n9. Deleting client...');
         const deleted = await Client.delete(client.id);
         console.log('✅ Client deleted:', deleted ? 'Yes' : 'No');
 

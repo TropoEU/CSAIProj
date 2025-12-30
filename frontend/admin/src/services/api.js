@@ -45,6 +45,7 @@ export const clients = {
   update: (id, data) => api.put(`/admin/clients/${id}`, data),
   delete: (id) => api.delete(`/admin/clients/${id}`),
   regenerateApiKey: (id) => api.post(`/admin/clients/${id}/api-key`),
+  updateApiKey: (id, api_key) => api.put(`/admin/clients/${id}/api-key`, { api_key }),
   regenerateAccessCode: (id) => api.post(`/admin/clients/${id}/access-code`),
   getStats: (id) => api.get(`/admin/clients/${id}/stats`),
   getBusinessInfo: async (id) => {

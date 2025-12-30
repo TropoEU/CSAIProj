@@ -526,6 +526,69 @@ Widget configuration is stored in the `clients.widget_config` JSONB column and s
 
 - Production deployment and DevOps
 
+## Railway Deployment (Staging)
+
+The staging environment uses Railway for backend services and Cloudflare Pages/Workers for frontends.
+
+### Railway Services
+
+| Service | Internal Domain | Notes |
+|---------|-----------------|-------|
+| Backend | `backend.railway.internal` | Auto-deploys on push to main |
+| PostgreSQL | `postgres.railway.internal` | Managed database |
+| Redis | `redis.railway.internal` | Requires REDIS_PASSWORD |
+| n8n | `n8n-service.railway.internal` | Workflow automation |
+
+### Required Environment Variables
+
+**Backend Service:**
+```
+DOCKER_CONTAINER=true
+POSTGRES_HOST=${{Postgres.PGHOST}}
+POSTGRES_PORT=${{Postgres.PGPORT}}
+POSTGRES_DB=${{Postgres.PGDATABASE}}
+POSTGRES_USER=${{Postgres.PGUSER}}
+POSTGRES_PASSWORD=${{Postgres.PGPASSWORD}}
+REDIS_HOST=${{Redis.REDISHOST}}
+REDIS_PORT=${{Redis.REDISPORT}}
+REDIS_PASSWORD=${{Redis.REDISPASSWORD}}
+N8N_HOST=${{n8n-service.RAILWAY_PRIVATE_DOMAIN}}
+N8N_PORT=5678
+JWT_SECRET=<your-secret>
+LLM_PROVIDER=groq
+GROQ_API_KEY=<your-key>
+GROQ_MODEL=llama-3.3-70b-versatile
+CORS_ALLOWED_ORIGINS=https://your-admin.workers.dev,https://your-customer.workers.dev,https://your-widget.workers.dev
+```
+
+**n8n Service (CRITICAL):**
+```
+WEBHOOK_URL=http://${{n8n-service.RAILWAY_PRIVATE_DOMAIN}}:5678
+```
+Without this, n8n webhook URLs will show as localhost and workflows won't work.
+
+### Cloudflare Pages Environment Variables
+
+**Admin Dashboard:**
+```
+VITE_API_URL=https://your-backend.up.railway.app
+VITE_WIDGET_URL=https://your-widget.workers.dev/widget.js
+```
+
+**Customer Dashboard:**
+```
+VITE_API_URL=https://your-backend.up.railway.app
+```
+
+### Webhook URLs for Tools
+
+When configuring client tools in staging, use internal Railway URLs:
+```
+http://n8n-service.railway.internal:5678/webhook/book_appointment
+http://n8n-service.railway.internal:5678/webhook/get_order_status
+http://n8n-service.railway.internal:5678/webhook/check_inventory
+```
+
 **🚀 Upcoming Planned Features** (Priority for next development cycle):
 
 1. **Production Deployment** - Deploy all components to hosting platforms with SSL

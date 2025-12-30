@@ -38,6 +38,9 @@ export default function ClientDetail() {
   const [editingTool, setEditingTool] = useState(null);
   const [isRegeneratingKey, setIsRegeneratingKey] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [isEditingApiKey, setIsEditingApiKey] = useState(false);
+  const [editApiKeyValue, setEditApiKeyValue] = useState('');
+  const [isSavingApiKey, setIsSavingApiKey] = useState(false);
   const [isRegeneratingAccessCode, setIsRegeneratingAccessCode] = useState(false);
   const [showAccessCode, setShowAccessCode] = useState(false);
   const [isTestToolModalOpen, setIsTestToolModalOpen] = useState(false);
@@ -223,6 +226,24 @@ export default function ClientDetail() {
       setError(err.response?.data?.error || 'Failed to regenerate API key');
     } finally {
       setIsRegeneratingKey(false);
+    }
+  };
+
+  const handleSaveApiKey = async () => {
+    if (editApiKeyValue.trim().length < 10) {
+      alert('API key must be at least 10 characters');
+      return;
+    }
+    setIsSavingApiKey(true);
+    try {
+      await clients.updateApiKey(id, editApiKeyValue.trim());
+      fetchClientData();
+      setIsEditingApiKey(false);
+      setEditApiKeyValue('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to update API key');
+    } finally {
+      setIsSavingApiKey(false);
     }
   };
 
@@ -702,40 +723,104 @@ export default function ClientDetail() {
           </CardHeader>
           <CardBody>
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <code className="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-sm font-mono overflow-hidden text-ellipsis">
-                  {showApiKey ? client.api_key : '••••••••••••••••'}
-                </code>
-                <button
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="p-2 rounded-lg hover:bg-gray-100"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    {showApiKey ? (
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    ) : (
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    )}
-                  </svg>
-                </button>
-                <button
-                  onClick={() => copyToClipboard(client.api_key)}
-                  className="p-2 rounded-lg hover:bg-gray-100"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                </button>
-              </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="w-full"
-                onClick={handleRegenerateApiKey}
-                loading={isRegeneratingKey}
-              >
-                Regenerate API Key
-              </Button>
+              {isEditingApiKey ? (
+                /* Edit Mode */
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Enter new API key
+                    </label>
+                    <input
+                      type="text"
+                      value={editApiKeyValue}
+                      onChange={(e) => setEditApiKeyValue(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent font-mono text-sm"
+                      placeholder="Enter API key (min 10 characters)"
+                      autoFocus
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Must be at least 10 characters
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="flex-1"
+                      onClick={handleSaveApiKey}
+                      loading={isSavingApiKey}
+                      disabled={editApiKeyValue.trim().length < 10}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => {
+                        setIsEditingApiKey(false);
+                        setEditApiKeyValue('');
+                      }}
+                      disabled={isSavingApiKey}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                /* View Mode */
+                <>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-sm font-mono overflow-hidden text-ellipsis">
+                      {showApiKey ? client.api_key : '••••••••••••••••'}
+                    </code>
+                    <button
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="p-2 rounded-lg hover:bg-gray-100"
+                      title={showApiKey ? 'Hide' : 'Show'}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {showApiKey ? (
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                        ) : (
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        )}
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => copyToClipboard(client.api_key)}
+                      className="p-2 rounded-lg hover:bg-gray-100"
+                      title="Copy to clipboard"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => {
+                        setEditApiKeyValue(client.api_key || '');
+                        setIsEditingApiKey(true);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="flex-1"
+                      onClick={handleRegenerateApiKey}
+                      loading={isRegeneratingKey}
+                    >
+                      Regenerate
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </CardBody>
         </Card>

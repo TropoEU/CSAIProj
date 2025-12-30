@@ -44,26 +44,26 @@ describe('System Prompts', () => {
       expect(prompt).toContain('friendly customer support');
     });
 
+    it('should include tool calling rules', () => {
+      const prompt = getSystemPrompt(mockClient);
+
+      expect(prompt).toContain('TOOL CALLING RULES');
+      expect(prompt).toContain('Never make up or assume information');
+      expect(prompt).toContain('Never repeat a tool call');
+    });
+
     it('should include tool result handling instructions', () => {
       const prompt = getSystemPrompt(mockClient);
 
-      expect(prompt).toContain('[TOOL RESULT]');
-      expect(prompt).toContain('CRITICAL');
+      expect(prompt).toContain('AFTER TOOL RESULT');
+      expect(prompt).toContain('Summarize the result naturally');
     });
 
-    it('should include when to call tools section', () => {
+    it('should include answering without tools section', () => {
       const prompt = getSystemPrompt(mockClient);
 
-      expect(prompt).toContain('WHEN TO CALL TOOLS');
-      expect(prompt).toContain('book table');
-      expect(prompt).toContain('check order');
-    });
-
-    it('should include do not instructions', () => {
-      const prompt = getSystemPrompt(mockClient);
-
-      expect(prompt).toContain("DON'T");
-      expect(prompt).toContain('Show raw JSON');
+      expect(prompt).toContain('ANSWERING WITHOUT TOOLS');
+      expect(prompt).toContain('from context');
     });
   });
 

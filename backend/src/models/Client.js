@@ -152,6 +152,19 @@ export class Client {
     }
 
     /**
+     * Update API key for a client (manual set)
+     */
+    static async updateApiKey(id, apiKey) {
+        const result = await db.query(
+            `UPDATE clients SET api_key = $1, updated_at = NOW()
+             WHERE id = $2
+             RETURNING *`,
+            [apiKey, id]
+        );
+        return result.rows[0];
+    }
+
+    /**
      * Get client count by plan type
      */
     static async getCountByPlan() {

@@ -171,6 +171,27 @@ router.post('/:id/api-key', async (req, res) => {
 });
 
 /**
+ * PUT /admin/clients/:id/api-key
+ * Update client API key manually
+ */
+router.put('/:id/api-key', async (req, res) => {
+  try {
+    const { api_key } = req.body;
+    if (!api_key || api_key.trim().length < 10) {
+      return res.status(400).json({ error: 'API key must be at least 10 characters' });
+    }
+    const client = await Client.updateApiKey(req.params.id, api_key.trim());
+    if (!client) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+    res.json(client);
+  } catch (error) {
+    console.error('[Admin] Update API key error:', error);
+    res.status(500).json({ error: 'Failed to update API key' });
+  }
+});
+
+/**
  * GET /admin/clients/:id/business-info
  * Get client business information
  */
