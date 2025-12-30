@@ -33,6 +33,7 @@ export default function Escalations() {
     // Auto-refresh every 30 seconds
     const interval = setInterval(loadEscalations, 30000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
 
   const loadEscalations = async () => {

@@ -145,10 +145,11 @@ router.get('/:id', async (req, res) => {
       tool_name: exec.tool_name,
       input_params: exec.parameters || {},
       result: exec.n8n_response || {},
-      status: exec.success ? 'success' : 'error',
+      status: exec.status || (exec.success ? 'success' : 'failed'),
       success: exec.success,
       execution_time_ms: exec.execution_time_ms,
       timestamp: exec.timestamp,
+      error_reason: exec.error_reason || null,
     }));
 
     const messagesWithTools = conversation.messages.map((msg, index) => {

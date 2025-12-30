@@ -84,12 +84,11 @@ jobs:
       - name: Run ESLint
         working-directory: ${{ matrix.path }}
         run: npm run lint
-        continue-on-error: true
 
       - name: Check Prettier formatting
         working-directory: ${{ matrix.path }}
         run: npm run format:check
-        continue-on-error: true
+        continue-on-error: true  # Formatting is a soft requirement
 
   # ===================================
   # Unit Tests (Backend)
@@ -514,7 +513,8 @@ jobs:
              [[ "${{ needs.test-models.result }}" != "success" ]] || \
              [[ "${{ needs.test-redis.result }}" != "success" ]] || \
              [[ "${{ needs.test-billing.result }}" != "success" ]] || \
-             [[ "${{ needs.test-api-health.result }}" != "success" ]]; then
+             [[ "${{ needs.test-api-health.result }}" != "success" ]] || \
+             [[ "${{ needs.lint.result }}" != "success" ]]; then
             echo "❌ One or more required jobs failed"
             exit 1
           fi
@@ -522,10 +522,6 @@ jobs:
           # Soft failures (warn but don't fail CI)
           if [[ "${{ needs.security-audit.result }}" != "success" ]]; then
             echo "⚠️  Security audit found issues - please review"
-          fi
-
-          if [[ "${{ needs.lint.result }}" != "success" ]]; then
-            echo "⚠️  Linting found issues - please review"
           fi
 
           echo "✅ All required CI checks passed!"

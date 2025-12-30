@@ -17,7 +17,6 @@ export default function UsageReports() {
   const [period, setPeriod] = useState(initialFilters.period);
   const [summary, setSummary] = useState(null);
   const [history, setHistory] = useState([]);
-  const [toolBreakdown, setToolBreakdown] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -34,6 +33,7 @@ export default function UsageReports() {
   // Fetch clients on mount
   useEffect(() => {
     fetchClients();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Fetch usage data when client or period changes
@@ -41,6 +41,7 @@ export default function UsageReports() {
     if (selectedClient !== null) {
       fetchUsageData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClient, period]);
 
   // Auto-refresh polling (every 5 seconds when client is selected)
@@ -54,6 +55,7 @@ export default function UsageReports() {
     }, 5000); // 5 seconds
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRefresh, selectedClient, period]);
 
   const fetchClients = async () => {

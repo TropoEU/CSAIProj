@@ -2,7 +2,7 @@ import { ChatAPI } from './api.js';
 import { WidgetStorage } from './storage.js';
 import { ChatBubble } from './components/bubble.js';
 import { ChatWindow } from './components/window.js';
-import { t, isRTL, getTranslations } from './i18n/translations.js';
+import { isRTL, getTranslations } from './i18n/translations.js';
 import styles from './styles.css?inline';
 
 /**

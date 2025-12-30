@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { tools as toolsApi, analytics, integrations as integrationsApi } from '../services/api';
+import { tools as toolsApi, analytics } from '../services/api';
 import {
   Card,
   CardBody,
-  CardHeader,
   Button,
   Input,
   Modal,
@@ -16,13 +15,11 @@ import {
   TableRow,
   TableHeader,
   TableCell,
-  Select,
 } from '../components/common';
 
 export default function Tools() {
   const [tools, setTools] = useState([]);
   const [toolStats, setToolStats] = useState([]);
-  const [integrationTypes, setIntegrationTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [statsError, setStatsError] = useState(null);
@@ -59,23 +56,6 @@ export default function Tools() {
       setTools(toolsRes.data);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load tools');
-    }
-
-    // Fetch integration types for dropdowns
-    try {
-      const typesRes = await integrationsApi.getTypes();
-      // Axios wraps responses in .data, handle both cases
-      const types = Array.isArray(typesRes.data) ? typesRes.data : (Array.isArray(typesRes) ? typesRes : []);
-      if (types.length === 0) {
-        console.error('API returned empty array - this should not happen');
-        setError('Integration types API returned no data. Please check server logs.');
-      } else {
-        setIntegrationTypes(types);
-      }
-    } catch (err) {
-      console.error('Failed to load integration types:', err);
-      setError(`Failed to load integration types: ${err.response?.data?.error || err.message}`);
-      setIntegrationTypes([]);
     }
 
     // Fetch stats - this is optional, so we don't block the UI if it fails

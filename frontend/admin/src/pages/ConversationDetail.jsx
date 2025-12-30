@@ -21,6 +21,7 @@ export default function ConversationDetail() {
 
   useEffect(() => {
     fetchConversation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Auto-refresh polling (every 5 seconds for active conversations)
@@ -34,6 +35,7 @@ export default function ConversationDetail() {
     }, 5000); // 5 seconds
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRefresh, conversation?.status, id]);
 
   const fetchConversation = async (silent = false) => {
@@ -275,7 +277,7 @@ export default function ConversationDetail() {
           <CardBody className="p-0">
             <div className="divide-y divide-gray-200">
               {conversation.tool_executions.map((execution, index) => (
-                <div key={index} className="p-4">
+                <div key={index} className={`p-4 ${execution.status === 'blocked' || execution.status === 'duplicate' ? 'bg-yellow-50' : execution.status === 'failed' ? 'bg-red-50' : ''}`}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <Badge variant="info">{execution.tool_name}</Badge>
@@ -283,18 +285,28 @@ export default function ConversationDetail() {
                         variant={
                           execution.status === 'success'
                             ? 'success'
-                            : execution.status === 'error'
+                            : execution.status === 'failed'
                             ? 'danger'
-                            : 'warning'
+                            : execution.status === 'blocked'
+                            ? 'warning'
+                            : execution.status === 'duplicate'
+                            ? 'secondary'
+                            : 'default'
                         }
                       >
                         {execution.status}
                       </Badge>
                     </div>
                     <span className="text-xs text-gray-500">
-                      {execution.execution_time_ms}ms
+                      {execution.execution_time_ms > 0 ? `${execution.execution_time_ms}ms` : '-'}
                     </span>
                   </div>
+                  {execution.error_reason && (
+                    <div className="mb-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-sm text-yellow-800">
+                      <span className="font-medium">Reason: </span>
+                      {execution.error_reason}
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                     <div>
                       <p className="text-xs font-medium text-gray-500 mb-1">Input</p>

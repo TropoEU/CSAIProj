@@ -6,7 +6,6 @@ import { loadFilterState, saveFilterState, PAGE_KEYS } from '../utils/filterStor
 import {
   Card,
   CardBody,
-  CardHeader,
   Button,
   Input,
   Select,
@@ -67,6 +66,7 @@ export default function Integrations() {
   useEffect(() => {
     fetchClients();
     fetchIntegrationTypes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchIntegrationTypes = async () => {
@@ -154,7 +154,7 @@ export default function Integrations() {
     setValue('authMethod', integration.connection_config?.auth_method || 'bearer');
 
     // Extract extra config (everything except standard fields)
-    const { name, api_url, api_key, api_secret, auth_method, headers, method, ...extraConfig } = integration.connection_config || {};
+    const { name: _name, api_url: _apiUrl, api_key: _apiKey, api_secret: _apiSecret, auth_method: _authMethod, headers: _headers, method: _method, ...extraConfig } = integration.connection_config || {};
     setValue('config', Object.keys(extraConfig).length > 0 ? JSON.stringify(extraConfig, null, 2) : '');
     setIsModalOpen(true);
   };

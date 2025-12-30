@@ -20,7 +20,7 @@ export function AuthProvider({ children }) {
     try {
       const response = await auth.verify();
       setUser(response.data.admin);
-    } catch (error) {
+    } catch {
       localStorage.removeItem('adminToken');
     } finally {
       setLoading(false);
@@ -61,6 +61,7 @@ export function AuthProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {

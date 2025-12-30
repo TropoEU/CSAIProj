@@ -80,6 +80,7 @@ export default function Billing() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, clientFilter]);
 
   // Auto-refresh polling (every 5 seconds)
@@ -93,6 +94,7 @@ export default function Billing() {
     }, 5000); // 5 seconds
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRefresh, statusFilter, clientFilter]);
 
   const fetchData = async (silent = false) => {
