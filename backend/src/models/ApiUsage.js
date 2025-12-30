@@ -119,7 +119,7 @@ export class ApiUsage {
      */
     static async isOverLimit(clientId, monthlyTokenLimit) {
         const usage = await this.getCurrentPeriodUsage(clientId);
-        const totalTokens = parseInt(usage.total_tokens_input) + parseInt(usage.total_tokens_output);
+        const totalTokens = parseInt(usage.total_tokens_input, 10) + parseInt(usage.total_tokens_output, 10);
         return totalTokens > monthlyTokenLimit;
     }
 

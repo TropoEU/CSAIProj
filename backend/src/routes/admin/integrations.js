@@ -209,7 +209,7 @@ router.get('/debug/integration-test/:clientId/:toolName', async (req, res) => {
     const { clientId, toolName } = req.params;
     const toolManager = (await import('../../services/toolManager.js')).default;
 
-    const tool = await toolManager.getToolByName(parseInt(clientId), toolName);
+    const tool = await toolManager.getToolByName(parseInt(clientId, 10), toolName);
     if (!tool) {
       return res.status(404).json({ error: 'Tool not found' });
     }
@@ -217,7 +217,7 @@ router.get('/debug/integration-test/:clientId/:toolName', async (req, res) => {
     let integration = null;
     if (tool.integration_type) {
       integration = await integrationService.getIntegrationForClient(
-        parseInt(clientId),
+        parseInt(clientId, 10),
         tool.integration_type
       );
     }

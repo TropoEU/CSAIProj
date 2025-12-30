@@ -106,16 +106,16 @@ export class UsageTracker {
     const usage = result.rows[0];
 
     return {
-      conversations: parseInt(usage.conversations) || 0,
-      messages: parseInt(usage.messages) || 0,
+      conversations: parseInt(usage.conversations, 10) || 0,
+      messages: parseInt(usage.messages, 10) || 0,
       tokens: {
-        input: parseInt(usage.tokens_input) || 0,
-        output: parseInt(usage.tokens_output) || 0,
-        total: parseInt(usage.tokens_total) || 0,
+        input: parseInt(usage.tokens_input, 10) || 0,
+        output: parseInt(usage.tokens_output, 10) || 0,
+        total: parseInt(usage.tokens_total, 10) || 0,
       },
-      toolCalls: parseInt(usage.tool_calls) || 0,
+      toolCalls: parseInt(usage.tool_calls, 10) || 0,
       cost: parseFloat(usage.cost) || 0,
-      activeDays: parseInt(usage.active_days) || 0,
+      activeDays: parseInt(usage.active_days, 10) || 0,
       period,
     };
   }
@@ -145,7 +145,7 @@ export class UsageTracker {
 
     return result.rows.map(row => ({
       toolName: row.tool_name,
-      count: parseInt(row.count),
+      count: parseInt(row.count, 10),
       avgTime: Math.round(parseFloat(row.avg_time) || 0),
       successRate: Math.round(parseFloat(row.success_rate) || 0),
     }));
@@ -198,10 +198,10 @@ export class UsageTracker {
 
     return result.rows.map(row => ({
       date: row.date.toISOString().split('T')[0],
-      conversations: parseInt(row.conversations) || 0,
-      messages: parseInt(row.messages) || 0,
-      tokens: parseInt(row.tokens) || 0,
-      toolCalls: parseInt(row.tool_calls) || 0,
+      conversations: parseInt(row.conversations, 10) || 0,
+      messages: parseInt(row.messages, 10) || 0,
+      tokens: parseInt(row.tokens, 10) || 0,
+      toolCalls: parseInt(row.tool_calls, 10) || 0,
       cost: parseFloat(row.cost) || 0,
     }));
   }

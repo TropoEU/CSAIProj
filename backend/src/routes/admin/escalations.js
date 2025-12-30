@@ -16,13 +16,13 @@ router.get('/', async (req, res) => {
 
     let escalations;
     if (client_id) {
-      escalations = await Escalation.getByClient(parseInt(client_id), {
+      escalations = await Escalation.getByClient(parseInt(client_id, 10), {
         status,
-        limit: parseInt(limit),
-        offset: parseInt(offset),
+        limit: parseInt(limit, 10),
+        offset: parseInt(offset, 10),
       });
     } else if (status === 'pending') {
-      escalations = await Escalation.getPending(parseInt(limit), parseInt(offset));
+      escalations = await Escalation.getPending(parseInt(limit, 10), parseInt(offset, 10));
     } else {
       // Get all escalations across clients
       const query = `

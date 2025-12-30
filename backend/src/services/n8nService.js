@@ -10,6 +10,68 @@
 
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 
+/**
+ * Validate tool parameters to detect placeholder/made-up values
+ * Returns null if valid, error message if invalid
+ */
+function validateToolParameters(parameters) {
+  const placeholderPatterns = [
+    // Common placeholder strings
+    /^your\s*(name|email|phone|address)$/i,
+    /^customer\s*(name|email|phone)$/i,
+    /^user\s*(name|email|phone)$/i,
+    /^name$/i,
+    /^email$/i,
+    /^phone$/i,
+    // Date/time placeholders
+    /^YYYY-MM-DD$/,
+    /^MM\/DD\/YYYY$/,
+    /^DD\/MM\/YYYY$/,
+    /^HH:MM$/,
+    /^HH:MM:SS$/,
+    /^\[.*\]$/, // Bracketed placeholders like [date], [name]
+    /^<.*>$/, // Angle bracket placeholders like <date>, <name>
+    /^\{.*\}$/, // Curly brace placeholders (but not JSON)
+    // Generic placeholders
+    /^example/i,
+    /^test$/i,
+    /^placeholder/i,
+    /^n\/a$/i,
+    /^tbd$/i,
+    /^xxx+$/i,
+  ];
+
+  const invalidParams = [];
+
+  function checkValue(value, path) {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      for (const pattern of placeholderPatterns) {
+        if (pattern.test(trimmed)) {
+          invalidParams.push({ path, value: trimmed, pattern: pattern.toString() });
+          break;
+        }
+      }
+    } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      // Recursively check nested objects (but skip _integrations)
+      for (const [key, val] of Object.entries(value)) {
+        if (key !== '_integrations') {
+          checkValue(val, path ? `${path}.${key}` : key);
+        }
+      }
+    }
+  }
+
+  checkValue(parameters, '');
+
+  if (invalidParams.length > 0) {
+    const fields = invalidParams.map(p => p.path || 'value').join(', ');
+    return `Missing required information: ${fields}. Please provide the actual values.`;
+  }
+
+  return null;
+}
+
 // Build n8n URL from components
 const n8nHost = process.env.N8N_HOST || 'localhost';
 const n8nPort = process.env.N8N_PORT || '5678';
@@ -33,6 +95,19 @@ class N8nService {
     const { timeout = DEFAULT_TIMEOUT, integrations = null, integration = null } =
       typeof options === 'number' ? { timeout: options } : options;
     const startTime = Date.now();
+
+    // Validate parameters for placeholder/made-up values
+    const validationError = validateToolParameters(parameters);
+    if (validationError) {
+      console.log('[n8n] Tool execution blocked - placeholder values detected:', validationError);
+      return {
+        success: false,
+        data: null,
+        error: validationError,
+        executionTimeMs: Date.now() - startTime,
+        blocked: true, // Flag to indicate the tool was blocked, not failed
+      };
+    }
 
     try {
       // Ensure webhook URL is complete

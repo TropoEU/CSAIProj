@@ -127,8 +127,8 @@ app.listen(PORT, async () => {
 function startScheduledTasks() {
   // Auto-end inactive conversations
   // Runs every 5 minutes, ends conversations inactive for 15+ minutes (configurable)
-  const INACTIVITY_TIMEOUT_MINUTES = parseInt(process.env.CONVERSATION_INACTIVITY_TIMEOUT_MINUTES || '15');
-  const CHECK_INTERVAL_MS = parseInt(process.env.CONVERSATION_AUTO_END_CHECK_INTERVAL_MS || '300000'); // 5 minutes default
+  const INACTIVITY_TIMEOUT_MINUTES = parseInt(process.env.CONVERSATION_INACTIVITY_TIMEOUT_MINUTES || '15', 10);
+  const CHECK_INTERVAL_MS = parseInt(process.env.CONVERSATION_AUTO_END_CHECK_INTERVAL_MS || '300000', 10); // 5 minutes default
 
   console.log(`[Scheduler] Starting auto-end task: checking every ${CHECK_INTERVAL_MS / 1000}s, ending conversations inactive for ${INACTIVITY_TIMEOUT_MINUTES}+ minutes`);
 

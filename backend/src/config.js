@@ -61,12 +61,12 @@ export const POSTGRES_CONFIG = {
   password: String(process.env.POSTGRES_PASSWORD || ''),
   host: getHost(process.env.POSTGRES_HOST, 'postgres'),
   database: process.env.POSTGRES_DB || '',
-  port: parseInt(process.env.POSTGRES_PORT) || 5432,
+  port: parseInt(process.env.POSTGRES_PORT, 10) || 5432,
 };
 
 export const REDIS_CONFIG = {
   host: getHost(process.env.REDIS_HOST, 'redis'),
-  port: parseInt(process.env.REDIS_PORT) || 6379,
+  port: parseInt(process.env.REDIS_PORT, 10) || 6379,
   password: process.env.REDIS_PASSWORD || undefined,
 };
 
@@ -83,7 +83,7 @@ const n8nProtocol = process.env.N8N_PROTOCOL || 'http';
 
 export const N8N_CONFIG = {
   host: n8nHost,
-  port: parseInt(n8nPort),
+  port: parseInt(n8nPort, 10),
   protocol: n8nProtocol,
   baseUrl: `${n8nProtocol}://${n8nHost}:${n8nPort}/`
 };

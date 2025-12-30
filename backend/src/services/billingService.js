@@ -135,14 +135,14 @@ export class BillingService {
             return 0;
         }
 
-        const totalTokens = (parseInt(usage.total_tokens_input) || 0) +
-                          (parseInt(usage.total_tokens_output) || 0);
+        const totalTokens = (parseInt(usage.total_tokens_input, 10) || 0) +
+                          (parseInt(usage.total_tokens_output, 10) || 0);
         const tokensInThousands = totalTokens / 1000;
 
         // Calculate each component and round to avoid accumulating errors
         const tokenCost = this.roundToCents(tokensInThousands * (pricing.costPerThousandTokens || 0));
-        const messageCost = this.roundToCents((parseInt(usage.total_messages) || 0) * (pricing.costPerMessage || 0));
-        const toolCallCost = this.roundToCents((parseInt(usage.total_tool_calls) || 0) * (pricing.costPerToolCall || 0));
+        const messageCost = this.roundToCents((parseInt(usage.total_messages, 10) || 0) * (pricing.costPerMessage || 0));
+        const toolCallCost = this.roundToCents((parseInt(usage.total_tool_calls, 10) || 0) * (pricing.costPerToolCall || 0));
 
         return this.roundToCents(tokenCost + messageCost + toolCallCost);
     }

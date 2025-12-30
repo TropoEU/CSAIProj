@@ -14,7 +14,7 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const { clientId, page = 1, limit = 20 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
     let query = `
       SELECT c.*, cl.name as client_name,
@@ -38,7 +38,7 @@ router.get('/', async (req, res) => {
       (params.length + 1) +
       ' OFFSET $' +
       (params.length + 2);
-    params.push(parseInt(limit), offset);
+    params.push(parseInt(limit, 10), offset);
 
     const result = await db.query(query, params);
 
@@ -49,14 +49,14 @@ router.get('/', async (req, res) => {
       countParams.push(clientId);
     }
     const countResult = await db.query(countQuery, countParams);
-    const totalCount = parseInt(countResult.rows[0].count);
+    const totalCount = parseInt(countResult.rows[0].count, 10);
 
     res.json({
       conversations: result.rows,
-      page: parseInt(page),
-      limit: parseInt(limit),
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
       totalCount,
-      totalPages: Math.ceil(totalCount / parseInt(limit)),
+      totalPages: Math.ceil(totalCount / parseInt(limit, 10)),
     });
   } catch (error) {
     console.error('[Admin] Get conversations error:', error);

@@ -13,7 +13,7 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const { status, search, limit = 100, offset = 0 } = req.query;
-    let clients = await Client.findAll(parseInt(limit), parseInt(offset));
+    let clients = await Client.findAll(parseInt(limit, 10), parseInt(offset, 10));
 
     if (status && status !== 'all') {
       clients = clients.filter((c) => c.status === status);
@@ -393,9 +393,9 @@ router.get('/:id/stats', async (req, res) => {
     ]);
 
     res.json({
-      conversations: parseInt(convResult.rows[0].count),
-      messages: parseInt(msgResult.rows[0].count),
-      toolExecutions: parseInt(toolResult.rows[0].count),
+      conversations: parseInt(convResult.rows[0].count, 10),
+      messages: parseInt(msgResult.rows[0].count, 10),
+      toolExecutions: parseInt(toolResult.rows[0].count, 10),
     });
   } catch (error) {
     console.error('[Admin] Get client stats error:', error);
@@ -410,7 +410,7 @@ router.get('/:id/stats', async (req, res) => {
 router.get('/:id/invoices', async (req, res) => {
   try {
     const { limit = 100, offset = 0 } = req.query;
-    const invoices = await Invoice.findByClientId(req.params.id, parseInt(limit), parseInt(offset));
+    const invoices = await Invoice.findByClientId(req.params.id, parseInt(limit, 10), parseInt(offset, 10));
     res.json(invoices);
   } catch (error) {
     console.error('[Admin] Get client invoices error:', error);

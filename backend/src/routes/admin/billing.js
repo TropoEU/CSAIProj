@@ -12,7 +12,7 @@ const router = express.Router();
 router.get('/clients/:id/invoices', async (req, res) => {
   try {
     const { limit = 100, offset = 0 } = req.query;
-    const invoices = await Invoice.findByClientId(req.params.id, parseInt(limit), parseInt(offset));
+    const invoices = await Invoice.findByClientId(req.params.id, parseInt(limit, 10), parseInt(offset, 10));
     res.json(invoices);
   } catch (error) {
     console.error('[Admin] Get client invoices error:', error);
@@ -30,10 +30,10 @@ router.get('/invoices', async (req, res) => {
 
     const filters = {};
     if (status && status !== 'all') filters.status = status;
-    if (clientId && clientId !== 'all') filters.clientId = parseInt(clientId);
+    if (clientId && clientId !== 'all') filters.clientId = parseInt(clientId, 10);
     if (billingPeriod) filters.billingPeriod = billingPeriod;
 
-    const invoices = await Invoice.findAll(filters, parseInt(limit), parseInt(offset));
+    const invoices = await Invoice.findAll(filters, parseInt(limit, 10), parseInt(offset, 10));
     res.json(invoices);
   } catch (error) {
     console.error('[Admin] Get invoices error:', error);
@@ -197,7 +197,7 @@ router.get('/revenue', async (req, res) => {
 
     const [summary, monthlyRevenue, revenueByPlan, outstanding] = await Promise.all([
       BillingService.getRevenueSummary(filters),
-      BillingService.getMonthlyRevenue(parseInt(months)),
+      BillingService.getMonthlyRevenue(parseInt(months, 10)),
       BillingService.getRevenueByPlan(),
       BillingService.getOutstandingPayments(),
     ]);

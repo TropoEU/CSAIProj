@@ -1,3 +1,25 @@
+/**
+ * TODO: REFACTOR - This component is too large (2000+ lines) and should be split
+ *
+ * Recommended extraction into separate components:
+ * 1. ClientOverviewTab - Basic client info, stats, API key management
+ * 2. ClientToolsTab - Tool configuration and management
+ * 3. ClientIntegrationsTab - Integration setup and testing
+ * 4. ClientWidgetConfigTab - Widget customization settings
+ * 5. ClientBusinessInfoTab - Business information editor
+ * 6. ClientEscalationsTab - Escalation settings and history
+ *
+ * Each tab component should:
+ * - Receive client data and handlers as props
+ * - Manage its own modal state
+ * - Be independently testable
+ *
+ * This refactor will improve:
+ * - Code maintainability and readability
+ * - Testing isolation
+ * - Bundle splitting (lazy load tabs)
+ * - Developer experience (easier to find code)
+ */
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';

@@ -126,7 +126,7 @@ export class RedisCache {
             const key = `${this.RATE_LIMIT_PREFIX}${clientId}:${currentMinute}`;
 
             const current = await redisClient.get(key);
-            const count = current ? parseInt(current) : 0;
+            const count = current ? parseInt(current, 10) : 0;
 
             if (count >= maxRequests) {
                 const ttl = await redisClient.ttl(key);
@@ -177,7 +177,7 @@ export class RedisCache {
             const key = `${this.RATE_LIMIT_PREFIX}${clientId}:${currentMinute}`;
 
             const current = await redisClient.get(key);
-            const count = current ? parseInt(current) : 0;
+            const count = current ? parseInt(current, 10) : 0;
             const ttl = await redisClient.ttl(key);
 
             return {

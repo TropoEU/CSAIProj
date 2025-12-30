@@ -201,7 +201,7 @@ export class Plan {
       [id]
     );
 
-    if (parseInt(clientsUsingPlan.rows[0].count) > 0) {
+    if (parseInt(clientsUsingPlan.rows[0].count, 10) > 0) {
       throw new Error('Cannot delete plan: clients are currently using this plan');
     }
 
@@ -231,7 +231,7 @@ export class Plan {
       limits: {
         conversationsPerMonth: plan.conversations_per_month,
         messagesPerMonth: plan.messages_per_month,
-        tokensPerMonth: plan.tokens_per_month ? parseInt(plan.tokens_per_month) : null,
+        tokensPerMonth: plan.tokens_per_month ? parseInt(plan.tokens_per_month, 10) : null,
         toolCallsPerMonth: plan.tool_calls_per_month,
         integrationsEnabled: plan.integrations_enabled,
         costLimitUSD: plan.cost_limit_usd ? parseFloat(plan.cost_limit_usd) : null,
@@ -272,7 +272,7 @@ export class Plan {
       'SELECT COUNT(*) FROM clients WHERE LOWER(plan_type) = LOWER($1)',
       [plan.name]
     );
-    return parseInt(result.rows[0].count) || 0;
+    return parseInt(result.rows[0].count, 10) || 0;
   }
 }
 

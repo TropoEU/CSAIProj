@@ -27,7 +27,7 @@ router.get('/clients/:id/usage', async (req, res) => {
 router.get('/clients/:id/usage/history', async (req, res) => {
   try {
     const { metric = 'messages', months = 12 } = req.query;
-    const history = await UsageTracker.getUsageHistory(req.params.id, metric, parseInt(months));
+    const history = await UsageTracker.getUsageHistory(req.params.id, metric, parseInt(months, 10));
     res.json(history);
   } catch (error) {
     console.error('[Admin] Get usage history error:', error);
@@ -155,16 +155,16 @@ router.get('/summary', async (req, res) => {
     const usage = result.rows[0];
 
     res.json({
-      conversations: parseInt(usage.conversations) || 0,
-      messages: parseInt(usage.messages) || 0,
+      conversations: parseInt(usage.conversations, 10) || 0,
+      messages: parseInt(usage.messages, 10) || 0,
       tokens: {
-        input: parseInt(usage.tokens_input) || 0,
-        output: parseInt(usage.tokens_output) || 0,
-        total: parseInt(usage.tokens_total) || 0,
+        input: parseInt(usage.tokens_input, 10) || 0,
+        output: parseInt(usage.tokens_output, 10) || 0,
+        total: parseInt(usage.tokens_total, 10) || 0,
       },
-      toolCalls: parseInt(usage.tool_calls) || 0,
+      toolCalls: parseInt(usage.tool_calls, 10) || 0,
       cost: parseFloat(usage.cost) || 0,
-      activeDays: parseInt(usage.active_days) || 0,
+      activeDays: parseInt(usage.active_days, 10) || 0,
       period,
     });
   } catch (error) {
@@ -198,7 +198,7 @@ router.get('/history', async (req, res) => {
         TO_CHAR(date, 'YYYY-MM') as period,
         ${sqlMetric} as value
        FROM api_usage
-       WHERE date >= NOW() - INTERVAL '${parseInt(months)} months'
+       WHERE date >= NOW() - INTERVAL '${parseInt(months, 10)} months'
        GROUP BY TO_CHAR(date, 'YYYY-MM')
        ORDER BY period ASC`
     );
@@ -222,7 +222,7 @@ router.get('/history', async (req, res) => {
 router.get('/top-clients', async (req, res) => {
   try {
     const { metric = 'cost', limit = 10, period = 'month' } = req.query;
-    const topClients = await UsageTracker.getTopClients(metric, parseInt(limit), period);
+    const topClients = await UsageTracker.getTopClients(metric, parseInt(limit, 10), period);
     res.json(topClients);
   } catch (error) {
     console.error('[Admin] Get top clients error:', error);

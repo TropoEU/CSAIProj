@@ -208,7 +208,7 @@ class GmailService {
             from: this.parseEmailAddress(getHeader('From')),
             to: getHeader('To'),
             subject: getHeader('Subject') || '(no subject)',
-            date: new Date(parseInt(message.internalDate)),
+            date: new Date(parseInt(message.internalDate, 10)),
             body: body.trim(),
             snippet: message.snippet,
             labelIds: message.labelIds || [],

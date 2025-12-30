@@ -30,10 +30,10 @@ async function getCurrentMonthUsage(clientId) {
   const usage = result.rows[0];
 
   return {
-    conversationsPerMonth: parseInt(usage.conversations) || 0,
-    messagesPerMonth: parseInt(usage.messages) || 0,
-    tokensPerMonth: parseInt(usage.tokens) || 0,
-    toolCallsPerMonth: parseInt(usage.tool_calls) || 0,
+    conversationsPerMonth: parseInt(usage.conversations, 10) || 0,
+    messagesPerMonth: parseInt(usage.messages, 10) || 0,
+    tokensPerMonth: parseInt(usage.tokens, 10) || 0,
+    toolCallsPerMonth: parseInt(usage.tool_calls, 10) || 0,
     costLimitUSD: parseFloat(usage.cost) || 0,
   };
 }
@@ -48,7 +48,7 @@ async function getIntegrationsCount(clientId) {
     'SELECT COUNT(*) FROM client_integrations WHERE client_id = $1 AND enabled = true',
     [clientId]
   );
-  return parseInt(result.rows[0].count) || 0;
+  return parseInt(result.rows[0].count, 10) || 0;
 }
 
 /**

@@ -476,6 +476,21 @@ class ConversationService {
     const normalizedArgs = this.normalizeToolArguments(toolArgs, tool);
     const finalArgs = normalizedArgs || toolArgs;
 
+    // Check for duplicate tool calls by querying the persisted tool_executions table
+    // This works across conversation turns since the data is stored in the database
+    const isDuplicate = await ToolExecution.isDuplicateExecution(conversation.id, name, finalArgs);
+
+    if (isDuplicate) {
+      console.log(`[Conversation] ⚠️ DUPLICATE tool call blocked: ${name} (already executed successfully with same parameters)`);
+      const duplicateMessage = `This action was already completed earlier in this conversation. No need to repeat it.`;
+      messages.push({
+        role: 'tool',
+        content: duplicateMessage,
+        tool_call_id: id,
+      });
+      return { success: true, name, duplicate: true };
+    }
+
     // Fetch integration credentials
     let integrations = {};
     const requiredIntegrations = tool.required_integrations || [];
@@ -515,6 +530,22 @@ class ConversationService {
     console.log('==========================================\n');
 
     const result = await n8nService.executeTool(tool.n8n_webhook_url, finalArgs, { integrations });
+
+    // Handle blocked tools (placeholder values detected)
+    if (result.blocked) {
+      console.log(`[Conversation] Tool ${name} BLOCKED - placeholder values detected`);
+      messages.push({
+        role: 'tool',
+        content: `TOOL BLOCKED: ${result.error} Do not use placeholder values - ask the user for the actual information they want to use.`,
+        tool_call_id: id,
+      });
+      return {
+        success: false,
+        name,
+        executionTime: result.executionTimeMs,
+        blocked: true,
+      };
+    }
 
     // Log execution
     await ToolExecution.create(
@@ -640,6 +671,22 @@ class ConversationService {
 
   /**
    * Process a user message with full tool execution flow
+   *
+   * TODO: REFACTOR - This function is too large (237 lines) and handles multiple concerns
+   *
+   * Recommended extraction into smaller methods:
+   * 1. _initializeConversation() - Get/create conversation, track new conversation metrics
+   * 2. _processToolCalls() - Handle tool detection, execution, and result formatting
+   * 3. _handleConversationEnd() - Detect and handle goodbye messages
+   * 4. _detectAndHandleEscalation() - Check for escalation triggers, create escalation
+   * 5. _trackUsageMetrics() - Update API usage, token counts, cost tracking
+   * 6. _buildContextMessages() - Prepare conversation context for LLM
+   *
+   * This refactor will improve:
+   * - Testability (each function can be unit tested)
+   * - Readability (single responsibility per function)
+   * - Debugging (easier to trace issues)
+   * - Maintenance (changes isolated to relevant function)
    */
   async processMessage(client, sessionId, userMessage, options = {}) {
     const { userIdentifier = null, maxToolIterations = 3 } = options;

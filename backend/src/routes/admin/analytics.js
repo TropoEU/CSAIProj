@@ -10,32 +10,32 @@ const router = express.Router();
 router.get('/overview', async (req, res) => {
   try {
     const clientsResult = await db.query("SELECT COUNT(*) FROM clients WHERE status = 'active'");
-    const totalClients = parseInt(clientsResult.rows[0].count);
+    const totalClients = parseInt(clientsResult.rows[0].count, 10);
 
     const convTodayResult = await db.query(
       'SELECT COUNT(*) FROM conversations WHERE DATE(started_at) = CURRENT_DATE'
     );
-    const conversationsToday = parseInt(convTodayResult.rows[0].count);
+    const conversationsToday = parseInt(convTodayResult.rows[0].count, 10);
 
     const convYesterdayResult = await db.query(
       'SELECT COUNT(*) FROM conversations WHERE DATE(started_at) = CURRENT_DATE - 1'
     );
-    const conversationsYesterday = parseInt(convYesterdayResult.rows[0].count);
+    const conversationsYesterday = parseInt(convYesterdayResult.rows[0].count, 10);
 
     const toolsTodayResult = await db.query(
       'SELECT COUNT(*) FROM tool_executions WHERE DATE(timestamp) = CURRENT_DATE'
     );
-    const toolCallsToday = parseInt(toolsTodayResult.rows[0].count);
+    const toolCallsToday = parseInt(toolsTodayResult.rows[0].count, 10);
 
     const toolsYesterdayResult = await db.query(
       'SELECT COUNT(*) FROM tool_executions WHERE DATE(timestamp) = CURRENT_DATE - 1'
     );
-    const toolCallsYesterday = parseInt(toolsYesterdayResult.rows[0].count);
+    const toolCallsYesterday = parseInt(toolsYesterdayResult.rows[0].count, 10);
 
     const tokensResult = await db.query(
       'SELECT COALESCE(SUM(tokens_used), 0) as total FROM messages WHERE DATE(timestamp) = CURRENT_DATE'
     );
-    const tokensUsedToday = parseInt(tokensResult.rows[0].total);
+    const tokensUsedToday = parseInt(tokensResult.rows[0].total, 10);
 
     const convOverTimeResult = await db.query(`
       SELECT DATE(started_at) as date, COUNT(*) as count
@@ -87,11 +87,11 @@ router.get('/overview', async (req, res) => {
       tokensUsedToday,
       conversationsOverTime: convOverTimeResult.rows.map((r) => ({
         date: r.date.toISOString().split('T')[0],
-        count: parseInt(r.count),
+        count: parseInt(r.count, 10),
       })),
       toolUsage: toolUsageResult.rows.map((r) => ({
         name: r.name,
-        count: parseInt(r.count),
+        count: parseInt(r.count, 10),
       })),
       recentActivity: recentActivityResult.rows.map((r) => ({
         clientName: r.client_name,
@@ -125,10 +125,10 @@ router.get('/tools', async (req, res) => {
 
     const stats = result.rows.map((r) => ({
       tool_name: r.tool_name,
-      count: parseInt(r.count),
+      count: parseInt(r.count, 10),
       avg_time: Math.round(parseFloat(r.avg_time) || 0),
       success_rate:
-        r.count > 0 ? Math.round((parseInt(r.success_count) / parseInt(r.count)) * 100) : 0,
+        r.count > 0 ? Math.round((parseInt(r.success_count, 10) / parseInt(r.count, 10)) * 100) : 0,
     }));
 
     res.json(stats);
@@ -155,8 +155,8 @@ router.get('/conversations', async (req, res) => {
     `);
 
     res.json({
-      total: parseInt(result.rows[0].total),
-      today: parseInt(result.rows[0].today),
+      total: parseInt(result.rows[0].total, 10),
+      today: parseInt(result.rows[0].today, 10),
       avgDurationMinutes: Math.round(parseFloat(result.rows[0].avg_duration_minutes) || 0),
     });
   } catch (error) {

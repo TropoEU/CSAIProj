@@ -121,4 +121,26 @@ export class ToolExecution {
         );
         return result.rows;
     }
+
+    /**
+     * Check if a tool was already executed successfully with the same parameters in this conversation
+     * Used to prevent duplicate tool calls across conversation turns
+     */
+    static async isDuplicateExecution(conversationId, toolName, parameters) {
+        // Normalize parameters for comparison
+        const normalizedParams = typeof parameters === 'string'
+            ? parameters
+            : JSON.stringify(parameters);
+
+        const result = await db.query(
+            `SELECT id FROM tool_executions
+             WHERE conversation_id = $1
+             AND tool_name = $2
+             AND parameters::text = $3
+             AND success = true
+             LIMIT 1`,
+            [conversationId, toolName, normalizedParams]
+        );
+        return result.rows.length > 0;
+    }
 }

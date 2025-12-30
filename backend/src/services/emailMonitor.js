@@ -16,7 +16,7 @@ class EmailMonitor {
     constructor() {
         this.isRunning = false;
         this.checkInterval = null;
-        this.intervalMs = parseInt(process.env.EMAIL_MONITOR_INTERVAL_MS || '60000'); // Default: 60 seconds
+        this.intervalMs = parseInt(process.env.EMAIL_MONITOR_INTERVAL_MS || '60000', 10); // Default: 60 seconds
         this.enabled = process.env.EMAIL_MONITOR_ENABLED !== 'false'; // Default: enabled
     }
 

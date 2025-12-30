@@ -162,14 +162,14 @@ class CustomerController {
           language: client.language || 'en'
         },
         usage: {
-          conversations: parseInt(usage?.total_conversations) || 0,
-          tokens: (parseInt(usage?.total_tokens_input) || 0) + (parseInt(usage?.total_tokens_output) || 0),
-          toolCalls: parseInt(usage?.total_tool_calls) || 0
+          conversations: parseInt(usage?.total_conversations, 10) || 0,
+          tokens: (parseInt(usage?.total_tokens_input, 10) || 0) + (parseInt(usage?.total_tokens_output, 10) || 0),
+          toolCalls: parseInt(usage?.total_tool_calls, 10) || 0
         },
         limits,
         stats: {
-          conversationsToday: parseInt(todayStats.rows[0]?.conversation_count) || 0,
-          tokensToday: parseInt(todayStats.rows[0]?.tokens_used) || 0,
+          conversationsToday: parseInt(todayStats.rows[0]?.conversation_count, 10) || 0,
+          tokensToday: parseInt(todayStats.rows[0]?.tokens_used, 10) || 0,
           topTool: topTool.rows[0] || null
         },
         recentConversations: recentConversations.rows.map(conv => ({
@@ -287,11 +287,11 @@ class CustomerController {
         days = 60 // Default to 60 days
       } = req.query;
 
-      const offset = (parseInt(page) - 1) * parseInt(limit);
+      const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
       // Build date filter
       const daysAgo = new Date();
-      daysAgo.setDate(daysAgo.getDate() - parseInt(days));
+      daysAgo.setDate(daysAgo.getDate() - parseInt(days, 10));
 
       // Build WHERE clause
       const whereConditions = ['c.client_id = $1', 'c.started_at >= $2'];
@@ -319,8 +319,8 @@ class CustomerController {
         `SELECT COUNT(*) as total FROM conversations c WHERE ${whereClause}`,
         queryParams
       );
-      const totalConversations = parseInt(countResult.rows[0].total);
-      const totalPages = Math.ceil(totalConversations / parseInt(limit));
+      const totalConversations = parseInt(countResult.rows[0].total, 10);
+      const totalPages = Math.ceil(totalConversations / parseInt(limit, 10));
 
       // Get conversations
       const result = await db.query(
@@ -338,7 +338,7 @@ class CustomerController {
         WHERE ${whereClause}
         ORDER BY c.started_at DESC
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-        [...queryParams, parseInt(limit), offset]
+        [...queryParams, parseInt(limit, 10), offset]
       );
 
       res.json({
@@ -352,14 +352,14 @@ class CustomerController {
             : null,
           messageCount: conv.message_count,
           tokensTotal: conv.tokens_total,
-          toolCallCount: parseInt(conv.tool_call_count) || 0,
+          toolCallCount: parseInt(conv.tool_call_count, 10) || 0,
           status: conv.ended_at ? 'ended' : 'active',
           provider: conv.llm_provider,
           model: conv.model_name
         })),
         pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
+          page: parseInt(page, 10),
+          limit: parseInt(limit, 10),
           totalPages,
           totalConversations
         }
@@ -499,9 +499,9 @@ class CustomerController {
 
       res.json({
         usage: {
-          conversations: parseInt(usage?.total_conversations) || 0,
-          tokens: (parseInt(usage?.total_tokens_input) || 0) + (parseInt(usage?.total_tokens_output) || 0),
-          toolCalls: parseInt(usage?.total_tool_calls) || 0
+          conversations: parseInt(usage?.total_conversations, 10) || 0,
+          tokens: (parseInt(usage?.total_tokens_input, 10) || 0) + (parseInt(usage?.total_tokens_output, 10) || 0),
+          toolCalls: parseInt(usage?.total_tool_calls, 10) || 0
         },
         limits,
         period: currentMonth
@@ -525,7 +525,7 @@ class CustomerController {
       const { period = '30d' } = req.query;
 
       // Parse period (e.g., "30d" -> 30 days)
-      const days = parseInt(period);
+      const days = parseInt(period, 10);
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
 
@@ -544,8 +544,8 @@ class CustomerController {
       res.json({
         daily: result.rows.map(row => ({
           date: row.date,
-          conversations: parseInt(row.conversations),
-          tokens: parseInt(row.tokens)
+          conversations: parseInt(row.conversations, 10),
+          tokens: parseInt(row.tokens, 10)
         }))
       });
     } catch (error) {
@@ -581,8 +581,8 @@ class CustomerController {
 
       res.json({
         tools: result.rows.map(row => {
-          const callCount = parseInt(row.call_count) || 0;
-          const successCount = parseInt(row.success_count) || 0;
+          const callCount = parseInt(row.call_count, 10) || 0;
+          const successCount = parseInt(row.success_count, 10) || 0;
           const successRate = callCount > 0 
             ? Math.round((successCount / callCount) * 100) 
             : 0;
@@ -959,14 +959,14 @@ class CustomerController {
       const stats = await Escalation.getStats(clientId);
 
       res.json({
-        total: parseInt(stats.total_escalations) || 0,
-        pending: parseInt(stats.pending_count) || 0,
-        acknowledged: parseInt(stats.acknowledged_count) || 0,
-        resolved: parseInt(stats.resolved_count) || 0,
+        total: parseInt(stats.total_escalations, 10) || 0,
+        pending: parseInt(stats.pending_count, 10) || 0,
+        acknowledged: parseInt(stats.acknowledged_count, 10) || 0,
+        resolved: parseInt(stats.resolved_count, 10) || 0,
         byReason: {
-          userRequested: parseInt(stats.user_requested_count) || 0,
-          aiStuck: parseInt(stats.ai_stuck_count) || 0,
-          lowConfidence: parseInt(stats.low_confidence_count) || 0
+          userRequested: parseInt(stats.user_requested_count, 10) || 0,
+          aiStuck: parseInt(stats.ai_stuck_count, 10) || 0,
+          lowConfidence: parseInt(stats.low_confidence_count, 10) || 0
         },
         avgResolutionTimeMinutes: stats.avg_resolution_time_seconds
           ? Math.round(parseFloat(stats.avg_resolution_time_seconds) / 60)
@@ -988,7 +988,7 @@ class CustomerController {
   async cancelEscalation(req, res) {
     try {
       const clientId = req.clientId;
-      const escalationId = parseInt(req.params.id);
+      const escalationId = parseInt(req.params.id, 10);
 
       // Verify escalation belongs to this client
       const escalation = await Escalation.findById(escalationId);

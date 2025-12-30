@@ -68,7 +68,7 @@ export class Message {
              WHERE conversation_id = $1`,
             [conversationId]
         );
-        return parseInt(result.rows[0].total_tokens) || 0;
+        return parseInt(result.rows[0].total_tokens, 10) || 0;
     }
 
     /**
@@ -110,6 +110,6 @@ export class Message {
             'SELECT COUNT(*) as count FROM messages WHERE conversation_id = $1',
             [conversationId]
         );
-        return parseInt(result.rows[0].count);
+        return parseInt(result.rows[0].count, 10);
     }
 }

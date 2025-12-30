@@ -516,12 +516,15 @@ class LLMService {
       console.warn('[LLMService] formatToolsForGroq: tools is not an array', typeof tools, tools);
       return [];
     }
-    
+
+    // Add restrictions to tool descriptions for native function calling
+    const toolRestriction = ' IMPORTANT: Only call this function when the user EXPLICITLY requests this action AND provides all required information. Never use placeholder values. Ask for missing details first.';
+
     return tools.map(tool => ({
       type: 'function',
       function: {
         name: tool.name,
-        description: tool.description,
+        description: (tool.description || '') + toolRestriction,
         parameters: tool.parameters
       }
     }));
@@ -531,9 +534,12 @@ class LLMService {
    * Format tools for Claude
    */
   formatToolsForClaude(tools) {
+    // Add restrictions to tool descriptions for native function calling
+    const toolRestriction = ' IMPORTANT: Only call this function when the user EXPLICITLY requests this action AND provides all required information. Never use placeholder values. Ask for missing details first.';
+
     return tools.map(tool => ({
       name: tool.name,
-      description: tool.description,
+      description: (tool.description || '') + toolRestriction,
       input_schema: tool.parameters
     }));
   }

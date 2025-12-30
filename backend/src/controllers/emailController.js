@@ -22,7 +22,7 @@ export async function initiateOAuth(req, res) {
             return res.status(400).json({ error: 'Client ID is required' });
         }
 
-        const authUrl = gmailService.getAuthorizationUrl(parseInt(clientId));
+        const authUrl = gmailService.getAuthorizationUrl(parseInt(clientId, 10));
 
         logger.log('[EmailController] OAuth initiated for client', { clientId });
 
@@ -115,7 +115,7 @@ export async function getChannels(req, res) {
     try {
         const { clientId } = req.params;
 
-        const channels = await EmailChannel.findByClient(parseInt(clientId));
+        const channels = await EmailChannel.findByClient(parseInt(clientId, 10));
 
         // Don't expose connection_config (tokens) in response
         const safeChannels = channels.map(channel => ({
@@ -146,7 +146,7 @@ export async function getChannel(req, res) {
     try {
         const { channelId } = req.params;
 
-        const channel = await EmailChannel.findById(parseInt(channelId));
+        const channel = await EmailChannel.findById(parseInt(channelId, 10));
 
         if (!channel) {
             return res.status(404).json({ error: 'Email channel not found' });
@@ -180,7 +180,7 @@ export async function updateChannel(req, res) {
         const { channelId } = req.params;
         const { settings } = req.body;
 
-        const channel = await EmailChannel.findById(parseInt(channelId));
+        const channel = await EmailChannel.findById(parseInt(channelId, 10));
         if (!channel) {
             return res.status(404).json({ error: 'Email channel not found' });
         }
@@ -206,7 +206,7 @@ export async function disconnectChannel(req, res) {
     try {
         const { channelId } = req.params;
 
-        const channel = await EmailChannel.findById(parseInt(channelId));
+        const channel = await EmailChannel.findById(parseInt(channelId, 10));
         if (!channel) {
             return res.status(404).json({ error: 'Email channel not found' });
         }
@@ -230,7 +230,7 @@ export async function testConnection(req, res) {
     try {
         const { channelId } = req.params;
 
-        const channel = await EmailChannel.findById(parseInt(channelId));
+        const channel = await EmailChannel.findById(parseInt(channelId, 10));
         if (!channel) {
             return res.status(404).json({ error: 'Email channel not found' });
         }
@@ -264,7 +264,7 @@ export async function sendTestEmail(req, res) {
             return res.status(400).json({ error: 'Missing required fields: to, subject, body' });
         }
 
-        const channel = await EmailChannel.findById(parseInt(channelId));
+        const channel = await EmailChannel.findById(parseInt(channelId, 10));
         if (!channel) {
             return res.status(404).json({ error: 'Email channel not found' });
         }
@@ -289,12 +289,12 @@ export async function getUnreadEmails(req, res) {
         const { channelId } = req.params;
         const { limit = 10 } = req.query;
 
-        const channel = await EmailChannel.findById(parseInt(channelId));
+        const channel = await EmailChannel.findById(parseInt(channelId, 10));
         if (!channel) {
             return res.status(404).json({ error: 'Email channel not found' });
         }
 
-        const emails = await gmailService.getUnreadEmails(channel.id, parseInt(limit));
+        const emails = await gmailService.getUnreadEmails(channel.id, parseInt(limit, 10));
 
         res.json(emails);
     } catch (error) {

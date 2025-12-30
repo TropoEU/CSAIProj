@@ -89,7 +89,7 @@ export class Escalation {
     }
 
     query += ` ORDER BY e.escalated_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(parseInt(limit), parseInt(offset));
+    params.push(parseInt(limit, 10), parseInt(offset, 10));
 
     const result = await db.query(query, params);
     return result.rows;
@@ -113,7 +113,7 @@ export class Escalation {
       LIMIT $1 OFFSET $2
     `;
 
-    const result = await db.query(query, [parseInt(limit), parseInt(offset)]);
+    const result = await db.query(query, [parseInt(limit, 10), parseInt(offset, 10)]);
     return result.rows;
   }
 
@@ -217,6 +217,6 @@ export class Escalation {
        AND status IN ('pending', 'acknowledged')`,
       [conversationId]
     );
-    return parseInt(result.rows[0].count) > 0;
+    return parseInt(result.rows[0].count, 10) > 0;
   }
 }
