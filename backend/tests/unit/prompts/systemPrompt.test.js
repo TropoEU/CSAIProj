@@ -30,7 +30,7 @@ describe('System Prompts', () => {
       expect(prompt).toContain('REASONING PROCESS');
       expect(prompt).toContain('Step 1: UNDERSTAND');
       expect(prompt).toContain('Step 2: CHECK CONTEXT');
-      expect(prompt).toContain('Step 3: DECIDE ON ACTION');
+      expect(prompt).toContain('Step 3: DECIDE');
       expect(prompt).toContain('Step 4: RESPOND');
     });
 

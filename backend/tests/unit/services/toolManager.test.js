@@ -108,14 +108,18 @@ describe('ToolManager', () => {
     it('should include required parameters', () => {
       const result = toolManager.formatForPromptEngineering(mockTools);
 
-      expect(result).toContain('REQUIRED(order_id)');
-      expect(result).toContain('REQUIRED(date,time)');
+      expect(result).toContain('order_id (string) [REQUIRED]');
+      expect(result).toContain('date (string) [REQUIRED]');
+      expect(result).toContain('time (string) [REQUIRED]');
     });
 
     it('should include optional parameters', () => {
       const result = toolManager.formatForPromptEngineering(mockTools);
 
-      expect(result).toContain('optional(service)');
+      // Optional parameters are shown without [REQUIRED] marker
+      expect(result).toContain('service (string)');
+      // Verify it's NOT marked as required
+      expect(result).not.toContain('service (string) [REQUIRED]');
     });
 
     it('should include format instructions', () => {
@@ -126,10 +130,12 @@ describe('ToolManager', () => {
       expect(result).toContain('FORMAT');
     });
 
-    it('should include examples', () => {
+    it('should include tool decision tree', () => {
       const result = toolManager.formatForPromptEngineering(mockTools);
 
-      expect(result).toContain('Examples:');
+      // New format includes decision tree instead of examples
+      expect(result).toContain('TOOL CALLING DECISION TREE');
+      expect(result).toContain('Before calling a tool, verify:');
     });
   });
 
