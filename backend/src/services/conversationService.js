@@ -9,6 +9,7 @@ import n8nService from './n8nService.js';
 import integrationService from './integrationService.js';
 import escalationService from './escalationService.js';
 import { safeJsonParse } from '../utils/jsonUtils.js';
+import { createLogger } from '../utils/logger.js';
 import {
   STRONG_ENDING_PHRASES,
   WEAK_ENDING_PHRASES,
@@ -17,6 +18,8 @@ import {
   USER_ACTION_REQUEST_PATTERN,
   THRESHOLDS,
 } from '../config/phrases.js';
+
+const log = createLogger('Conversation');
 
 /**
  * Conversation Service
@@ -58,7 +61,7 @@ class ConversationService {
           const num = paramSchema.type === 'integer' ? parseInt(paramValue, 10) : parseFloat(paramValue);
           if (!isNaN(num)) {
             normalized[paramName] = num;
-            console.log(`[Conversation] Coerced ${paramName} from string "${paramValue}" to number ${num}`);
+            log.debug(`Coerced ${paramName} from string "${paramValue}" to number ${num}`);
           }
         }
       }
@@ -68,10 +71,10 @@ class ConversationService {
         const lower = paramValue.toLowerCase();
         if (lower === 'true' || lower === '1' || lower === 'yes') {
           normalized[paramName] = true;
-          console.log(`[Conversation] Coerced ${paramName} from string "${paramValue}" to boolean true`);
+          log.debug(`Coerced ${paramName} from string "${paramValue}" to boolean true`);
         } else if (lower === 'false' || lower === '0' || lower === 'no') {
           normalized[paramName] = false;
-          console.log(`[Conversation] Coerced ${paramName} from string "${paramValue}" to boolean false`);
+          log.debug(`Coerced ${paramName} from string "${paramValue}" to boolean false`);
         }
       }
 
@@ -92,9 +95,7 @@ class ConversationService {
             const oneYearAgo = new Date(today);
             oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
             if (parsed < oneYearAgo) {
-              console.warn(
-                `[Conversation] Date ${paramValue} is too far in the past, correcting to today: ${todayStr}`
-              );
+              log.warn(`Date ${paramValue} is too far in the past, correcting to today: ${todayStr}`);
               normalized[paramName] = todayStr;
             }
           } else {
@@ -109,12 +110,12 @@ class ConversationService {
 
     // Fix phone number/email mix-ups
     if (normalized.customerEmail && /^\d+$/.test(normalized.customerEmail) && !normalized.customerPhone) {
-      console.warn('[Conversation] Phone number found in customerEmail field, moving to customerPhone');
+      log.warn('Phone number found in customerEmail field, moving to customerPhone');
       normalized.customerPhone = normalized.customerEmail;
       normalized.customerEmail = '';
     }
     if (normalized.customerPhone && normalized.customerPhone.includes('@') && !normalized.customerEmail) {
-      console.warn('[Conversation] Email found in customerPhone field, moving to customerEmail');
+      log.warn('Email found in customerPhone field, moving to customerEmail');
       normalized.customerEmail = normalized.customerPhone;
       normalized.customerPhone = '';
     }
@@ -142,7 +143,7 @@ class ConversationService {
     let conversation = await Conversation.findBySession(sessionId);
 
     if (conversation && conversation.ended_at) {
-      console.log(`[Conversation] Session ${sessionId} has ended, creating new conversation`);
+      log.info(`Session ${sessionId} has ended, creating new conversation`);
       conversation = await this.createConversation(clientId, sessionId, userIdentifier, llmProvider, modelName);
     } else if (!conversation) {
       conversation = await this.createConversation(clientId, sessionId, userIdentifier, llmProvider, modelName);
@@ -158,6 +159,24 @@ class ConversationService {
     const message = await Message.create(conversationId, role, content, tokensUsed);
     await this.updateConversationStats(conversationId);
     return message;
+  }
+
+  /**
+   * Add a debug/internal message for full conversation tracking
+   * @param {number} conversationId - The conversation ID
+   * @param {string} role - The role (user, assistant, system, tool)
+   * @param {string} content - The message content
+   * @param {string} messageType - Type: visible, system, tool_call, tool_result, internal
+   * @param {object} options - Additional options (tokensUsed, toolCallId, metadata)
+   */
+  async addDebugMessage(conversationId, role, content, messageType, options = {}) {
+    try {
+      return await Message.createDebug(conversationId, role, content, messageType, options);
+    } catch (error) {
+      log.error('Failed to store debug message', error);
+      // Don't fail the conversation if debug storage fails
+      return null;
+    }
   }
 
   /**
@@ -300,14 +319,14 @@ class ConversationService {
             last_activity: conv.last_activity,
           });
         } catch (error) {
-          console.error(`[Conversation] Failed to auto-end conversation ${conv.id}:`, error);
+          log.error(`Failed to auto-end conversation ${conv.id}`, error);
         }
       }
 
-      console.log(`[Conversation] Auto-ended ${endedConversations.length} inactive conversation(s)`);
+      log.info(`Auto-ended ${endedConversations.length} inactive conversation(s)`);
       return { ended: endedConversations.length, conversations: endedConversations };
     } catch (error) {
-      console.error('[Conversation] Error auto-ending inactive conversations:', error);
+      log.error('Error auto-ending inactive conversations', error);
       throw error;
     }
   }
@@ -383,7 +402,7 @@ class ConversationService {
    * @private
    */
   async _handleConversationEnd(conversation, sessionId, userMessage) {
-    console.log(`[Conversation] Detected conversation end signal: "${userMessage}"`);
+    log.info(`Detected conversation end signal: "${userMessage}"`);
 
     await this.addMessage(conversation.id, 'user', userMessage);
     await Conversation.end(conversation.id);
@@ -444,12 +463,21 @@ class ConversationService {
   async _executeSingleTool(toolCall, client, conversation, messages) {
     const { id, name, arguments: toolArgs } = toolCall;
 
-    console.log(`[Conversation] Executing tool: ${name}`);
+    log.info(`Executing tool: ${name}`);
+
+    // Store tool call as debug message
+    await this.addDebugMessage(
+      conversation.id,
+      'assistant',
+      `Tool Call: ${name}\nArguments: ${JSON.stringify(toolArgs, null, 2)}`,
+      'tool_call',
+      { toolCallId: id, metadata: { tool_name: name, arguments: toolArgs } }
+    );
 
     const tool = await toolManager.getToolByName(client.id, name);
 
     if (!tool) {
-      console.error(`[Conversation] Tool not found: ${name}`);
+      log.error(`Tool not found: ${name}`);
       const errorMessage = `Error: Tool "${name}" is not available`;
 
       messages.push({ role: 'tool', content: errorMessage, tool_call_id: id });
@@ -462,100 +490,158 @@ class ConversationService {
     // Validate tool arguments
     const validation = toolManager.validateToolArguments(tool, toolArgs);
     if (!validation.valid) {
-      console.error(`[Conversation] Invalid arguments for ${name}:`, validation.errors);
-      const errorMessage = `Error: Invalid arguments - ${validation.errors.join(', ')}`;
+      log.error(`Invalid arguments for ${name}`, validation.errors);
+      const errorDetails = validation.errors.join('; ');
+      const errorMessage = `TOOL CALL REJECTED: ${errorDetails}. You MUST ask the user for the missing or invalid information before calling this tool again. Do not use placeholder values.`;
 
       messages.push({ role: 'tool', content: errorMessage, tool_call_id: id });
 
-      await ToolExecution.create(conversation.id, name, toolArgs, { error: validation.errors }, false, 0);
+      // Log as blocked execution for visibility in admin dashboard
+      await ToolExecution.create(
+        conversation.id,
+        name,
+        toolArgs,
+        { error: validation.errors },
+        false,
+        0,
+        'blocked',
+        errorDetails
+      );
 
-      return { success: false, error: errorMessage };
+      // Store blocked tool result as debug message
+      await this.addDebugMessage(
+        conversation.id,
+        'assistant',
+        errorMessage,
+        'tool_result',
+        {
+          toolCallId: id,
+          metadata: {
+            tool_name: name,
+            success: false,
+            status: 'blocked',
+            error_reason: errorDetails,
+            invalid_args: toolArgs,
+          }
+        }
+      );
+
+      return { success: false, error: errorMessage, blocked: true };
     }
 
     // Normalize and prepare arguments
     const normalizedArgs = this.normalizeToolArguments(toolArgs, tool);
     const finalArgs = normalizedArgs || toolArgs;
 
-    // Check for duplicate tool calls by querying the persisted tool_executions table
-    // This works across conversation turns since the data is stored in the database
-    const isDuplicate = await ToolExecution.isDuplicateExecution(conversation.id, name, finalArgs);
+    // Create a unique lock key for this specific tool execution
+    // Using conversation ID + tool name + stringified args ensures uniqueness
+    const lockKey = `tool:${conversation.id}:${name}:${JSON.stringify(finalArgs)}`;
 
-    if (isDuplicate) {
-      console.log(`[Conversation] ⚠️ DUPLICATE tool call blocked: ${name} (already executed successfully with same parameters)`);
-      const duplicateMessage = `This action was already completed earlier in this conversation. No need to repeat it.`;
+    // Acquire Redis lock to prevent race conditions in duplicate detection
+    // This prevents TOCTOU (Time-Of-Check-Time-Of-Use) bugs where two concurrent
+    // requests could both pass the duplicate check before either writes to DB
+    const lockAcquired = await RedisCache.acquireLock(lockKey, 60); // 60 second TTL for tool execution
+
+    if (!lockAcquired) {
+      log.warn(`Tool execution already in progress: ${name}`);
       messages.push({
         role: 'tool',
-        content: duplicateMessage,
+        content: 'This action is already being processed. Please wait for the current execution to complete.',
         tool_call_id: id,
       });
-      return { success: true, name, duplicate: true };
+      return { success: false, error: 'Execution already in progress', locked: true };
     }
 
-    // Fetch integration credentials
-    let integrations = {};
-    const requiredIntegrations = tool.required_integrations || [];
-    const integrationMapping = tool.integration_mapping || {};
+    let result;
+    try {
+      // Check for duplicate tool calls by querying the persisted tool_executions table
+      // This works across conversation turns since the data is stored in the database
+      const isDuplicate = await ToolExecution.isDuplicateExecution(conversation.id, name, finalArgs);
 
-    console.log('\n========== TOOL EXECUTION DEBUG ==========');
-    console.log(`[Conversation] Processing tool: ${name}`);
-    console.log('[Conversation] Tool required_integrations:', requiredIntegrations);
-    console.log('[Conversation] Integration mapping:', integrationMapping);
+      if (isDuplicate) {
+        log.warn(`DUPLICATE tool call blocked: ${name} (already executed successfully with same parameters)`);
+        const duplicateMessage = 'This action was already completed earlier in this conversation. No need to repeat it.';
 
-    if (requiredIntegrations.length > 0) {
-      try {
-        console.log(`[Conversation] Fetching ${requiredIntegrations.length} integrations for tool`);
-        integrations = await integrationService.getIntegrationsForTool(
-          client.id,
-          integrationMapping,
-          requiredIntegrations
-        );
+        // Log duplicate attempt to database for visibility
+        await ToolExecution.logDuplicate(conversation.id, name, finalArgs);
 
-        const integrationCount = Object.keys(integrations).length;
-        console.log(`[Conversation] ✅ Loaded ${integrationCount} integrations:`, Object.keys(integrations).join(', '));
-      } catch (error) {
-        console.error('[Conversation] ❌ Failed to load integrations:', error.message);
         messages.push({
           role: 'tool',
-          content: `Error: ${error.message}. Please configure the required integrations in the admin panel.`,
+          content: duplicateMessage,
           tool_call_id: id,
         });
-        return { success: false, error: error.message };
+        return { success: true, name, duplicate: true };
       }
-    } else {
-      console.log(`[Conversation] ⚠️  Tool ${name} has no required integrations`);
-    }
 
-    // Execute via n8n
-    console.log(`[Conversation] Calling n8n with ${Object.keys(integrations).length} integrations`);
-    console.log('==========================================\n');
+      // Fetch integration credentials
+      let integrations = {};
+      const requiredIntegrations = tool.required_integrations || [];
+      const integrationMapping = tool.integration_mapping || {};
 
-    const result = await n8nService.executeTool(tool.n8n_webhook_url, finalArgs, { integrations });
+      log.debug(`Processing tool: ${name}`, { requiredIntegrations, integrationMapping });
 
-    // Handle blocked tools (placeholder values detected)
-    if (result.blocked) {
-      console.log(`[Conversation] Tool ${name} BLOCKED - placeholder values detected`);
-      messages.push({
-        role: 'tool',
-        content: `TOOL BLOCKED: ${result.error} Do not use placeholder values - ask the user for the actual information they want to use.`,
-        tool_call_id: id,
-      });
-      return {
-        success: false,
+      if (requiredIntegrations.length > 0) {
+        try {
+          log.debug(`Fetching ${requiredIntegrations.length} integrations for tool`);
+          integrations = await integrationService.getIntegrationsForTool(
+            client.id,
+            integrationMapping,
+            requiredIntegrations
+          );
+
+          const integrationCount = Object.keys(integrations).length;
+          log.info(`Loaded ${integrationCount} integrations: ${Object.keys(integrations).join(', ')}`);
+        } catch (error) {
+          log.error('Failed to load integrations', error.message);
+          messages.push({
+            role: 'tool',
+            content: `Error: ${error.message}. Please configure the required integrations in the admin panel.`,
+            tool_call_id: id,
+          });
+          return { success: false, error: error.message };
+        }
+      } else {
+        log.debug(`Tool ${name} has no required integrations`);
+      }
+
+      // Execute via n8n
+      log.debug(`Calling n8n with ${Object.keys(integrations).length} integrations`);
+
+      result = await n8nService.executeTool(tool.n8n_webhook_url, finalArgs, { integrations });
+
+      // Handle blocked tools (placeholder values detected)
+      if (result.blocked) {
+        log.warn(`Tool ${name} BLOCKED - placeholder values detected`);
+
+        // Log blocked attempt to database for visibility
+        await ToolExecution.logBlocked(conversation.id, name, finalArgs, result.error);
+
+        messages.push({
+          role: 'tool',
+          content: `TOOL BLOCKED: ${result.error} Do not use placeholder values - ask the user for the actual information they want to use.`,
+          tool_call_id: id,
+        });
+        return {
+          success: false,
+          name,
+          executionTime: result.executionTimeMs,
+          blocked: true,
+        };
+      }
+
+      // Log execution
+      await ToolExecution.create(
+        conversation.id,
         name,
-        executionTime: result.executionTimeMs,
-        blocked: true,
-      };
+        finalArgs,
+        result.data,
+        result.success,
+        result.executionTimeMs
+      );
+    } finally {
+      // Always release the lock, even if execution fails
+      await RedisCache.releaseLock(lockKey);
     }
-
-    // Log execution
-    await ToolExecution.create(
-      conversation.id,
-      name,
-      finalArgs,
-      result.data,
-      result.success,
-      result.executionTimeMs
-    );
 
     // Format result for LLM
     const formattedResult = n8nService.formatResponseForLLM(result.data);
@@ -566,7 +652,34 @@ class ConversationService {
       tool_call_id: id,
     });
 
-    console.log(`[Conversation] Tool ${name} ${result.success ? 'succeeded' : 'failed'} (${result.executionTimeMs}ms)`);
+    // Store tool result as debug message (limit raw_result size to prevent DB issues)
+    const rawResultStr = JSON.stringify(result.data);
+    let truncatedResult = result.data;
+    if (rawResultStr.length > 5000) {
+      try {
+        truncatedResult = { _truncated: true, preview: rawResultStr.substring(0, 2000) + '...' };
+      } catch {
+        truncatedResult = { _truncated: true, error: 'Could not serialize result' };
+      }
+    }
+
+    await this.addDebugMessage(
+      conversation.id,
+      'assistant',  // Use 'assistant' role (constraint only allows user/assistant/system)
+      result.success ? formattedResult : `Error: ${result.error}`,
+      'tool_result',
+      {
+        toolCallId: id,
+        metadata: {
+          tool_name: name,
+          success: result.success,
+          execution_time_ms: result.executionTimeMs,
+          raw_result: truncatedResult,
+        }
+      }
+    );
+
+    log.info(`Tool ${name} ${result.success ? 'succeeded' : 'failed'} (${result.executionTimeMs}ms)`);
 
     return {
       success: result.success,
@@ -642,13 +755,11 @@ class ConversationService {
       const tokensOutput = totalTokensOutput || Math.floor(totalTokens * 0.3);
       const toolCallsCount = toolsUsed.length;
 
-      console.log(
-        `[Conversation] Recording usage: client=${client.id}, tokens=${tokensInput + tokensOutput} (input: ${tokensInput}, output: ${tokensOutput}), tools=${toolCallsCount}, newConversation=${isNewConversation}`
-      );
+      log.debug(`Recording usage: client=${client.id}, tokens=${tokensInput + tokensOutput}, tools=${toolCallsCount}, newConversation=${isNewConversation}`);
       await ApiUsage.recordUsage(client.id, tokensInput, tokensOutput, toolCallsCount, isNewConversation);
-      console.log('[Conversation] Usage recorded successfully');
+      log.debug('Usage recorded successfully');
     } catch (usageError) {
-      console.error('[Conversation] Failed to record usage:', usageError);
+      log.error('Failed to record usage', usageError);
     }
 
     // Auto-detect escalation needs
@@ -656,7 +767,7 @@ class ConversationService {
       const language = client.language || 'en';
       await escalationService.autoDetect(conversation.id, stats.userMessage, language);
     } catch (escalationError) {
-      console.error('[Conversation] Failed to auto-detect escalation:', escalationError);
+      log.error('Failed to auto-detect escalation', escalationError);
     }
 
     return {
@@ -671,22 +782,6 @@ class ConversationService {
 
   /**
    * Process a user message with full tool execution flow
-   *
-   * TODO: REFACTOR - This function is too large (237 lines) and handles multiple concerns
-   *
-   * Recommended extraction into smaller methods:
-   * 1. _initializeConversation() - Get/create conversation, track new conversation metrics
-   * 2. _processToolCalls() - Handle tool detection, execution, and result formatting
-   * 3. _handleConversationEnd() - Detect and handle goodbye messages
-   * 4. _detectAndHandleEscalation() - Check for escalation triggers, create escalation
-   * 5. _trackUsageMetrics() - Update API usage, token counts, cost tracking
-   * 6. _buildContextMessages() - Prepare conversation context for LLM
-   *
-   * This refactor will improve:
-   * - Testability (each function can be unit tested)
-   * - Readability (single responsibility per function)
-   * - Debugging (easier to trace issues)
-   * - Maintenance (changes isolated to relevant function)
    */
   async processMessage(client, sessionId, userMessage, options = {}) {
     const { userIdentifier = null, maxToolIterations = 3 } = options;
@@ -756,6 +851,17 @@ class ConversationService {
         }
       }
 
+      // Store system prompt as debug message (only for new conversations or first message)
+      if (isNewConversation && messages[0]?.role === 'system') {
+        await this.addDebugMessage(
+          conversation.id,
+          'system',
+          messages[0].content,
+          'system',
+          { metadata: { provider: effectiveProvider, model: effectiveModel } }
+        );
+      }
+
       // Tool execution loop
       while (iterationCount < maxToolIterations) {
         iterationCount++;
@@ -771,9 +877,9 @@ class ConversationService {
             provider: effectiveProvider,
           });
         } catch (llmError) {
-          console.error(`[Conversation] LLM call failed on iteration ${iterationCount}:`, llmError);
+          log.error(`LLM call failed on iteration ${iterationCount}`, llmError);
           if (lastExecutedToolKeys && lastLLMResponse && lastLLMResponse.content) {
-            console.log('[Conversation] Using previous LLM response as fallback after error');
+            log.info('Using previous LLM response as fallback after error');
             finalResponse = lastLLMResponse.content;
             break;
           }
@@ -806,7 +912,7 @@ class ConversationService {
             currentToolKeys.length === lastExecutedToolKeys.length;
 
           if (isSameAsLastExecution) {
-            console.log('[Conversation] LLM tried to call same tools again. Breaking loop.');
+            log.warn('LLM tried to call same tools again. Breaking loop.');
             finalResponse =
               llmResponse.content?.trim()?.length > 0
                 ? llmResponse.content
@@ -821,14 +927,10 @@ class ConversationService {
             const parsedToolCalls = toolManager.parseToolCallsFromContent(llmResponse.content);
             if (parsedToolCalls && parsedToolCalls.length > 0) {
               toolCalls = parsedToolCalls;
-              console.log(
-                `[Conversation] Ollama returned stopReason='stop' but found ${toolCalls.length} tool call(s) in content.`
-              );
+              log.debug(`Ollama returned stopReason='stop' but found ${toolCalls.length} tool call(s) in content`);
             }
           } else if (toolCalls && toolCalls.length > 0) {
-            console.log(
-              "[Conversation] LLM returned both content and tool_calls with finish_reason='stop'. Using content."
-            );
+            log.debug("LLM returned both content and tool_calls with finish_reason='stop'. Using content.");
             toolCalls = null;
           }
         }
@@ -838,10 +940,10 @@ class ConversationService {
           if (llmResponse.content?.trim()?.length > 0) {
             // Check for hallucination
             if (this._isHallucinatingToolUsage(llmResponse.content, userMessage)) {
-              console.warn('[Conversation] AI is simulating tool usage without actually calling tools.');
+              log.warn('AI is simulating tool usage without actually calling tools');
 
               if (iterationCount < maxToolIterations) {
-                console.log(`[Conversation] Retrying (iteration ${iterationCount + 1}/${maxToolIterations})`);
+                log.debug(`Retrying (iteration ${iterationCount + 1}/${maxToolIterations})`);
                 messages.push({
                   role: 'system',
                   content:
@@ -849,12 +951,12 @@ class ConversationService {
                 });
                 continue;
               }
-              console.warn('[Conversation] Max iterations reached. Using AI response despite tool simulation.');
+              log.warn('Max iterations reached. Using AI response despite tool simulation.');
             }
             finalResponse = llmResponse.content;
             break;
           } else if (lastExecutedToolKeys) {
-            console.warn(`[Conversation] LLM returned empty content after tool execution (iteration ${iterationCount}).`);
+            log.warn(`LLM returned empty content after tool execution (iteration ${iterationCount})`);
             finalResponse = this._extractFallbackResponse(messages);
             if (finalResponse) break;
           }
@@ -862,7 +964,7 @@ class ConversationService {
         }
 
         // Execute tool calls
-        console.log(`[Conversation] Executing ${toolCalls.length} tool(s)`);
+        log.info(`Executing ${toolCalls.length} tool(s)`);
 
         // Add assistant message with tool calls to context
         const assistantMessage = {
@@ -916,7 +1018,7 @@ class ConversationService {
         userMessage,
       });
     } catch (error) {
-      console.error('[Conversation] Error processing message:', error);
+      log.error('Error processing message', error);
       throw error;
     }
   }

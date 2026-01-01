@@ -509,22 +509,23 @@ class LLMService {
 
   /**
    * Format tools for Groq (OpenAI-compatible)
+   * Tool guidance is now configurable via prompt config
+   * @param {Array} tools - Tool definitions
+   * @param {String} toolGuidance - Optional guidance text from config
    */
-  formatToolsForGroq(tools) {
-    // Safety check: ensure tools is an array
+  formatToolsForGroq(tools, toolGuidance = null) {
     if (!tools || !Array.isArray(tools)) {
       console.warn('[LLMService] formatToolsForGroq: tools is not an array', typeof tools, tools);
       return [];
     }
 
-    // Add restrictions to tool descriptions for native function calling
-    const toolRestriction = ' IMPORTANT: Only call this function when the user EXPLICITLY requests this action AND provides all required information. Never use placeholder values. Ask for missing details first.';
+    const guidance = toolGuidance ? ` ${toolGuidance}` : '';
 
     return tools.map(tool => ({
       type: 'function',
       function: {
         name: tool.name,
-        description: (tool.description || '') + toolRestriction,
+        description: (tool.description || '') + guidance,
         parameters: tool.parameters
       }
     }));
@@ -532,14 +533,16 @@ class LLMService {
 
   /**
    * Format tools for Claude
+   * Tool guidance is now configurable via prompt config
+   * @param {Array} tools - Tool definitions
+   * @param {String} toolGuidance - Optional guidance text from config
    */
-  formatToolsForClaude(tools) {
-    // Add restrictions to tool descriptions for native function calling
-    const toolRestriction = ' IMPORTANT: Only call this function when the user EXPLICITLY requests this action AND provides all required information. Never use placeholder values. Ask for missing details first.';
+  formatToolsForClaude(tools, toolGuidance = null) {
+    const guidance = toolGuidance ? ` ${toolGuidance}` : '';
 
     return tools.map(tool => ({
       name: tool.name,
-      description: (tool.description || '') + toolRestriction,
+      description: (tool.description || '') + guidance,
       input_schema: tool.parameters
     }));
   }

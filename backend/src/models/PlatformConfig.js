@@ -113,4 +113,55 @@ export class PlatformConfig {
     static async deletePlatformEmail() {
         return await this.delete('platform_email');
     }
+
+    // Convenience methods for prompt configuration
+
+    /**
+     * Get default prompt configuration
+     * @returns {object} Default prompt config
+     */
+    static async getDefaultPromptConfig() {
+        const config = await this.get('default_prompt_config');
+        return config || this.getHardcodedDefaults();
+    }
+
+    /**
+     * Update default prompt configuration
+     * @param {object} config - New prompt config
+     * @returns {object} The saved config
+     */
+    static async setDefaultPromptConfig(config) {
+        return await this.set('default_prompt_config', config);
+    }
+
+    /**
+     * Get hardcoded defaults as fallback
+     * Used when database has no config
+     */
+    static getHardcodedDefaults() {
+        return {
+            reasoning_enabled: true,
+            reasoning_steps: [
+                { title: 'UNDERSTAND', instruction: 'What is the customer actually asking for? Is this a question, request, complaint, or action?' },
+                { title: 'CHECK CONTEXT', instruction: 'Review the conversation history and business information. If the answer is in context, do NOT call a tool.' },
+                { title: 'DECIDE', instruction: 'If you can answer from context, respond directly. If you need external data, use a tool. If missing required info, ask ONE clear question.' },
+                { title: 'RESPOND', instruction: 'Keep responses to 1-2 sentences. Be friendly but concise. Never show JSON or technical details.' }
+            ],
+            response_style: {
+                tone: 'friendly',
+                max_sentences: 2,
+                formality: 'casual'
+            },
+            tool_rules: [
+                'Only call a tool when you need data you do not have',
+                'Never make up information - use a tool or ask the user',
+                'Never repeat a tool call with the same parameters',
+                'One tool per response maximum',
+                'Never use placeholder values - ask for real data first'
+            ],
+            custom_instructions: null,
+            greeting_enabled: true,
+            greeting_message: null
+        };
+    }
 }

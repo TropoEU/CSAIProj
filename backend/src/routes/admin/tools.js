@@ -58,18 +58,24 @@ router.put('/:id', async (req, res) => {
       req.body;
     const updates = {};
 
-    if (toolName) updates.tool_name = toolName;
-    if (description) updates.description = description;
-    if (parametersSchema) updates.parameters_schema = parametersSchema;
+    // Use !== undefined to allow empty strings and null values
+    if (toolName !== undefined) updates.tool_name = toolName;
+    if (description !== undefined) updates.description = description;
+    if (parametersSchema !== undefined) updates.parameters_schema = parametersSchema;
     if (category !== undefined) updates.category = category;
     if (requiredIntegrations !== undefined) updates.required_integrations = requiredIntegrations;
     if (capabilities !== undefined) updates.capabilities = capabilities;
+
+    // Check if there are any updates to make
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No valid fields provided for update' });
+    }
 
     const tool = await Tool.update(req.params.id, updates);
     res.json(tool);
   } catch (error) {
     console.error('[Admin] Update tool error:', error);
-    res.status(500).json({ error: 'Failed to update tool' });
+    res.status(500).json({ error: error.message || 'Failed to update tool' });
   }
 });
 

@@ -1,24 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import AIBehaviorSettings from '../components/AIBehaviorSettings';
+
+const SETTINGS_TAB_KEY = 'customer_settings_tab';
 
 export default function Settings() {
   const { language, setLanguage, loading, t, isRTL } = useLanguage();
+  const [activeTab, setActiveTab] = useState(() => {
+    // Initialize from localStorage or default to 'language'
+    return localStorage.getItem(SETTINGS_TAB_KEY) || 'language';
+  });
   const [selectedLang, setSelectedLang] = useState(language);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState(null);
+  const [message, setMessage] = useState(null);
 
-  const handleSave = async () => {
-    setError(null);
-    setSaved(false);
+  // Persist active tab to localStorage
+  useEffect(() => {
+    localStorage.setItem(SETTINGS_TAB_KEY, activeTab);
+  }, [activeTab]);
+
+  const handleLanguageSave = async () => {
+    setMessage(null);
 
     try {
       await setLanguage(selectedLang);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch (err) {
-      setError(t('settings.error'));
+      setMessage({ type: 'success', text: t('settings.saved') });
+      setTimeout(() => setMessage(null), 3000);
+    } catch {
+      setMessage({ type: 'error', text: t('settings.error') });
     }
   };
+
+  const tabs = [
+    { id: 'language', name: t('settings.languageTab') },
+    { id: 'ai', name: t('settings.aiTab') },
+  ];
 
   return (
     <div className="space-y-6">
@@ -28,20 +43,65 @@ export default function Settings() {
         <p className="text-gray-600 mt-1">{t('settings.subtitle')}</p>
       </div>
 
-      {/* Success Message */}
-      {saved && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-          {t('settings.saved')}
+      {/* Message Alert */}
+      {message && (
+        <div className={`p-4 rounded-lg ${
+          message.type === 'success'
+            ? 'bg-green-50 text-green-800 border border-green-200'
+            : 'bg-red-50 text-red-800 border border-red-200'
+        }`}>
+          <div className={`flex justify-between items-start ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <p>{message.text}</p>
+            <button onClick={() => setMessage(null)} className="text-gray-500 hover:text-gray-700">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          {error}
-        </div>
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className={`-mb-px flex space-x-8 ${isRTL ? 'flex-row-reverse space-x-reverse' : ''}`}>
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === tab.id
+                  ? 'border-primary-500 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              {tab.name}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Language Tab */}
+      {activeTab === 'language' && (
+        <LanguageSettings
+          selectedLang={selectedLang}
+          setSelectedLang={setSelectedLang}
+          currentLang={language}
+          loading={loading}
+          isRTL={isRTL}
+          t={t}
+          onSave={handleLanguageSave}
+        />
       )}
 
+      {/* AI Behavior Tab */}
+      {activeTab === 'ai' && <AIBehaviorSettings onMessage={setMessage} />}
+    </div>
+  );
+}
+
+function LanguageSettings({ selectedLang, setSelectedLang, currentLang, loading, isRTL, t, onSave }) {
+  return (
+    <>
       {/* Settings Card */}
       <div className="bg-white shadow rounded-lg">
         <div className="px-6 py-4 border-b border-gray-200">
@@ -102,10 +162,10 @@ export default function Settings() {
           {/* Save Button */}
           <div className={`mt-6 ${isRTL ? 'text-left' : 'text-right'}`}>
             <button
-              onClick={handleSave}
-              disabled={loading || selectedLang === language}
+              onClick={onSave}
+              disabled={loading || selectedLang === currentLang}
               className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                loading || selectedLang === language
+                loading || selectedLang === currentLang
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-primary-600 text-white hover:bg-primary-700'
               }`}
@@ -118,22 +178,22 @@ export default function Settings() {
 
       {/* Info Card */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex">
+        <div className={`flex ${isRTL ? 'flex-row-reverse' : ''}`}>
           <svg className={`h-5 w-5 text-blue-500 flex-shrink-0 ${isRTL ? 'ml-3' : 'mr-3'}`} fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
           </svg>
           <div>
             <h3 className="text-sm font-medium text-blue-800">
-              {language === 'he' ? 'מידע' : 'Note'}
+              {currentLang === 'he' ? 'מידע' : 'Note'}
             </h3>
             <p className="text-sm text-blue-700 mt-1">
-              {language === 'he'
+              {currentLang === 'he'
                 ? 'שינוי השפה ישפיע גם על ווידג\'ט הצ\'אט באתר שלך.'
                 : 'Changing the language will also affect the chat widget on your website.'}
             </p>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -76,8 +76,13 @@ export const tools = {
 // Conversation endpoints
 export const conversations = {
   getAll: (params) => api.get('/admin/conversations', { params }),
-  getById: (id) => api.get(`/admin/conversations/${id}`),
+  getById: (id, debug = false) => api.get(`/admin/conversations/${id}`, { params: { debug: debug.toString() } }),
   export: (params) => api.get('/admin/conversations/export', { params, responseType: 'blob' }),
+  exportSingle: (id, format = 'text', debug = true) =>
+    api.get(`/admin/conversations/${id}/export`, {
+      params: { format, debug: debug.toString() },
+      responseType: format === 'json' ? 'json' : 'blob'
+    }),
   getStats: () => api.get('/admin/stats/conversations'),
 };
 

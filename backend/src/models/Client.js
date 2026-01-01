@@ -76,17 +76,45 @@ export class Client {
      * Update client
      */
     static async update(id, updates) {
-        const allowedFields = ['name', 'domain', 'plan_type', 'status', 'email', 'llm_provider', 'model_name', 'system_prompt', 'widget_config', 'language', 'business_info', 'escalation_config'];
+        const allowedFields = ['name', 'domain', 'plan_type', 'status', 'email', 'llm_provider', 'model_name', 'system_prompt', 'widget_config', 'language', 'business_info', 'escalation_config', 'prompt_config'];
+        const jsonbFields = ['widget_config', 'business_info', 'escalation_config', 'prompt_config'];
         const fields = [];
         const values = [];
         let paramIndex = 1;
 
+        // JSONB validation constants
+        const MAX_JSONB_SIZE = 1024 * 1024; // 1MB max size for JSONB fields
+        const MAX_JSONB_DEPTH = 10; // Maximum nesting depth
+
+        // Helper function to calculate object depth
+        const getObjectDepth = (obj, currentDepth = 0) => {
+            if (currentDepth > MAX_JSONB_DEPTH) return currentDepth;
+            if (obj === null || typeof obj !== 'object') return currentDepth;
+
+            const depths = Object.values(obj).map(value =>
+                getObjectDepth(value, currentDepth + 1)
+            );
+            return depths.length > 0 ? Math.max(...depths) : currentDepth;
+        };
+
         for (const [key, value] of Object.entries(updates)) {
             if (allowedFields.includes(key)) {
-                // Handle JSONB fields
-                if ((key === 'widget_config' || key === 'business_info' || key === 'escalation_config') && value !== null && typeof value === 'object') {
+                // Handle JSONB fields with validation
+                if (jsonbFields.includes(key) && value !== null && typeof value === 'object') {
+                    // Validate JSONB size
+                    const jsonString = JSON.stringify(value);
+                    if (jsonString.length > MAX_JSONB_SIZE) {
+                        throw new Error(`JSONB field '${key}' exceeds maximum size of ${MAX_JSONB_SIZE} bytes`);
+                    }
+
+                    // Validate JSONB depth to prevent deeply nested objects (DoS risk)
+                    const depth = getObjectDepth(value);
+                    if (depth > MAX_JSONB_DEPTH) {
+                        throw new Error(`JSONB field '${key}' exceeds maximum nesting depth of ${MAX_JSONB_DEPTH}`);
+                    }
+
                     fields.push(`${key} = $${paramIndex}::jsonb`);
-                    values.push(JSON.stringify(value));
+                    values.push(jsonString);
                 } else {
                     fields.push(`${key} = $${paramIndex}`);
                     values.push(value);
@@ -160,6 +188,21 @@ export class Client {
              WHERE id = $2
              RETURNING *`,
             [apiKey, id]
+        );
+        return result.rows[0];
+    }
+
+    /**
+     * Update prompt configuration for a client
+     * @param {number} id - Client ID
+     * @param {object} promptConfig - Prompt configuration object
+     */
+    static async updatePromptConfig(id, promptConfig) {
+        const result = await db.query(
+            `UPDATE clients SET prompt_config = $1::jsonb, updated_at = NOW()
+             WHERE id = $2
+             RETURNING *`,
+            [JSON.stringify(promptConfig), id]
         );
         return result.rows[0];
     }

@@ -281,12 +281,43 @@ See [docs/TOOLS_INTEGRATIONS_ARCHITECTURE.md](docs/TOOLS_INTEGRATIONS_ARCHITECTU
 
 ## 🧪 Testing
 
-Tests run automatically via GitHub Actions CI. To run locally:
+Tests run automatically via GitHub Actions CI. The CI pipeline includes:
+- ESLint linting (required to pass)
+- Unit and integration tests
+- Frontend builds
+- API health checks
+
+### Running Tests Locally
 
 ```bash
-npm run test:unit      # Unit tests (Vitest)
-npm run test:all       # Integration tests
-npm run mockdata       # Generate test data
+# Linting (must pass for CI)
+npm run lint              # Lint backend
+npm run lint:fix          # Auto-fix lint issues
+
+# Unit & Integration Tests
+npm run test:unit         # Unit tests (Vitest)
+npm run test:models       # Database model tests
+npm run test:redis        # Redis cache service tests
+npm run test:all          # All integration tests
+
+# Service-Specific Tests
+npm run test:llm          # LLM service tests (requires API key)
+npm run test:phase2       # Full conversation flow
+npm run test:phase3       # Tool execution flow
+npm run test:phase6       # Billing & usage tests
+
+# Test Data & Connectivity
+npm run mockdata          # Generate test data
+npm run check:connections # Check all service connections
+npm run check:ollama      # Check Ollama connectivity
+```
+
+### Frontend Linting
+
+```bash
+cd frontend/admin && npm run lint     # Admin dashboard
+cd frontend/customer && npm run lint  # Customer dashboard
+cd frontend/widget && npm run lint    # Widget
 ```
 
 ---

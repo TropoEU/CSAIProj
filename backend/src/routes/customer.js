@@ -104,6 +104,35 @@ router.get('/settings', customerController.getSettings);
  */
 router.put('/settings', customerController.updateSettings);
 
+// ==================== AI Behavior ====================
+
+/**
+ * Get AI behavior config
+ * GET /api/customer/ai-behavior
+ * Returns: reasoning_enabled, reasoning_steps, response_style, tool_rules, custom_instructions
+ */
+router.get('/ai-behavior', customerController.getAIBehavior.bind(customerController));
+
+/**
+ * Update AI behavior config
+ * PUT /api/customer/ai-behavior
+ * Body: { reasoning_enabled, reasoning_steps, response_style, tool_rules, custom_instructions }
+ */
+router.put('/ai-behavior', customerController.updateAIBehavior.bind(customerController));
+
+/**
+ * Preview generated system prompt
+ * POST /api/customer/ai-behavior/preview
+ * Body: { config } (optional - uses current config if not provided)
+ */
+router.post('/ai-behavior/preview', customerController.previewAIBehavior.bind(customerController));
+
+/**
+ * Reset AI behavior to platform defaults
+ * DELETE /api/customer/ai-behavior
+ */
+router.delete('/ai-behavior', customerController.resetAIBehavior.bind(customerController));
+
 // ==================== Escalations ====================
 
 /**

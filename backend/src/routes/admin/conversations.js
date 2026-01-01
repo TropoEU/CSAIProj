@@ -110,9 +110,14 @@ router.get('/export', async (req, res) => {
 /**
  * GET /admin/conversations/:id
  * Get conversation with messages and tool executions
+ * Query params:
+ *   - debug=true: Include all message types (system, tool_call, tool_result, internal)
  */
 router.get('/:id', async (req, res) => {
   try {
+    const { debug } = req.query;
+    const includeDebug = debug === 'true';
+
     const conversation = await Conversation.findById(req.params.id);
     if (!conversation) {
       return res.status(404).json({ error: 'Conversation not found' });
@@ -125,7 +130,11 @@ router.get('/:id', async (req, res) => {
     conversation.llm_provider = conversation.llm_provider || client?.llm_provider || 'ollama';
     conversation.model_name = conversation.model_name || client?.model_name || null;
 
-    const messages = await Message.getAll(conversation.id);
+    // Get messages - with or without debug messages
+    const messages = includeDebug
+      ? await Message.getAllWithDebug(conversation.id, true)
+      : await Message.getAll(conversation.id);
+
     let cumulativeTokens = 0;
     conversation.messages = messages.map((msg) => {
       cumulativeTokens += msg.tokens_used || 0;
@@ -134,6 +143,9 @@ router.get('/:id', async (req, res) => {
         tokens: msg.tokens_used || 0,
         tokens_cumulative: cumulativeTokens,
         timestamp: msg.timestamp || msg.created_at,
+        message_type: msg.message_type || 'visible',
+        metadata: msg.metadata || null,
+        tool_call_id: msg.tool_call_id || null,
       };
     });
 
@@ -145,47 +157,197 @@ router.get('/:id', async (req, res) => {
       tool_name: exec.tool_name,
       input_params: exec.parameters || {},
       result: exec.n8n_response || {},
-      status: exec.success ? 'success' : 'error',
+      status: exec.status || (exec.success ? 'success' : 'failed'),
       success: exec.success,
       execution_time_ms: exec.execution_time_ms,
       timestamp: exec.timestamp,
+      error_reason: exec.error_reason || null,
     }));
 
-    const messagesWithTools = conversation.messages.map((msg, index) => {
-      if (msg.role !== 'assistant') {
-        return msg;
-      }
+    // Only add tools_called for non-debug view (visible messages only)
+    if (!includeDebug) {
+      const messagesWithTools = conversation.messages.map((msg, index) => {
+        if (msg.role !== 'assistant') {
+          return msg;
+        }
 
-      const prevUserMessage = conversation.messages
-        .slice(0, index)
-        .reverse()
-        .find((m) => m.role === 'user');
-      const startTime = prevUserMessage?.timestamp || conversation.started_at;
+        const prevUserMessage = conversation.messages
+          .slice(0, index)
+          .reverse()
+          .find((m) => m.role === 'user');
+        const startTime = prevUserMessage?.timestamp || conversation.started_at;
 
-      const nextMessage = conversation.messages[index + 1];
-      const endTime = nextMessage?.timestamp || new Date().toISOString();
+        const nextMessage = conversation.messages[index + 1];
+        const endTime = nextMessage?.timestamp || new Date().toISOString();
 
-      const toolsForThisMessage = toolExecutions
-        .filter((exec) => {
-          const execTime = new Date(exec.timestamp).getTime();
-          const start = new Date(startTime).getTime();
-          const end = new Date(endTime).getTime();
-          return execTime >= start && execTime <= end;
-        })
-        .map((exec) => exec.tool_name);
+        const toolsForThisMessage = toolExecutions
+          .filter((exec) => {
+            const execTime = new Date(exec.timestamp).getTime();
+            const start = new Date(startTime).getTime();
+            const end = new Date(endTime).getTime();
+            return execTime >= start && execTime <= end;
+          })
+          .map((exec) => exec.tool_name);
 
-      return {
-        ...msg,
-        tools_called: toolsForThisMessage.length > 0 ? toolsForThisMessage : null,
-      };
-    });
+        return {
+          ...msg,
+          tools_called: toolsForThisMessage.length > 0 ? toolsForThisMessage : null,
+        };
+      });
 
-    conversation.messages = messagesWithTools;
+      conversation.messages = messagesWithTools;
+    }
 
     res.json(conversation);
   } catch (error) {
     console.error('[Admin] Get conversation error:', error);
     res.status(500).json({ error: 'Failed to get conversation' });
+  }
+});
+
+/**
+ * GET /admin/conversations/:id/export
+ * Export a single conversation as CSV or text for debugging
+ * Query params:
+ *   - format: 'csv' | 'text' | 'json' (default: json)
+ *   - debug: 'true' to include all internal messages
+ */
+router.get('/:id/export', async (req, res) => {
+  try {
+    const { format = 'json', debug = 'true' } = req.query;
+    const includeDebug = debug === 'true';
+
+    const conversation = await Conversation.findById(req.params.id);
+    if (!conversation) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+
+    const client = await Client.findById(conversation.client_id);
+    conversation.client_name = client?.name;
+    conversation.llm_provider = conversation.llm_provider || client?.llm_provider || 'ollama';
+    conversation.model_name = conversation.model_name || client?.model_name || null;
+
+    const messages = includeDebug
+      ? await Message.getAllWithDebug(conversation.id, true)
+      : await Message.getAll(conversation.id);
+
+    const toolExecutions = await ToolExecution.getByConversation(conversation.id);
+
+    if (format === 'text') {
+      // Plain text format for easy copy/paste
+      let text = includeDebug
+        ? '=== CONVERSATION EXPORT (FULL DEBUG) ===\n'
+        : '=== CONVERSATION EXPORT ===\n';
+      text += `Session ID: ${conversation.session_id}\n`;
+      text += `Client: ${conversation.client_name || 'Unknown'}\n`;
+      text += `Provider: ${conversation.llm_provider} / ${conversation.model_name || 'default'}\n`;
+      text += `Started: ${conversation.started_at}\n`;
+      text += `Ended: ${conversation.ended_at || 'Active'}\n`;
+      text += `Debug Mode: ${includeDebug ? 'ON' : 'OFF'}\n`;
+      text += `\n${'='.repeat(60)}\n\n`;
+
+      for (const msg of messages) {
+        const msgType = msg.message_type || 'visible';
+        const typeLabel = {
+          'visible': '',
+          'system': '[SYSTEM PROMPT]',
+          'tool_call': '[TOOL CALL]',
+          'tool_result': '[TOOL RESULT]',
+          'internal': '[INTERNAL]',
+        }[msgType] || `[${msgType.toUpperCase()}]`;
+
+        const roleLabel = msg.role.toUpperCase();
+        const timestamp = new Date(msg.timestamp || msg.created_at).toISOString();
+
+        text += `--- ${roleLabel} ${typeLabel} (${timestamp}) ---\n`;
+
+        if (msg.metadata) {
+          text += `Metadata: ${JSON.stringify(msg.metadata, null, 2)}\n`;
+        }
+
+        text += `${msg.content || '(no content)'}\n`;
+        text += `Tokens: ${msg.tokens_used || 0}\n`;
+        text += '\n';
+      }
+
+      // Add tool executions section only in non-debug mode (debug mode has inline tool data)
+      if (!includeDebug && toolExecutions.length > 0) {
+        text += `\n${'='.repeat(60)}\n`;
+        text += '=== TOOL EXECUTIONS ===\n\n';
+
+        for (const exec of toolExecutions) {
+          text += `--- ${exec.tool_name} (${exec.status || 'unknown'}) ---\n`;
+          text += `Timestamp: ${new Date(exec.timestamp).toISOString()}\n`;
+          text += `Execution time: ${exec.execution_time_ms || 0}ms\n`;
+          if (exec.error_reason) {
+            text += `Error: ${exec.error_reason}\n`;
+          }
+          text += `Input: ${JSON.stringify(exec.parameters || {}, null, 2)}\n`;
+          text += `Output: ${JSON.stringify(exec.n8n_response || {}, null, 2)}\n`;
+          text += '\n';
+        }
+      }
+
+      res.set('Content-Type', 'text/plain; charset=utf-8');
+      res.set('Content-Disposition', `attachment; filename="conversation-${conversation.session_id}.txt"`);
+      res.send(text);
+
+    } else if (format === 'csv') {
+      // CSV format
+      const headers = 'timestamp,role,message_type,content,tokens,metadata\n';
+      const rows = messages.map(msg => {
+        const timestamp = new Date(msg.timestamp || msg.created_at).toISOString();
+        const content = (msg.content || '').replace(/"/g, '""').replace(/\n/g, '\\n');
+        const metadata = msg.metadata ? JSON.stringify(msg.metadata).replace(/"/g, '""') : '';
+        return `"${timestamp}","${msg.role}","${msg.message_type || 'visible'}","${content}",${msg.tokens_used || 0},"${metadata}"`;
+      }).join('\n');
+
+      res.set('Content-Type', 'text/csv; charset=utf-8');
+      res.set('Content-Disposition', `attachment; filename="conversation-${conversation.session_id}.csv"`);
+      res.send(headers + rows);
+
+    } else {
+      // JSON format (default)
+      const response = {
+        conversation: {
+          id: conversation.id,
+          session_id: conversation.session_id,
+          client_name: conversation.client_name,
+          llm_provider: conversation.llm_provider,
+          model_name: conversation.model_name,
+          started_at: conversation.started_at,
+          ended_at: conversation.ended_at,
+          debug_mode: includeDebug,
+        },
+        messages: messages.map(msg => ({
+          timestamp: msg.timestamp || msg.created_at,
+          role: msg.role,
+          message_type: msg.message_type || 'visible',
+          content: msg.content,
+          tokens: msg.tokens_used || 0,
+          tool_call_id: msg.tool_call_id,
+          metadata: msg.metadata,
+        })),
+      };
+
+      // Only include separate tool_executions in non-debug mode (debug mode has inline tool data)
+      if (!includeDebug) {
+        response.tool_executions = toolExecutions.map(exec => ({
+          tool_name: exec.tool_name,
+          status: exec.status,
+          timestamp: exec.timestamp,
+          execution_time_ms: exec.execution_time_ms,
+          error_reason: exec.error_reason,
+          input: exec.parameters,
+          output: exec.n8n_response,
+        }));
+      }
+
+      res.json(response);
+    }
+  } catch (error) {
+    console.error('[Admin] Export conversation error:', error);
+    res.status(500).json({ error: 'Failed to export conversation' });
   }
 });
 

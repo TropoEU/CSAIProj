@@ -6,6 +6,7 @@ import {
   getGreeting,
   getEscalationMessage,
   getErrorMessage,
+  fallbackGreeting,
   toolInstructions,
 } from '../../../src/prompts/systemPrompt.js';
 
@@ -21,49 +22,60 @@ describe('System Prompts', () => {
   };
 
   describe('getSystemPrompt', () => {
-    it('should return English prompt for English clients', () => {
+    it('should return prompt with guided reasoning structure', () => {
       const prompt = getSystemPrompt(mockClient);
 
       expect(prompt).toContain('Test Business');
       expect(prompt).toContain('friendly customer support');
-      expect(prompt).toContain('USE_TOOL:');
-      expect(prompt).toContain('PARAMETERS:');
+      expect(prompt).toContain('REASONING PROCESS');
+      expect(prompt).toContain('Step 1: UNDERSTAND');
+      expect(prompt).toContain('Step 2: CHECK CONTEXT');
+      expect(prompt).toContain('Step 3: DECIDE');
+      expect(prompt).toContain('Step 4: RESPOND');
     });
 
-    it('should return Hebrew prompt for Hebrew clients', () => {
+    it('should include language instruction for non-English clients', () => {
       const prompt = getSystemPrompt(mockHebrewClient);
 
       expect(prompt).toContain('עסק לדוגמה');
-      expect(prompt).toContain('נציג שירות לקוחות');
-      expect(prompt).toContain('ענה תמיד בעברית');
+      expect(prompt).toContain('LANGUAGE REQUIREMENT');
+      expect(prompt).toContain('Hebrew');
+      expect(prompt).toContain('עברית');
+    });
+
+    it('should NOT include language instruction for English clients', () => {
+      const prompt = getSystemPrompt(mockClient);
+
+      expect(prompt).not.toContain('LANGUAGE REQUIREMENT');
     });
 
     it('should default to English for clients without language', () => {
       const prompt = getSystemPrompt({ name: 'Test', language: undefined });
 
       expect(prompt).toContain('friendly customer support');
+      expect(prompt).not.toContain('LANGUAGE REQUIREMENT');
     });
 
-    it('should include tool calling rules', () => {
+    it('should include tool usage rules', () => {
       const prompt = getSystemPrompt(mockClient);
 
-      expect(prompt).toContain('TOOL CALLING RULES');
-      expect(prompt).toContain('Never make up or assume information');
+      expect(prompt).toContain('TOOL USAGE RULES');
+      expect(prompt).toContain('Never make up information');
       expect(prompt).toContain('Never repeat a tool call');
+    });
+
+    it('should include tool format instructions', () => {
+      const prompt = getSystemPrompt(mockClient);
+
+      expect(prompt).toContain('USE_TOOL:');
+      expect(prompt).toContain('PARAMETERS:');
     });
 
     it('should include tool result handling instructions', () => {
       const prompt = getSystemPrompt(mockClient);
 
-      expect(prompt).toContain('AFTER TOOL RESULT');
+      expect(prompt).toContain('AFTER RECEIVING TOOL RESULTS');
       expect(prompt).toContain('Summarize the result naturally');
-    });
-
-    it('should include answering without tools section', () => {
-      const prompt = getSystemPrompt(mockClient);
-
-      expect(prompt).toContain('ANSWERING WITHOUT TOOLS');
-      expect(prompt).toContain('from context');
     });
   });
 
@@ -72,7 +84,7 @@ describe('System Prompts', () => {
       const prompt = getEnhancedSystemPrompt(mockClient);
 
       expect(prompt).toContain('Test Business');
-      expect(prompt).toContain('USE_TOOL:');
+      expect(prompt).toContain('REASONING PROCESS');
     });
 
     it('should include custom instructions when provided', () => {
@@ -183,60 +195,38 @@ describe('System Prompts', () => {
   });
 
   describe('getGreeting', () => {
-    it('should return English greeting for English clients', () => {
+    it('should return null to let AI generate greetings', () => {
       const greeting = getGreeting(mockClient);
-
-      expect(greeting).toBe('Hi! How can I help you today?');
+      expect(greeting).toBeNull();
     });
 
-    it('should return Hebrew greeting for Hebrew clients', () => {
+    it('should return null for Hebrew clients too', () => {
       const greeting = getGreeting(mockHebrewClient);
-
-      expect(greeting).toBe('שלום! איך אפשר לעזור לך היום?');
+      expect(greeting).toBeNull();
     });
+  });
 
-    it('should default to English greeting', () => {
-      const greeting = getGreeting({ name: 'Test' });
-
-      expect(greeting).toBe('Hi! How can I help you today?');
+  describe('fallbackGreeting', () => {
+    it('should be a valid English greeting', () => {
+      expect(fallbackGreeting).toBe('Hi! How can I help you today?');
     });
   });
 
   describe('getEscalationMessage', () => {
-    it('should return English escalation message by default', () => {
+    it('should return English escalation message', () => {
       const message = getEscalationMessage();
 
       expect(message).toContain('human assistance');
       expect(message).toContain('team member');
     });
-
-    it('should return English escalation message for en', () => {
-      const message = getEscalationMessage('en');
-
-      expect(message).toContain('human assistance');
-    });
-
-    it('should return Hebrew escalation message for he', () => {
-      const message = getEscalationMessage('he');
-
-      expect(message).toContain('נציג אנושי');
-      expect(message).toContain('המתן');
-    });
   });
 
   describe('getErrorMessage', () => {
-    it('should return English error message by default', () => {
+    it('should return English error message', () => {
       const message = getErrorMessage();
 
       expect(message).toContain('having trouble processing');
       expect(message).toContain('try again');
-    });
-
-    it('should return Hebrew error message for he', () => {
-      const message = getErrorMessage('he');
-
-      expect(message).toContain('מתקשה לעבד');
-      expect(message).toContain('נסה שוב');
     });
   });
 

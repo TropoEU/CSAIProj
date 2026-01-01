@@ -51,6 +51,7 @@ export default function Conversations() {
 
   useEffect(() => {
     fetchConversations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, clientFilter]);
 
   // Auto-refresh polling (every 5 seconds)
@@ -64,6 +65,7 @@ export default function Conversations() {
     }, 5000); // 5 seconds
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRefresh, page, clientFilter]);
 
   const fetchClients = async () => {

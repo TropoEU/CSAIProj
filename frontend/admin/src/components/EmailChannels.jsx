@@ -34,6 +34,7 @@ export default function EmailChannels({ clientId }) {
     if (clientId) {
       fetchChannels();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
 
   // Check for OAuth success/error in URL
@@ -50,6 +51,7 @@ export default function EmailChannels({ clientId }) {
       setError(`Gmail connection failed: ${errorMsg}`);
       window.history.replaceState({}, '', window.location.pathname);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchChannels = async () => {
