@@ -3,7 +3,7 @@ name: Deploy to Staging
 on:
   # Trigger after CI passes on main branch
   workflow_run:
-    workflows: ["CI"]
+    workflows: ['CI']
     types: [completed]
     branches: [main]
 
@@ -160,7 +160,7 @@ jobs:
           echo "- **Backend**: https://backend-production-7e91d.up.railway.app" >> $GITHUB_STEP_SUMMARY
           echo "- **Admin**: https://csai-admin.haimmaik.workers.dev" >> $GITHUB_STEP_SUMMARY
           echo "- **Customer**: https://csai-customer.haimmaik.workers.dev" >> $GITHUB_STEP_SUMMARY
-          echo "- **Widget**: https://csai-widget.haimmaik.workers.dev" >> $GITHUB_STEP_SUMMARY
+          echo "- **Widget**: https://csai-widget.haimmaik.workers.dev/demo" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
