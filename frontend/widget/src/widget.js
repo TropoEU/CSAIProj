@@ -24,6 +24,10 @@ export class ChatWidget {
     this.language = 'en'; // Default language
     this.translations = getTranslations('en');
 
+    if (typeof window !== 'undefined') {
+      window.CSAIWidget = this;
+    }
+    
     this.init();
   }
 
