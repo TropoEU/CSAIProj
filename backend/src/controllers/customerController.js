@@ -747,6 +747,35 @@ class CustomerController {
         custom_instructions
       } = req.body;
 
+      // Validate total payload size to prevent DoS attacks
+      const MAX_PAYLOAD_SIZE = 100 * 1024; // 100KB max
+      const payloadSize = JSON.stringify(req.body).length;
+      if (payloadSize > MAX_PAYLOAD_SIZE) {
+        return res.status(400).json({
+          error: 'Payload too large',
+          message: `Request body exceeds maximum size of ${MAX_PAYLOAD_SIZE} bytes`
+        });
+      }
+
+      // Helper function to check object depth
+      const getObjectDepth = (obj, currentDepth = 0) => {
+        if (currentDepth > 10) return currentDepth; // Early exit if too deep
+        if (obj === null || typeof obj !== 'object') return currentDepth;
+        const depths = Object.values(obj).map(value =>
+          getObjectDepth(value, currentDepth + 1)
+        );
+        return depths.length > 0 ? Math.max(...depths) : currentDepth;
+      };
+
+      // Validate object depth for nested objects
+      const MAX_OBJECT_DEPTH = 5;
+      if (response_style && getObjectDepth(response_style) > MAX_OBJECT_DEPTH) {
+        return res.status(400).json({
+          error: 'Invalid response_style',
+          message: `Object nesting depth exceeds maximum of ${MAX_OBJECT_DEPTH} levels`
+        });
+      }
+
       // Build the config update - only include fields that were provided
       const configUpdate = {};
 
@@ -762,6 +791,16 @@ class CustomerController {
             message: 'Reasoning steps must be an array'
           });
         }
+
+        // Limit array length to prevent abuse
+        const MAX_REASONING_STEPS = 20;
+        if (reasoning_steps.length > MAX_REASONING_STEPS) {
+          return res.status(400).json({
+            error: 'Invalid reasoning_steps',
+            message: `Maximum ${MAX_REASONING_STEPS} reasoning steps allowed`
+          });
+        }
+
         configUpdate.reasoning_steps = reasoning_steps.map(step => ({
           title: String(step.title || '').substring(0, 50),
           instruction: String(step.instruction || '').substring(0, 500)

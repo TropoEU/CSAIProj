@@ -533,90 +533,114 @@ class ConversationService {
     const normalizedArgs = this.normalizeToolArguments(toolArgs, tool);
     const finalArgs = normalizedArgs || toolArgs;
 
-    // Check for duplicate tool calls by querying the persisted tool_executions table
-    // This works across conversation turns since the data is stored in the database
-    const isDuplicate = await ToolExecution.isDuplicateExecution(conversation.id, name, finalArgs);
+    // Create a unique lock key for this specific tool execution
+    // Using conversation ID + tool name + stringified args ensures uniqueness
+    const lockKey = `tool:${conversation.id}:${name}:${JSON.stringify(finalArgs)}`;
 
-    if (isDuplicate) {
-      log.warn(`DUPLICATE tool call blocked: ${name} (already executed successfully with same parameters)`);
-      const duplicateMessage = 'This action was already completed earlier in this conversation. No need to repeat it.';
+    // Acquire Redis lock to prevent race conditions in duplicate detection
+    // This prevents TOCTOU (Time-Of-Check-Time-Of-Use) bugs where two concurrent
+    // requests could both pass the duplicate check before either writes to DB
+    const lockAcquired = await RedisCache.acquireLock(lockKey, 60); // 60 second TTL for tool execution
 
-      // Log duplicate attempt to database for visibility
-      await ToolExecution.logDuplicate(conversation.id, name, finalArgs);
-
+    if (!lockAcquired) {
+      log.warn(`Tool execution already in progress: ${name}`);
       messages.push({
         role: 'tool',
-        content: duplicateMessage,
+        content: 'This action is already being processed. Please wait for the current execution to complete.',
         tool_call_id: id,
       });
-      return { success: true, name, duplicate: true };
+      return { success: false, error: 'Execution already in progress', locked: true };
     }
 
-    // Fetch integration credentials
-    let integrations = {};
-    const requiredIntegrations = tool.required_integrations || [];
-    const integrationMapping = tool.integration_mapping || {};
+    try {
+      // Check for duplicate tool calls by querying the persisted tool_executions table
+      // This works across conversation turns since the data is stored in the database
+      const isDuplicate = await ToolExecution.isDuplicateExecution(conversation.id, name, finalArgs);
 
-    log.debug(`Processing tool: ${name}`, { requiredIntegrations, integrationMapping });
+      if (isDuplicate) {
+        log.warn(`DUPLICATE tool call blocked: ${name} (already executed successfully with same parameters)`);
+        const duplicateMessage = 'This action was already completed earlier in this conversation. No need to repeat it.';
 
-    if (requiredIntegrations.length > 0) {
-      try {
-        log.debug(`Fetching ${requiredIntegrations.length} integrations for tool`);
-        integrations = await integrationService.getIntegrationsForTool(
-          client.id,
-          integrationMapping,
-          requiredIntegrations
-        );
+        // Log duplicate attempt to database for visibility
+        await ToolExecution.logDuplicate(conversation.id, name, finalArgs);
 
-        const integrationCount = Object.keys(integrations).length;
-        log.info(`Loaded ${integrationCount} integrations: ${Object.keys(integrations).join(', ')}`);
-      } catch (error) {
-        log.error('Failed to load integrations', error.message);
         messages.push({
           role: 'tool',
-          content: `Error: ${error.message}. Please configure the required integrations in the admin panel.`,
+          content: duplicateMessage,
           tool_call_id: id,
         });
-        return { success: false, error: error.message };
+        return { success: true, name, duplicate: true };
       }
-    } else {
-      log.debug(`Tool ${name} has no required integrations`);
-    }
 
-    // Execute via n8n
-    log.debug(`Calling n8n with ${Object.keys(integrations).length} integrations`);
+      // Fetch integration credentials
+      let integrations = {};
+      const requiredIntegrations = tool.required_integrations || [];
+      const integrationMapping = tool.integration_mapping || {};
 
-    const result = await n8nService.executeTool(tool.n8n_webhook_url, finalArgs, { integrations });
+      log.debug(`Processing tool: ${name}`, { requiredIntegrations, integrationMapping });
 
-    // Handle blocked tools (placeholder values detected)
-    if (result.blocked) {
-      log.warn(`Tool ${name} BLOCKED - placeholder values detected`);
+      if (requiredIntegrations.length > 0) {
+        try {
+          log.debug(`Fetching ${requiredIntegrations.length} integrations for tool`);
+          integrations = await integrationService.getIntegrationsForTool(
+            client.id,
+            integrationMapping,
+            requiredIntegrations
+          );
 
-      // Log blocked attempt to database for visibility
-      await ToolExecution.logBlocked(conversation.id, name, finalArgs, result.error);
+          const integrationCount = Object.keys(integrations).length;
+          log.info(`Loaded ${integrationCount} integrations: ${Object.keys(integrations).join(', ')}`);
+        } catch (error) {
+          log.error('Failed to load integrations', error.message);
+          messages.push({
+            role: 'tool',
+            content: `Error: ${error.message}. Please configure the required integrations in the admin panel.`,
+            tool_call_id: id,
+          });
+          return { success: false, error: error.message };
+        }
+      } else {
+        log.debug(`Tool ${name} has no required integrations`);
+      }
 
-      messages.push({
-        role: 'tool',
-        content: `TOOL BLOCKED: ${result.error} Do not use placeholder values - ask the user for the actual information they want to use.`,
-        tool_call_id: id,
-      });
-      return {
-        success: false,
+      // Execute via n8n
+      log.debug(`Calling n8n with ${Object.keys(integrations).length} integrations`);
+
+      const result = await n8nService.executeTool(tool.n8n_webhook_url, finalArgs, { integrations });
+
+      // Handle blocked tools (placeholder values detected)
+      if (result.blocked) {
+        log.warn(`Tool ${name} BLOCKED - placeholder values detected`);
+
+        // Log blocked attempt to database for visibility
+        await ToolExecution.logBlocked(conversation.id, name, finalArgs, result.error);
+
+        messages.push({
+          role: 'tool',
+          content: `TOOL BLOCKED: ${result.error} Do not use placeholder values - ask the user for the actual information they want to use.`,
+          tool_call_id: id,
+        });
+        return {
+          success: false,
+          name,
+          executionTime: result.executionTimeMs,
+          blocked: true,
+        };
+      }
+
+      // Log execution
+      await ToolExecution.create(
+        conversation.id,
         name,
-        executionTime: result.executionTimeMs,
-        blocked: true,
-      };
+        finalArgs,
+        result.data,
+        result.success,
+        result.executionTimeMs
+      );
+    } finally {
+      // Always release the lock, even if execution fails
+      await RedisCache.releaseLock(lockKey);
     }
-
-    // Log execution
-    await ToolExecution.create(
-      conversation.id,
-      name,
-      finalArgs,
-      result.data,
-      result.success,
-      result.executionTimeMs
-    );
 
     // Format result for LLM
     const formattedResult = n8nService.formatResponseForLLM(result.data);
