@@ -223,10 +223,18 @@ The AI conversation engine is fully implemented and operational:
 
 **System Prompts** (`backend/src/prompts/systemPrompt.js`):
 
-- Base and enhanced prompt templates
-- Client-specific customization
-- Tool instruction templates
-- Greeting and error messages
+- **Database-driven configuration**: Prompts stored in `platform_config` table, editable via admin UI
+- **Guided reasoning approach**: Configurable multi-step reasoning process
+- **Language-agnostic prompts**: Single English prompt with dynamic language instruction
+- **Multi-language support**: English, Hebrew, Spanish, French, German, Arabic, Russian
+- **Per-client customization**: Clients can override platform defaults via `prompt_config` JSONB column
+- **Admin UI**: Settings → AI Behavior tab for editing reasoning steps, tool rules, response style
+
+**Prompt Service** (`backend/src/services/promptService.js`):
+
+- Caches prompt configuration for performance
+- Merges client-specific overrides with platform defaults
+- Initialized at server startup
 
 **Current LLM Provider**: Ollama (localhost:11434) with `Hermes-2-Pro-Mistral-7B.Q5_K_M.gguf` model
 
@@ -475,8 +483,10 @@ Widget configuration is stored in the `clients.widget_config` JSONB column and s
   - Date/number formatting with Hebrew locale
 - **Admin Dashboard**: RTL CSS support for viewing Hebrew content (UI labels remain English)
 - **System Prompts** (`backend/src/prompts/systemPrompt.js`):
-  - Hebrew prompt with language-specific instructions
-  - `getSystemPrompt()` returns Hebrew or English based on `client.language`
+  - Single English prompt with guided reasoning (4-step process)
+  - Dynamic language instruction appended based on `client.language`
+  - Supports 7 languages: en, he, es, fr, de, ar, ru
+  - Localized messages for greetings, errors, and escalations
 - **API Endpoints**:
   - `GET /chat/config` - Returns language setting for widget
   - `GET/PUT /api/customer/settings` - Language preference CRUD

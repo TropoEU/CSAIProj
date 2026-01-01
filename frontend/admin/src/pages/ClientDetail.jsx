@@ -19,13 +19,23 @@ import {
   Badge,
 } from '../components/common';
 import EmailChannels from '../components/EmailChannels';
-import { WidgetConfig, WidgetPreview, ClientTools } from '../components/client';
+import { WidgetConfig, WidgetPreview, ClientTools, ClientAIBehavior } from '../components/client';
+
+const CLIENT_TAB_KEY = 'admin_client_detail_tab';
 
 export default function ClientDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
+  const [activeTab, setActiveTab] = useState(() => {
+    // URL param takes precedence, then localStorage, then default
+    return searchParams.get('tab') || localStorage.getItem(CLIENT_TAB_KEY) || 'overview';
+  });
+
+  // Persist active tab to localStorage
+  useEffect(() => {
+    localStorage.setItem(CLIENT_TAB_KEY, activeTab);
+  }, [activeTab]);
   const [client, setClient] = useState(null);
   const [clientTools, setClientTools] = useState([]);
   const [allTools, setAllTools] = useState([]);
@@ -423,6 +433,19 @@ export default function ClientDetail() {
             </svg>
             Email Channels
           </button>
+          <button
+            onClick={() => setActiveTab('ai')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
+              activeTab === 'ai'
+                ? 'border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            AI Behavior
+          </button>
         </nav>
       </div>
 
@@ -435,6 +458,11 @@ export default function ClientDetail() {
       {/* Email Tab Content */}
       {activeTab === 'email' && (
         <EmailChannels clientId={id} />
+      )}
+
+      {/* AI Behavior Tab Content */}
+      {activeTab === 'ai' && client && (
+        <ClientAIBehavior clientId={id} clientName={client.name} />
       )}
 
       {/* Overview Tab Content */}

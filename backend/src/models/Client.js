@@ -76,7 +76,8 @@ export class Client {
      * Update client
      */
     static async update(id, updates) {
-        const allowedFields = ['name', 'domain', 'plan_type', 'status', 'email', 'llm_provider', 'model_name', 'system_prompt', 'widget_config', 'language', 'business_info', 'escalation_config'];
+        const allowedFields = ['name', 'domain', 'plan_type', 'status', 'email', 'llm_provider', 'model_name', 'system_prompt', 'widget_config', 'language', 'business_info', 'escalation_config', 'prompt_config'];
+        const jsonbFields = ['widget_config', 'business_info', 'escalation_config', 'prompt_config'];
         const fields = [];
         const values = [];
         let paramIndex = 1;
@@ -84,7 +85,7 @@ export class Client {
         for (const [key, value] of Object.entries(updates)) {
             if (allowedFields.includes(key)) {
                 // Handle JSONB fields
-                if ((key === 'widget_config' || key === 'business_info' || key === 'escalation_config') && value !== null && typeof value === 'object') {
+                if (jsonbFields.includes(key) && value !== null && typeof value === 'object') {
                     fields.push(`${key} = $${paramIndex}::jsonb`);
                     values.push(JSON.stringify(value));
                 } else {
@@ -160,6 +161,21 @@ export class Client {
              WHERE id = $2
              RETURNING *`,
             [apiKey, id]
+        );
+        return result.rows[0];
+    }
+
+    /**
+     * Update prompt configuration for a client
+     * @param {number} id - Client ID
+     * @param {object} promptConfig - Prompt configuration object
+     */
+    static async updatePromptConfig(id, promptConfig) {
+        const result = await db.query(
+            `UPDATE clients SET prompt_config = $1::jsonb, updated_at = NOW()
+             WHERE id = $2
+             RETURNING *`,
+            [JSON.stringify(promptConfig), id]
         );
         return result.rows[0];
     }

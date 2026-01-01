@@ -12,6 +12,8 @@ import {
 } from '../components/common';
 import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 
+const BUSINESS_INFO_TAB_KEY = 'admin_business_info_tab';
+
 export default function BusinessInfo() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -32,7 +34,14 @@ export default function BusinessInfo() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
-  const [activeTab, setActiveTab] = useState('about');
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem(BUSINESS_INFO_TAB_KEY) || 'about';
+  });
+
+  // Persist active tab to localStorage
+  useEffect(() => {
+    localStorage.setItem(BUSINESS_INFO_TAB_KEY, activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     loadData();

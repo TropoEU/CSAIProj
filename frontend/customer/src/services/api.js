@@ -69,6 +69,14 @@ export const settings = {
   update: (data) => api.put('/settings', data),
 };
 
+// AI Behavior endpoints
+export const aiBehavior = {
+  get: () => api.get('/ai-behavior'),
+  update: (data) => api.put('/ai-behavior', data),
+  preview: (config) => api.post('/ai-behavior/preview', { config }),
+  reset: () => api.delete('/ai-behavior'),
+};
+
 // Escalations endpoints
 export const escalations = {
   getAll: (params) => api.get('/escalations', { params }),

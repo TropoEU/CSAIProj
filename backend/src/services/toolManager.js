@@ -48,16 +48,38 @@ class ToolManager {
   }
 
   /**
-   * Format tools for native function calling (Claude/OpenAI)
+   * Format tools for native function calling (Claude/OpenAI/Groq)
    * @param {Array} tools - Tool definitions
    * @param {String} provider - Provider name
    * @returns {Array} Formatted tool definitions
    */
   formatForNativeFunctionCalling(tools, provider) {
+    // Generate current date context for tools with date parameters
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayIso = `${year}-${month}-${day}`;
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowIso = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+
     return tools.map(tool => {
+      let description = tool.description || `Execute ${tool.tool_name} action`;
+
+      // Check if tool has date parameters and add context
+      const hasDateParam = tool.parameters_schema?.properties &&
+        Object.keys(tool.parameters_schema.properties).some(key =>
+          key.toLowerCase().includes('date')
+        );
+
+      if (hasDateParam) {
+        description += ` [DATES: today=${todayIso}, tomorrow=${tomorrowIso}. Use YYYY-MM-DD format.]`;
+      }
+
       const formatted = {
         name: tool.tool_name,
-        description: tool.description || `Execute ${tool.tool_name} action`,
+        description,
         parameters: tool.parameters_schema || {
           type: 'object',
           properties: {},
@@ -82,6 +104,7 @@ class ToolManager {
   /**
    * Format tools for prompt engineering (Ollama)
    * Returns a text description to add to system prompt
+   * Aligned with the guided reasoning approach
    * @param {Array} tools - Tool definitions
    * @returns {String} Tool descriptions for system prompt
    */
@@ -90,46 +113,54 @@ class ToolManager {
       return '';
     }
 
-    // Compact but informative: tool name, description, and ALL parameter names (not just required)
-    // This is critical - the model needs to know parameter names even if they're optional
-    const toolList = tools.map(tool => {
+    // Build detailed tool descriptions
+    const toolDescriptions = tools.map(tool => {
       const params = tool.parameters_schema?.properties || {};
       const required = tool.parameters_schema?.required || [];
-      const allParamNames = Object.keys(params);
-      
-      // Show required params in parentheses, optional params after
-      const requiredStr = required.length > 0 ? ` REQUIRED(${required.join(',')})` : '';
-      const optionalParams = allParamNames.filter(p => !required.includes(p));
-      const optionalStr = optionalParams.length > 0 ? ` optional(${optionalParams.join(',')})` : '';
-      
-      // Use first ~50 chars of description
-      const shortDesc = (tool.description || '').substring(0, 50).replace(/\n/g, ' ');
-      return `${tool.tool_name}${requiredStr}${optionalStr}: ${shortDesc}`;
-    }).join('\n');
 
-    // Show examples for tools that have different parameter patterns
-    const examples = [];
-    tools.slice(0, 2).forEach(tool => {
-      const params = tool.parameters_schema?.properties || {};
-      const required = tool.parameters_schema?.required || [];
-      const paramNames = required.length > 0 ? required : Object.keys(params).slice(0, 2);
-      const exampleArgs = {};
-      paramNames.forEach((key) => {
-        exampleArgs[key] = 'value';
-      });
-      if (Object.keys(exampleArgs).length > 0) {
-        examples.push({
-          tool: tool.tool_name,
-          params: exampleArgs
-        });
-      }
+      // Build parameter list with types
+      const paramList = Object.entries(params).map(([name, schema]) => {
+        const isRequired = required.includes(name);
+        const type = schema.type || 'string';
+        return `  - ${name} (${type})${isRequired ? ' [REQUIRED]' : ''}`;
+      }).join('\n');
+
+      return `**${tool.tool_name}**
+${tool.description || 'No description'}
+Parameters:
+${paramList || '  (no parameters)'}`;
+    }).join('\n\n');
+
+    // Build example based on first tool
+    const firstTool = tools[0];
+    const exampleParams = {};
+    const required = firstTool?.parameters_schema?.required || [];
+    required.forEach(key => {
+      exampleParams[key] = '<actual_value>';
     });
 
-    const exampleText = examples.map(ex => 
-      `USE_TOOL: ${ex.tool}\nPARAMETERS: ${JSON.stringify(ex.params)}`
-    ).join('\n\n');
+    return `
 
-    return `\n## Available Tools (READ THESE REQUIREMENTS):\n${toolList}\n\n## HOW TO CALL TOOLS:\n1. READ the REQUIRED parameters for the tool above\n2. If user already gave all required info → CALL THE TOOL IMMEDIATELY\n3. If missing required info → Ask ONE question to get it\n4. Once you have everything → CALL THE TOOL IN THE SAME RESPONSE\n\n**FORMAT** (use EXACTLY - no variations):\nUSE_TOOL: tool_name\nPARAMETERS: {"param":"value"}\n\nExamples:\n${exampleText}`;
+## AVAILABLE TOOLS
+
+${toolDescriptions}
+
+## TOOL CALLING DECISION TREE
+
+Before calling a tool, verify:
+1. Does the user's request actually need external data?
+2. Do I have ALL required parameters from the user?
+3. Have I already called this tool with these parameters?
+
+If YES to #1, YES to #2, and NO to #3 → Call the tool
+Otherwise → Ask for missing info OR respond from context
+
+## TOOL CALL FORMAT
+
+USE_TOOL: ${firstTool?.tool_name || 'tool_name'}
+PARAMETERS: ${JSON.stringify(exampleParams).replace(/<actual_value>/g, '"actual_value"')}
+
+IMPORTANT: Replace placeholder values with REAL data from the user. Never use "value", "example", or similar placeholders.`;
   }
 
   /**
@@ -395,6 +426,23 @@ class ToolManager {
         } else if (expectedType === 'object' && (actualType !== 'object' || Array.isArray(paramValue))) {
           errors.push(`Parameter ${paramName} should be an object`);
         }
+
+        // PLACEHOLDER VALUE DETECTION: Handle common placeholder/garbage values
+        if (typeof paramValue === 'string') {
+          const placeholderError = this.detectPlaceholderValue(paramName, paramValue);
+          if (placeholderError) {
+            // Check if this is a required parameter
+            const isRequired = schema.required && schema.required.includes(paramName);
+            if (isRequired) {
+              // Required parameters with placeholders are errors
+              errors.push(placeholderError);
+            } else {
+              // Optional parameters with placeholders should be removed
+              console.log(`[ToolManager] Removing optional placeholder param: ${paramName}="${paramValue}"`);
+              delete args[paramName];
+            }
+          }
+        }
       }
     }
 
@@ -403,6 +451,154 @@ class ToolManager {
       errors,
       coercedArgs: args
     };
+  }
+
+  /**
+   * Detect if a parameter value is a placeholder or garbage value
+   * @param {String} paramName - Parameter name
+   * @param {String} value - Parameter value
+   * @returns {String|null} Error message if placeholder detected, null otherwise
+   */
+  detectPlaceholderValue(paramName, value) {
+    if (typeof value !== 'string') return null;
+
+    // Empty or whitespace-only values
+    if (!value || value.trim() === '') {
+      return `Parameter '${paramName}' is empty - please provide actual data`;
+    }
+
+    const lowerValue = value.toLowerCase().trim();
+
+    // Exact matches - common placeholder values
+    const exactPlaceholders = [
+      'required', 'optional', 'string', 'number', 'boolean', 'value', 'example',
+      'placeholder', 'todo', 'tbd', 'null', 'undefined', 'none', 'n/a', 'na',
+      'test', 'testing', 'sample', 'dummy', 'fake', 'mock', 'default',
+      'your_value', 'your_name', 'your_email', 'your_phone', 'user_input',
+      'enter_value', 'insert_value', 'add_value', 'fill_in', 'replace_me',
+      'xxx', 'yyy', 'zzz', 'abc', 'aaa', 'bbb', 'ccc', 'asdf', 'qwerty',
+      'foo', 'bar', 'baz', 'foobar', 'lorem', 'ipsum',
+      // AI-generated placeholders
+      'not provided', 'not_provided', 'notprovided', 'unknown', 'unspecified',
+      'not specified', 'not_specified', 'missing', 'empty', 'blank',
+      'to be provided', 'tba', 'to be announced', 'pending', 'awaiting',
+      'user', 'customer', 'guest', 'anonymous',
+    ];
+
+    if (exactPlaceholders.includes(lowerValue)) {
+      return `Parameter '${paramName}' contains placeholder value '${value}' - please provide actual data`;
+    }
+
+    // Pattern-based placeholder detection (catches creative AI variations)
+    const placeholderPhrasePatterns = [
+      /^not\s+\w+$/i,           // "not given", "not provided", "not specified", "not available"
+      /^no\s+\w+$/i,            // "no name", "no email", "no data"
+      /^needs?\s+\w+$/i,        // "need info", "needs input"
+      /^requires?\s+\w+$/i,     // "require input", "requires data"
+      /^waiting\s+(for\s+)?\w+$/i,  // "waiting for input", "waiting input"
+      /^will\s+(be\s+)?\w+$/i,  // "will provide", "will be provided"
+      /^to\s+be\s+\w+$/i,       // "to be provided", "to be specified"
+      /^\[.+\]$/,               // [any bracketed text]
+      /^<.+>$/,                 // <any angle bracket text>
+      /^\{.+\}$/,               // {any curly brace text}
+    ];
+
+    for (const pattern of placeholderPhrasePatterns) {
+      if (pattern.test(lowerValue)) {
+        return `Parameter '${paramName}' contains placeholder '${value}' - ask the user for real data`;
+      }
+    }
+
+    // Pattern matches - template-style placeholders
+    const placeholderPatterns = [
+      /^<.*>$/,           // <value>, <name>, <actual_value>
+      /^\[.*\]$/,         // [value], [required]
+      /^\{.*\}$/,         // {value}, {name}
+      /^{{.*}}$/,         // {{value}}, {{name}}
+      /^\$\{.*\}$/,       // ${value}
+      /^%.*%$/,           // %value%
+      /^_+$/,             // ___, ____
+      /^\*+$/,            // ***, ****
+      /^\.{3,}$/,         // ..., ....
+    ];
+
+    for (const pattern of placeholderPatterns) {
+      if (pattern.test(value.trim())) {
+        return `Parameter '${paramName}' contains template placeholder '${value}' - please provide actual data`;
+      }
+    }
+
+    // Check for values that look like schema descriptions
+    const schemaDescPatterns = [
+      /^(the )?customer'?s? (name|email|phone|address|id)/i,
+      /^(the )?(name|email|phone|date|time|id) (of|for) (the )?(customer|user|order)/i,
+      /^(a |an )?(valid )?(name|email|phone|date|time|address)/i,
+      /^type:/i,
+      /^format:/i,
+      /^description:/i,
+    ];
+
+    for (const pattern of schemaDescPatterns) {
+      if (pattern.test(value.trim())) {
+        return `Parameter '${paramName}' appears to contain a description rather than actual data: '${value}'`;
+      }
+    }
+
+    // Check for obviously invalid specific parameter values
+    const paramLower = paramName.toLowerCase();
+
+    // Email validation
+    if (paramLower.includes('email')) {
+      if (!value.includes('@') || !value.includes('.')) {
+        // Could be placeholder if it doesn't look like an email at all
+        if (/^[a-z_]+$/i.test(value)) {
+          return `Parameter '${paramName}' value '${value}' doesn't look like a valid email address`;
+        }
+      }
+    }
+
+    // Phone validation - reject if it's just a word
+    if (paramLower.includes('phone') || paramLower.includes('tel')) {
+      if (!/\d/.test(value)) {
+        return `Parameter '${paramName}' value '${value}' doesn't contain any digits - please provide a valid phone number`;
+      }
+    }
+
+    // Date validation - reject if it's just a word (but allow "today", "tomorrow" etc)
+    if (paramLower.includes('date')) {
+      const validDateWords = ['today', 'tomorrow', 'yesterday', 'now'];
+      if (!/\d/.test(value) && !validDateWords.includes(lowerValue)) {
+        // Check if it's a placeholder word
+        if (/^[a-z_]+$/i.test(value) && value.length < 15) {
+          return `Parameter '${paramName}' value '${value}' doesn't look like a valid date`;
+        }
+      }
+
+      // Check for hallucinated dates (dates more than 1 year in the past)
+      const dateMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (dateMatch) {
+        const inputDate = new Date(value);
+        const today = new Date();
+        const oneYearAgo = new Date(today);
+        oneYearAgo.setFullYear(today.getFullYear() - 1);
+
+        if (inputDate < oneYearAgo) {
+          return `Parameter '${paramName}' value '${value}' appears to be a hallucinated date (more than 1 year in the past). Use 'today' or ask the user for the actual date.`;
+        }
+      }
+    }
+
+    // Time validation
+    if (paramLower.includes('time') && !paramLower.includes('datetime')) {
+      // Should contain a colon or digits for time
+      if (!/\d/.test(value) && !/:/.test(value)) {
+        if (/^[a-z_]+$/i.test(value) && value.length < 15) {
+          return `Parameter '${paramName}' value '${value}' doesn't look like a valid time`;
+        }
+      }
+    }
+
+    return null;
   }
 
   /**

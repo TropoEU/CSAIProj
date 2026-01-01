@@ -13,6 +13,8 @@ import { ApiUsage } from '../models/ApiUsage.js';
 import { Escalation } from '../models/Escalation.js';
 import { db } from '../db.js';
 import { safeJsonParse, safeJsonGet } from '../utils/jsonUtils.js';
+import promptService from '../services/promptService.js';
+import { refreshCachedConfig } from '../prompts/systemPrompt.js';
 
 class CustomerController {
   /**
@@ -674,6 +676,220 @@ class CustomerController {
       res.status(500).json({
         error: 'Failed to update settings',
         message: 'An error occurred while updating your settings'
+      });
+    }
+  }
+
+  // ==================== AI Behavior / Prompt Config ====================
+
+  /**
+   * Get AI behavior config for this client
+   * Returns merged config (client overrides + platform defaults)
+   * GET /api/customer/ai-behavior
+   */
+  async getAIBehavior(req, res) {
+    try {
+      const client = req.client;
+      const config = await promptService.getClientConfig(client);
+      const defaults = await promptService.getDefaultConfig();
+      const clientOverrides = client.prompt_config || {};
+
+      // Determine which fields are customized (differ from platform defaults)
+      const customizedFields = [];
+      if ('reasoning_enabled' in clientOverrides) customizedFields.push('reasoning_enabled');
+      if ('reasoning_steps' in clientOverrides) customizedFields.push('reasoning_steps');
+      if ('response_style' in clientOverrides) customizedFields.push('response_style');
+      if ('tool_rules' in clientOverrides) customizedFields.push('tool_rules');
+      if ('custom_instructions' in clientOverrides && clientOverrides.custom_instructions) {
+        customizedFields.push('custom_instructions');
+      }
+
+      // Return the merged config - client can only see/edit certain fields
+      res.json({
+        reasoning_enabled: config.reasoning_enabled,
+        reasoning_steps: config.reasoning_steps || [],
+        response_style: config.response_style || {},
+        tool_rules: config.tool_rules || [],
+        custom_instructions: config.custom_instructions || null,
+        // Let client know if they have customizations
+        hasCustomConfig: Object.keys(clientOverrides).length > 0,
+        // Which specific fields are customized
+        customizedFields,
+        // Platform defaults for comparison
+        defaults: {
+          reasoning_enabled: defaults.reasoning_enabled,
+          reasoning_steps: defaults.reasoning_steps || [],
+          response_style: defaults.response_style || {},
+          tool_rules: defaults.tool_rules || [],
+        }
+      });
+    } catch (error) {
+      console.error('[CustomerController] Get AI behavior error:', error);
+      res.status(500).json({
+        error: 'Failed to load AI behavior settings',
+        message: 'An error occurred while loading your AI settings'
+      });
+    }
+  }
+
+  /**
+   * Update AI behavior config for this client
+   * PUT /api/customer/ai-behavior
+   */
+  async updateAIBehavior(req, res) {
+    try {
+      const clientId = req.clientId;
+      const {
+        reasoning_enabled,
+        reasoning_steps,
+        response_style,
+        tool_rules,
+        custom_instructions
+      } = req.body;
+
+      // Build the config update - only include fields that were provided
+      const configUpdate = {};
+
+      if (reasoning_enabled !== undefined) {
+        configUpdate.reasoning_enabled = Boolean(reasoning_enabled);
+      }
+
+      if (reasoning_steps !== undefined) {
+        // Validate reasoning_steps structure
+        if (!Array.isArray(reasoning_steps)) {
+          return res.status(400).json({
+            error: 'Invalid reasoning_steps',
+            message: 'Reasoning steps must be an array'
+          });
+        }
+        configUpdate.reasoning_steps = reasoning_steps.map(step => ({
+          title: String(step.title || '').substring(0, 50),
+          instruction: String(step.instruction || '').substring(0, 500)
+        }));
+      }
+
+      if (response_style !== undefined) {
+        // Validate response_style
+        const validTones = ['friendly', 'professional', 'casual'];
+        const validFormality = ['casual', 'neutral', 'formal'];
+
+        configUpdate.response_style = {};
+        if (response_style.tone && validTones.includes(response_style.tone)) {
+          configUpdate.response_style.tone = response_style.tone;
+        }
+        if (response_style.formality && validFormality.includes(response_style.formality)) {
+          configUpdate.response_style.formality = response_style.formality;
+        }
+        if (response_style.max_sentences !== undefined) {
+          const maxSentences = parseInt(response_style.max_sentences, 10);
+          if (maxSentences >= 1 && maxSentences <= 10) {
+            configUpdate.response_style.max_sentences = maxSentences;
+          }
+        }
+      }
+
+      if (tool_rules !== undefined) {
+        if (!Array.isArray(tool_rules)) {
+          return res.status(400).json({
+            error: 'Invalid tool_rules',
+            message: 'Tool rules must be an array'
+          });
+        }
+        // Limit to 10 rules, max 200 chars each
+        configUpdate.tool_rules = tool_rules
+          .slice(0, 10)
+          .map(rule => String(rule).substring(0, 200));
+      }
+
+      if (custom_instructions !== undefined) {
+        // Limit to 2000 characters
+        configUpdate.custom_instructions = custom_instructions
+          ? String(custom_instructions).substring(0, 2000)
+          : null;
+      }
+
+      // Update client's prompt_config
+      const currentConfig = req.client.prompt_config || {};
+      const newConfig = { ...currentConfig, ...configUpdate };
+
+      await Client.updatePromptConfig(clientId, newConfig);
+
+      // Refresh cached config so new conversations use the updated settings
+      await refreshCachedConfig();
+
+      console.log(`[CustomerController] Client ${clientId} updated AI behavior config`);
+
+      res.json({
+        success: true,
+        message: 'AI behavior settings updated successfully'
+      });
+    } catch (error) {
+      console.error('[CustomerController] Update AI behavior error:', error);
+      res.status(500).json({
+        error: 'Failed to update AI behavior settings',
+        message: 'An error occurred while saving your AI settings'
+      });
+    }
+  }
+
+  /**
+   * Preview the generated system prompt
+   * POST /api/customer/ai-behavior/preview
+   */
+  async previewAIBehavior(req, res) {
+    try {
+      const client = req.client;
+      const { config } = req.body;
+
+      // Use provided config or get current config
+      const previewConfig = config || await promptService.getClientConfig(client);
+      const prompt = await promptService.buildSystemPrompt(client, previewConfig);
+
+      res.json({ prompt });
+    } catch (error) {
+      console.error('[CustomerController] Preview AI behavior error:', error);
+      res.status(500).json({
+        error: 'Failed to generate preview',
+        message: 'An error occurred while generating the prompt preview'
+      });
+    }
+  }
+
+  /**
+   * Reset AI behavior to platform defaults
+   * DELETE /api/customer/ai-behavior
+   */
+  async resetAIBehavior(req, res) {
+    try {
+      const clientId = req.clientId;
+
+      // Clear the client's prompt_config
+      await Client.updatePromptConfig(clientId, {});
+
+      // Refresh cached config so new conversations use the defaults
+      await refreshCachedConfig();
+
+      console.log(`[CustomerController] Client ${clientId} reset AI behavior to defaults`);
+
+      // Get the default config to return
+      const defaultConfig = await promptService.getDefaultConfig();
+
+      res.json({
+        success: true,
+        message: 'AI behavior settings reset to defaults',
+        config: {
+          reasoning_enabled: defaultConfig.reasoning_enabled,
+          reasoning_steps: defaultConfig.reasoning_steps || [],
+          response_style: defaultConfig.response_style || {},
+          tool_rules: defaultConfig.tool_rules || [],
+          custom_instructions: null
+        }
+      });
+    } catch (error) {
+      console.error('[CustomerController] Reset AI behavior error:', error);
+      res.status(500).json({
+        error: 'Failed to reset AI behavior settings',
+        message: 'An error occurred while resetting your AI settings'
       });
     }
   }

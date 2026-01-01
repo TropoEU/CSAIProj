@@ -4,7 +4,7 @@ export class Message {
     /**
      * Create a new message
      * @param {number} conversationId - The conversation ID
-     * @param {string} role - The role (user, assistant, system)
+     * @param {string} role - The role (user, assistant, system, tool)
      * @param {string} content - The message content
      * @param {number} tokensUsed - Number of tokens used
      * @param {string} externalMessageId - External message ID (Gmail message ID, etc.)
@@ -21,6 +21,50 @@ export class Message {
     }
 
     /**
+     * Create a debug/internal message for full conversation tracking
+     * @param {number} conversationId - The conversation ID
+     * @param {string} role - The role (user, assistant, system, tool)
+     * @param {string} content - The message content
+     * @param {string} messageType - Type: visible, system, tool_call, tool_result, internal
+     * @param {object} options - Additional options
+     * @param {number} options.tokensUsed - Tokens used
+     * @param {string} options.toolCallId - Tool call ID for matching
+     * @param {object} options.metadata - Additional metadata (tool_calls array, etc.)
+     */
+    static async createDebug(conversationId, role, content, messageType = 'visible', options = {}) {
+        const { tokensUsed = 0, toolCallId = null, metadata = null } = options;
+        const result = await db.query(
+            `INSERT INTO messages (conversation_id, role, content, tokens_used, message_type, tool_call_id, metadata)
+             VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+             RETURNING *`,
+            [
+                conversationId,
+                role,
+                content,
+                tokensUsed,
+                messageType,
+                toolCallId,
+                metadata ? JSON.stringify(metadata) : null
+            ]
+        );
+        return result.rows[0];
+    }
+
+    /**
+     * Get all messages for a conversation including debug messages
+     * @param {number} conversationId - The conversation ID
+     * @param {boolean} includeDebug - Include debug/internal messages
+     */
+    static async getAllWithDebug(conversationId, includeDebug = true) {
+        const query = includeDebug
+            ? `SELECT * FROM messages WHERE conversation_id = $1 ORDER BY timestamp ASC`
+            : `SELECT * FROM messages WHERE conversation_id = $1 AND (message_type IS NULL OR message_type = 'visible') ORDER BY timestamp ASC`;
+
+        const result = await db.query(query, [conversationId]);
+        return result.rows;
+    }
+
+    /**
      * Find message by external ID
      */
     static async findByExternalId(externalMessageId) {
@@ -32,12 +76,14 @@ export class Message {
     }
 
     /**
-     * Get recent messages for a conversation (for context loading)
+     * Get recent visible messages for a conversation (for context loading)
+     * Excludes debug messages to prevent them from being sent to LLM
      */
     static async getRecent(conversationId, limit = 20) {
         const result = await db.query(
             `SELECT * FROM messages
              WHERE conversation_id = $1
+               AND (message_type IS NULL OR message_type = 'visible')
              ORDER BY timestamp DESC
              LIMIT $2`,
             [conversationId, limit]
@@ -46,12 +92,13 @@ export class Message {
     }
 
     /**
-     * Get all messages for a conversation
+     * Get all visible messages for a conversation (excludes debug messages)
      */
     static async getAll(conversationId) {
         const result = await db.query(
             `SELECT * FROM messages
              WHERE conversation_id = $1
+               AND (message_type IS NULL OR message_type = 'visible')
              ORDER BY timestamp ASC`,
             [conversationId]
         );

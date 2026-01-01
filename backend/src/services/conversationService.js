@@ -162,6 +162,24 @@ class ConversationService {
   }
 
   /**
+   * Add a debug/internal message for full conversation tracking
+   * @param {number} conversationId - The conversation ID
+   * @param {string} role - The role (user, assistant, system, tool)
+   * @param {string} content - The message content
+   * @param {string} messageType - Type: visible, system, tool_call, tool_result, internal
+   * @param {object} options - Additional options (tokensUsed, toolCallId, metadata)
+   */
+  async addDebugMessage(conversationId, role, content, messageType, options = {}) {
+    try {
+      return await Message.createDebug(conversationId, role, content, messageType, options);
+    } catch (error) {
+      log.error('Failed to store debug message', error);
+      // Don't fail the conversation if debug storage fails
+      return null;
+    }
+  }
+
+  /**
    * Get conversation history with context window management
    */
   async getConversationHistory(conversationId, limit = null) {
@@ -447,6 +465,15 @@ class ConversationService {
 
     log.info(`Executing tool: ${name}`);
 
+    // Store tool call as debug message
+    await this.addDebugMessage(
+      conversation.id,
+      'assistant',
+      `Tool Call: ${name}\nArguments: ${JSON.stringify(toolArgs, null, 2)}`,
+      'tool_call',
+      { toolCallId: id, metadata: { tool_name: name, arguments: toolArgs } }
+    );
+
     const tool = await toolManager.getToolByName(client.id, name);
 
     if (!tool) {
@@ -464,13 +491,42 @@ class ConversationService {
     const validation = toolManager.validateToolArguments(tool, toolArgs);
     if (!validation.valid) {
       log.error(`Invalid arguments for ${name}`, validation.errors);
-      const errorMessage = `Error: Invalid arguments - ${validation.errors.join(', ')}`;
+      const errorDetails = validation.errors.join('; ');
+      const errorMessage = `TOOL CALL REJECTED: ${errorDetails}. You MUST ask the user for the missing or invalid information before calling this tool again. Do not use placeholder values.`;
 
       messages.push({ role: 'tool', content: errorMessage, tool_call_id: id });
 
-      await ToolExecution.create(conversation.id, name, toolArgs, { error: validation.errors }, false, 0);
+      // Log as blocked execution for visibility in admin dashboard
+      await ToolExecution.create(
+        conversation.id,
+        name,
+        toolArgs,
+        { error: validation.errors },
+        false,
+        0,
+        'blocked',
+        errorDetails
+      );
 
-      return { success: false, error: errorMessage };
+      // Store blocked tool result as debug message
+      await this.addDebugMessage(
+        conversation.id,
+        'assistant',
+        errorMessage,
+        'tool_result',
+        {
+          toolCallId: id,
+          metadata: {
+            tool_name: name,
+            success: false,
+            status: 'blocked',
+            error_reason: errorDetails,
+            invalid_args: toolArgs,
+          }
+        }
+      );
+
+      return { success: false, error: errorMessage, blocked: true };
     }
 
     // Normalize and prepare arguments
@@ -570,6 +626,33 @@ class ConversationService {
       content: result.success ? formattedResult : result.error,
       tool_call_id: id,
     });
+
+    // Store tool result as debug message (limit raw_result size to prevent DB issues)
+    const rawResultStr = JSON.stringify(result.data);
+    let truncatedResult = result.data;
+    if (rawResultStr.length > 5000) {
+      try {
+        truncatedResult = { _truncated: true, preview: rawResultStr.substring(0, 2000) + '...' };
+      } catch {
+        truncatedResult = { _truncated: true, error: 'Could not serialize result' };
+      }
+    }
+
+    await this.addDebugMessage(
+      conversation.id,
+      'assistant',  // Use 'assistant' role (constraint only allows user/assistant/system)
+      result.success ? formattedResult : `Error: ${result.error}`,
+      'tool_result',
+      {
+        toolCallId: id,
+        metadata: {
+          tool_name: name,
+          success: result.success,
+          execution_time_ms: result.executionTimeMs,
+          raw_result: truncatedResult,
+        }
+      }
+    );
 
     log.info(`Tool ${name} ${result.success ? 'succeeded' : 'failed'} (${result.executionTimeMs}ms)`);
 
@@ -741,6 +824,17 @@ class ConversationService {
         if (formattedTools && baseSystemPrompt) {
           messages[0].content = `${baseSystemPrompt}${formattedTools}`;
         }
+      }
+
+      // Store system prompt as debug message (only for new conversations or first message)
+      if (isNewConversation && messages[0]?.role === 'system') {
+        await this.addDebugMessage(
+          conversation.id,
+          'system',
+          messages[0].content,
+          'system',
+          { metadata: { provider: effectiveProvider, model: effectiveModel } }
+        );
       }
 
       // Tool execution loop

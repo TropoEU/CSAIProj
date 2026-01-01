@@ -357,6 +357,11 @@ class N8nService {
 
     // Handle object responses - the main case for API responses
     if (typeof n8nResponse === 'object') {
+      // 0. Check for empty objects - this usually means something went wrong
+      if (Object.keys(n8nResponse).length === 0) {
+        return 'ERROR: The tool returned an empty response which means the operation FAILED. Do NOT tell the customer it was successful. Either apologize and ask them to try again, or inform them there was a technical issue.';
+      }
+
       // 1. Check for error patterns first
       if (this.isErrorResponse(n8nResponse)) {
         const errorMsg = n8nResponse.error 

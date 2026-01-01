@@ -14,6 +14,7 @@ import billingRouter from './admin/billing.js';
 import usageRouter from './admin/usage.js';
 import plansRouter from './admin/plans.js';
 import escalationsRouter from './admin/escalations.js';
+import promptConfigRouter from './admin/promptConfig.js';
 
 const router = express.Router();
 
@@ -91,6 +92,10 @@ router.use(authenticateAdmin);
 // Client routes - /admin/clients/*
 router.use('/clients', clientsRouter);
 
+// Prompt config routes - /admin/prompt-config/* and /admin/clients/:clientId/prompt-config
+// NOTE: Must come BEFORE tools to avoid /:id route matching "prompt-config"
+router.use('/prompt-config', promptConfigRouter);
+
 // Tool routes - /admin/tools/* and /admin/clients/:clientId/tools/*
 router.use('/tools', toolsRouter);
 router.use('/', toolsRouter); // For /clients/:clientId/tools routes
@@ -115,6 +120,9 @@ router.use('/', usageRouter); // For /clients/:id/usage routes
 
 // Plan routes - /admin/plans/*
 router.use('/plans', plansRouter);
+
+// Client prompt-config routes (mounted at / for /clients/:clientId/prompt-config)
+router.use('/', promptConfigRouter);
 
 // Escalation routes - /admin/escalations/* and /admin/clients/:clientId/escalations/*
 router.use('/escalations', escalationsRouter);

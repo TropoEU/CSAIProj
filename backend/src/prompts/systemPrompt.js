@@ -1,84 +1,202 @@
 /**
  * System Prompts for AI Customer Service Agent
  *
- * These prompts define the AI's personality, behavior, and instructions
- * Supports English and Hebrew languages
+ * These prompts are now database-driven via PromptService.
+ * This file provides backwards-compatible exports that use cached configs.
  */
+
+import promptService from '../services/promptService.js';
+import { PlatformConfig } from '../models/PlatformConfig.js';
+
+// Cache for synchronous access (initialized on first async call)
+let cachedDefaultConfig = null;
 
 /**
- * Base system prompt template - English
- * @param {Object} client - Client configuration
- * @returns {String} System prompt in English
+ * Initialize the prompt cache (call this at app startup)
  */
-function getEnglishPrompt(client) {
-  return `You are a friendly customer support person for ${client.name}. Keep responses SHORT (1-2 sentences).
-
-## TOOL CALLING RULES:
-
-1. **Call tools only when you need external data you don't already have.**
-2. **Answer from context if possible** - don't call a tool for info already provided to you.
-3. **Never make up or assume information** - if required data is missing, ask the user first.
-4. **Never repeat a tool call** - reuse answers from previous calls.
-5. **One tool per turn maximum.**
-
-## TOOL FORMAT:
-USE_TOOL: tool_name
-PARAMETERS: {"key": "value"}
-
-## AFTER TOOL RESULT:
-Summarize the result naturally. Don't show JSON or technical details.
-
-## ANSWERING WITHOUT TOOLS:
-For general questions (hours, location, what you offer, policies), answer from context or say you don't have that information. Don't call a tool just because a keyword matches.
-`;
+export async function initializePrompts() {
+  await promptService.initialize();
+  cachedDefaultConfig = await promptService.getDefaultConfig();
 }
 
 /**
- * Base system prompt template - Hebrew
- * @param {Object} client - Client configuration
- * @returns {String} System prompt in Hebrew
+ * Refresh the cached default config (call after admin updates settings)
  */
-function getHebrewPrompt(client) {
-  return `אתה נציג שירות לקוחות ידידותי של ${client.name}. תהיה קצר ותמציתי (משפט או שניים מקסימום).
+export async function refreshCachedConfig() {
+  cachedDefaultConfig = await promptService.getDefaultConfig();
+}
 
-## כללי שימוש בכלים:
+/**
+ * Build system prompt from config (sync version using cache)
+ * All text is configurable via the database config
+ * @param {Object} client - Client configuration
+ * @param {Object} config - Prompt config
+ * @returns {String} System prompt
+ */
+function buildPromptFromConfig(client, config) {
+  const language = client.language || 'en';
 
-1. **קרא לכלים רק כשאתה צריך מידע חיצוני שאין לך.**
-2. **ענה מההקשר אם אפשר** - אל תקרא לכלי למידע שכבר סופק לך.
-3. **לעולם אל תמציא או תניח מידע** - אם חסר מידע נדרש, שאל את המשתמש קודם.
-4. **לעולם אל תחזור על קריאה לכלי** - השתמש בתשובות מקריאות קודמות.
-5. **כלי אחד לכל היותר בכל תשובה.**
+  // Build intro from configurable template
+  const introTemplate = config.intro_template || 'You are a friendly customer support assistant for {client_name}.';
+  let prompt = introTemplate.replace('{client_name}', client.name);
 
-## פורמט הכלי:
-USE_TOOL: tool_name
-PARAMETERS: {"key": "value"}
+  // Add current date context - critical for interpreting "today", "tomorrow", etc.
+  const now = new Date();
+  // Use local date components to avoid timezone issues
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const day = now.getDate();
+  const hours = now.getHours();
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'pm' : 'am';
+  const hour12 = hours % 12 || 12;
+  // Simple format: 1/1/2026 1:44am
+  const simpleDateTime = `${month}/${day}/${year} ${hour12}:${minutes}${ampm}`;
+  // ISO format for tool calls
+  const isoDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  // Calculate tomorrow
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowIso = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+  prompt += `\n\n## CURRENT DATE/TIME: ${simpleDateTime}
+When calling tools: today=${isoDate}, tomorrow=${tomorrowIso}`;
 
-## אחרי תוצאת הכלי:
-סכם את התוצאה בצורה טבעית. אל תציג JSON או פרטים טכניים.
+  // Add reasoning process if enabled
+  if (config.reasoning_enabled !== false && config.reasoning_steps?.length > 0) {
+    prompt += '\n\n## YOUR REASONING PROCESS (follow these steps internally before responding)\n';
 
-## מענה ללא כלים:
-לשאלות כלליות (שעות, מיקום, מה אתם מציעים, מדיניות), ענה מההקשר או אמור שאין לך את המידע. אל תקרא לכלי רק בגלל שמילת מפתח תואמת.
+    config.reasoning_steps.forEach((step, index) => {
+      prompt += `\n**Step ${index + 1}: ${step.title}**\n${step.instruction}\n`;
+    });
+  }
 
-## שפה
-- ענה תמיד בעברית
-`;
+  // Add response style instructions (all from config)
+  if (config.response_style) {
+    const style = config.response_style;
+    const toneInstructions = config.tone_instructions || {
+      friendly: 'Be warm and approachable.',
+      professional: 'Maintain a professional and polished tone.',
+      casual: 'Keep it conversational and relaxed.'
+    };
+    const formalityInstructions = config.formality_instructions || {
+      casual: 'Use everyday language.',
+      neutral: 'Balance professionalism with approachability.',
+      formal: 'Use formal language and proper grammar.'
+    };
+
+    prompt += '\n## RESPONSE STYLE\n';
+    if (style.tone && toneInstructions[style.tone]) {
+      prompt += `- ${toneInstructions[style.tone]}\n`;
+    }
+    if (style.max_sentences) {
+      prompt += `- Keep responses to ${style.max_sentences} sentence(s) maximum.\n`;
+    }
+    if (style.formality && formalityInstructions[style.formality]) {
+      prompt += `- ${formalityInstructions[style.formality]}\n`;
+    }
+  }
+
+  // Add tool usage rules
+  if (config.tool_rules?.length > 0) {
+    prompt += '\n## TOOL USAGE RULES\n';
+    config.tool_rules.forEach((rule, index) => {
+      prompt += `${index + 1}. ${rule}\n`;
+    });
+  }
+
+  // Add tool format instructions from config
+  const toolFormat = config.tool_format_template || 'USE_TOOL: tool_name\nPARAMETERS: {"key": "value"}';
+  prompt += `\n## TOOL FORMAT (for models without native function calling)\n${toolFormat}\n`;
+
+  // Add after tool results instructions from config
+  const toolResultInstruction = config.tool_result_instruction || 'Summarize the result naturally for the customer. Do not expose raw data or JSON.';
+  prompt += `\n## AFTER RECEIVING TOOL RESULTS\n${toolResultInstruction}`;
+
+  // Add custom instructions if any
+  if (config.custom_instructions) {
+    prompt += `\n\n## ADDITIONAL INSTRUCTIONS\n${config.custom_instructions}`;
+  }
+
+  // Add language instruction for non-English (all from config)
+  if (language !== 'en') {
+    const languageNames = config.language_names || {
+      'en': 'English',
+      'he': 'Hebrew (עברית)',
+      'es': 'Spanish (Español)',
+      'fr': 'French (Français)',
+      'de': 'German (Deutsch)',
+      'ar': 'Arabic (العربية)',
+      'ru': 'Russian (Русский)',
+    };
+    const langName = languageNames[language] || language;
+    const langTemplate = config.language_instruction_template ||
+      'You MUST respond in {language_name}. Use natural, conversational {language_name}. All your responses must be in this language.';
+    const langInstruction = langTemplate.replace(/{language_name}/g, langName);
+    prompt += `\n\n## LANGUAGE REQUIREMENT\n${langInstruction}`;
+  }
+
+  return prompt;
+}
+
+/**
+ * Get effective config for a client (merges client config with defaults)
+ * @param {Object} client - Client with optional prompt_config
+ * @returns {Object} Merged config
+ */
+function getEffectiveConfig(client) {
+  const defaults = cachedDefaultConfig || PlatformConfig.getHardcodedDefaults();
+  const clientConfig = client.prompt_config || {};
+
+  if (Object.keys(clientConfig).length === 0) {
+    return defaults;
+  }
+
+  // Merge client config with defaults
+  return mergeConfigs(defaults, clientConfig);
+}
+
+/**
+ * Merge two configs - child overrides parent
+ */
+function mergeConfigs(parent, child) {
+  const merged = { ...parent };
+
+  for (const [key, value] of Object.entries(child)) {
+    if (value === null || value === undefined) continue;
+
+    if (Array.isArray(value)) {
+      merged[key] = value;
+    } else if (typeof value === 'object' && typeof parent[key] === 'object') {
+      merged[key] = mergeConfigs(parent[key], value);
+    } else {
+      merged[key] = value;
+    }
+  }
+
+  return merged;
 }
 
 /**
  * Base system prompt template
  * @param {Object} client - Client configuration
- * @param {Array} tools - Available tools for this client
+ * @param {Array} tools - Available tools for this client (not used here, passed to toolManager)
  * @returns {String} System prompt
  */
 export function getSystemPrompt(client, tools = []) {
-  // Keep the base system prompt small.
-  // Tools are provided separately (native tool calling) or via the Ollama tool block appended at runtime,
-  // so we intentionally do NOT embed a tool list here.
-  void tools;
+  void tools; // Tools handled separately by toolManager
 
-  // Return Hebrew or English prompt based on client's language setting
-  const language = client.language || 'en';
-  return language === 'he' ? getHebrewPrompt(client) : getEnglishPrompt(client);
+  const config = getEffectiveConfig(client);
+  return buildPromptFromConfig(client, config);
+}
+
+/**
+ * Async version that ensures latest config from database
+ * @param {Object} client - Client configuration
+ * @returns {Promise<String>} System prompt
+ */
+export async function getSystemPromptAsync(client) {
+  const config = await promptService.getClientConfig(client);
+  return buildPromptFromConfig(client, config);
 }
 
 /**
@@ -173,41 +291,41 @@ export const toolInstructions = {
 
 /**
  * Get conversation starter message
+ * Returns null to let the AI generate the greeting dynamically
+ * based on the client's language and business context
  * @param {Object} client - Client configuration
- * @returns {String} Greeting message
+ * @returns {String|null} Greeting message or null for AI-generated
  */
 export function getGreeting(client) {
-  const language = client.language || 'en';
-  if (language === 'he') {
-    return 'שלום! איך אפשר לעזור לך היום?';
-  }
-  return 'Hi! How can I help you today?';
+  // Let the AI generate greetings - it knows the language from the prompt
+  // Return a simple English fallback only used if AI generation fails
+  void client;
+  return null;
 }
 
 /**
- * Escalation message template
- * @param {string} language - Language code
+ * Fallback greeting if AI doesn't generate one
+ */
+export const fallbackGreeting = 'Hi! How can I help you today?';
+
+/**
+ * Escalation message template (English only - AI will translate)
+ * Used as context for the AI to know what to communicate
  * @returns {String} Escalation message
  */
-export function getEscalationMessage(language = 'en') {
-  if (language === 'he') {
-    return 'מצטער, אבל הבקשה הזו דורשת עזרה מנציג אנושי. אני מעביר אותך לחבר צוות שיוכל לעזור לך טוב יותר. אנא המתן רגע.';
-  }
-  return 'I apologize, but this request requires human assistance. Let me connect you with a team member who can better help you. Please hold for a moment.';
+export function getEscalationMessage() {
+  return 'I apologize, but this request requires human assistance. Let me connect you with a team member who can better help you.';
 }
 
 /**
- * Error handling message template
- * @param {string} language - Language code
+ * Error handling message template (English only - AI will translate)
+ * Used as fallback when AI fails to respond
  * @returns {String} Error message
  */
-export function getErrorMessage(language = 'en') {
-  if (language === 'he') {
-    return 'מצטער, אני מתקשה לעבד את הבקשה הזו כרגע. אנא נסה שוב, או אם הבעיה נמשכת, אוכל לחבר אותך לנציג אנושי.';
-  }
-  return 'I\'m sorry, I\'m having trouble processing that request right now. Please try again, or if the issue persists, I can connect you with a human agent.';
+export function getErrorMessage() {
+  return 'I\'m sorry, I\'m having trouble processing that request. Please try again.';
 }
 
 // Legacy exports for backwards compatibility
-export const escalationMessage = getEscalationMessage('en');
-export const errorMessage = getErrorMessage('en');
+export const escalationMessage = getEscalationMessage();
+export const errorMessage = getErrorMessage();

@@ -12,6 +12,7 @@ import { db } from './db.js';
 import conversationService from './services/conversationService.js';
 import { emailMonitor } from './services/emailMonitor.js';
 import n8nService from './services/n8nService.js';
+import { initializePrompts } from './prompts/systemPrompt.js';
 
 // Note: dotenv is loaded in config.js, no need to load it here
 
@@ -108,6 +109,14 @@ app.get('/health', async (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
   console.log(`Backend running on port ${PORT}`);
+
+  // Initialize prompt configuration from database
+  try {
+    await initializePrompts();
+    console.log('Prompt configuration loaded from database');
+  } catch (error) {
+    console.warn('Failed to load prompt config from database, using defaults:', error.message);
+  }
 
   // Check n8n connectivity on startup
   const n8nHealth = await n8nService.checkHealth();
