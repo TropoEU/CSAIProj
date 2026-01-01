@@ -226,7 +226,7 @@ describe('PlatformConfig Model', () => {
 
         db.query
           .mockResolvedValueOnce({ rows: [{ value: existingConfig }] }) // getPlatformEmail
-          .mockResolvedValueOnce({ rows: [{ key: 'platform_email', value: JSON.stringify({}) }] }]); // set
+          .mockResolvedValueOnce({ rows: [{ key: 'platform_email', value: JSON.stringify({}) }] }); // set
 
         const result = await PlatformConfig.updatePlatformEmailTokens(newAccessToken);
         expect(db.query).toHaveBeenCalledTimes(2);
