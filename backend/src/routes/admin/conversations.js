@@ -236,8 +236,8 @@ router.get('/:id/export', async (req, res) => {
     if (format === 'text') {
       // Plain text format for easy copy/paste
       let text = includeDebug
-        ? `=== CONVERSATION EXPORT (FULL DEBUG) ===\n`
-        : `=== CONVERSATION EXPORT ===\n`;
+        ? '=== CONVERSATION EXPORT (FULL DEBUG) ===\n'
+        : '=== CONVERSATION EXPORT ===\n';
       text += `Session ID: ${conversation.session_id}\n`;
       text += `Client: ${conversation.client_name || 'Unknown'}\n`;
       text += `Provider: ${conversation.llm_provider} / ${conversation.model_name || 'default'}\n`;
@@ -273,7 +273,7 @@ router.get('/:id/export', async (req, res) => {
       // Add tool executions section only in non-debug mode (debug mode has inline tool data)
       if (!includeDebug && toolExecutions.length > 0) {
         text += `\n${'='.repeat(60)}\n`;
-        text += `=== TOOL EXECUTIONS ===\n\n`;
+        text += '=== TOOL EXECUTIONS ===\n\n';
 
         for (const exec of toolExecutions) {
           text += `--- ${exec.tool_name} (${exec.status || 'unknown'}) ---\n`;

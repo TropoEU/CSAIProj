@@ -57,8 +57,8 @@ export class Message {
      */
     static async getAllWithDebug(conversationId, includeDebug = true) {
         const query = includeDebug
-            ? `SELECT * FROM messages WHERE conversation_id = $1 ORDER BY timestamp ASC`
-            : `SELECT * FROM messages WHERE conversation_id = $1 AND (message_type IS NULL OR message_type = 'visible') ORDER BY timestamp ASC`;
+            ? 'SELECT * FROM messages WHERE conversation_id = $1 ORDER BY timestamp ASC'
+            : 'SELECT * FROM messages WHERE conversation_id = $1 AND (message_type IS NULL OR message_type = \'visible\') ORDER BY timestamp ASC';
 
         const result = await db.query(query, [conversationId]);
         return result.rows;

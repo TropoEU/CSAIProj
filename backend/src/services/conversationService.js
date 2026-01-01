@@ -552,6 +552,7 @@ class ConversationService {
       return { success: false, error: 'Execution already in progress', locked: true };
     }
 
+    let result;
     try {
       // Check for duplicate tool calls by querying the persisted tool_executions table
       // This works across conversation turns since the data is stored in the database
@@ -606,7 +607,7 @@ class ConversationService {
       // Execute via n8n
       log.debug(`Calling n8n with ${Object.keys(integrations).length} integrations`);
 
-      const result = await n8nService.executeTool(tool.n8n_webhook_url, finalArgs, { integrations });
+      result = await n8nService.executeTool(tool.n8n_webhook_url, finalArgs, { integrations });
 
       // Handle blocked tools (placeholder values detected)
       if (result.blocked) {

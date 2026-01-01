@@ -1,5 +1,4 @@
 import { PlatformConfig } from '../models/PlatformConfig.js';
-import { RedisCache } from './redisCache.js';
 import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('PromptService');
