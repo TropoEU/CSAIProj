@@ -25,21 +25,39 @@ class ToolManager {
    */
   async getClientTools(clientId) {
     try {
-      // Try to get from cache first
-      const cacheKey = `${CACHE.PREFIX_TOOLS}${clientId}`;
-      const cachedTools = await redisClient.get(cacheKey);
+      // Try to get from cache first (with Redis error handling)
+      let cachedTools = null;
+      try {
+        const cacheKey = `${CACHE.PREFIX_TOOLS}${clientId}`;
+        cachedTools = await redisClient.get(cacheKey);
 
-      if (cachedTools) {
-        log.debug('Tool list loaded from cache', { clientId });
-        return JSON.parse(cachedTools);
+        if (cachedTools) {
+          log.debug('Tool list loaded from cache', { clientId });
+          return JSON.parse(cachedTools);
+        }
+      } catch (redisError) {
+        // Redis is down - log warning and fall back to database
+        log.warn('Redis unavailable for tool cache, falling back to database', {
+          clientId,
+          error: redisError.message
+        });
       }
 
-      // Cache miss - fetch from database
+      // Cache miss or Redis unavailable - fetch from database
       log.debug('Tool list cache miss - fetching from database', { clientId });
       const tools = await ClientTool.getEnabledTools(clientId);
 
-      // Store in cache for 5 minutes
-      await redisClient.setex(cacheKey, CACHE.TOOL_LIST_CACHE_TTL, JSON.stringify(tools));
+      // Try to store in cache (fail gracefully if Redis is down)
+      try {
+        const cacheKey = `${CACHE.PREFIX_TOOLS}${clientId}`;
+        await redisClient.setex(cacheKey, CACHE.TOOL_LIST_CACHE_TTL, JSON.stringify(tools));
+      } catch (redisError) {
+        // Redis write failed - just log, don't fail the request
+        log.warn('Failed to cache tools in Redis', {
+          clientId,
+          error: redisError.message
+        });
+      }
 
       return tools;
     } catch (error) {

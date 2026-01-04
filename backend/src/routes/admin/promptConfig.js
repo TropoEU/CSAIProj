@@ -1,4 +1,5 @@
 import express from 'express';
+import { HTTP_STATUS } from '../../config/constants.js';
 import { PlatformConfig } from '../../models/PlatformConfig.js';
 import { Client } from '../../models/Client.js';
 import promptService from '../../services/promptService.js';
@@ -20,7 +21,7 @@ router.get('/', async (req, res) => {
     res.json(config);
   } catch (error) {
     console.error('[Admin] Error fetching prompt config:', error);
-    res.status(500).json({ error: 'Failed to fetch prompt configuration' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to fetch prompt configuration' });
   }
 });
 
@@ -34,24 +35,24 @@ router.put('/', async (req, res) => {
 
     // Validate required fields
     if (!config) {
-      return res.status(400).json({ error: 'Configuration is required' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Configuration is required' });
     }
 
     // Validate reasoning_steps if provided
     if (config.reasoning_steps) {
       if (!Array.isArray(config.reasoning_steps)) {
-        return res.status(400).json({ error: 'reasoning_steps must be an array' });
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'reasoning_steps must be an array' });
       }
       for (const step of config.reasoning_steps) {
         if (!step.title || !step.instruction) {
-          return res.status(400).json({ error: 'Each reasoning step must have title and instruction' });
+          return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Each reasoning step must have title and instruction' });
         }
       }
     }
 
     // Validate tool_rules if provided
     if (config.tool_rules && !Array.isArray(config.tool_rules)) {
-      return res.status(400).json({ error: 'tool_rules must be an array' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'tool_rules must be an array' });
     }
 
     // Update the platform config
@@ -64,7 +65,7 @@ router.put('/', async (req, res) => {
     res.json({ message: 'Prompt configuration updated successfully', config });
   } catch (error) {
     console.error('[Admin] Error updating prompt config:', error);
-    res.status(500).json({ error: error.message || 'Failed to update prompt configuration' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: error.message || 'Failed to update prompt configuration' });
   }
 });
 
@@ -97,7 +98,7 @@ router.post('/preview', async (req, res) => {
     res.json({ prompt });
   } catch (error) {
     console.error('[Admin] Error previewing prompt:', error);
-    res.status(500).json({ error: 'Failed to preview prompt' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to preview prompt' });
   }
 });
 
@@ -115,7 +116,7 @@ router.post('/reset', async (req, res) => {
     res.json({ message: 'Prompt configuration reset to defaults', config: defaults });
   } catch (error) {
     console.error('[Admin] Error resetting prompt config:', error);
-    res.status(500).json({ error: 'Failed to reset prompt configuration' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to reset prompt configuration' });
   }
 });
 
@@ -133,7 +134,7 @@ router.get('/clients/:clientId/prompt-config', async (req, res) => {
 
     const client = await Client.findById(clientId);
     if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
     }
 
     // Get the effective config (client + defaults merged)
@@ -160,7 +161,7 @@ router.get('/clients/:clientId/prompt-config', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Error fetching client prompt config:', error);
-    res.status(500).json({ error: 'Failed to fetch client prompt configuration' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to fetch client prompt configuration' });
   }
 });
 
@@ -175,17 +176,17 @@ router.put('/clients/:clientId/prompt-config', async (req, res) => {
 
     const client = await Client.findById(clientId);
     if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
     }
 
     // Validate reasoning_steps if provided
     if (config.reasoning_steps) {
       if (!Array.isArray(config.reasoning_steps)) {
-        return res.status(400).json({ error: 'reasoning_steps must be an array' });
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'reasoning_steps must be an array' });
       }
       for (const step of config.reasoning_steps) {
         if (!step.title || !step.instruction) {
-          return res.status(400).json({ error: 'Each reasoning step must have title and instruction' });
+          return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Each reasoning step must have title and instruction' });
         }
       }
     }
@@ -196,7 +197,7 @@ router.put('/clients/:clientId/prompt-config', async (req, res) => {
     res.json({ message: 'Client prompt configuration updated successfully', config });
   } catch (error) {
     console.error('[Admin] Error updating client prompt config:', error);
-    res.status(500).json({ error: 'Failed to update client prompt configuration' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to update client prompt configuration' });
   }
 });
 
@@ -210,7 +211,7 @@ router.delete('/clients/:clientId/prompt-config', async (req, res) => {
 
     const client = await Client.findById(clientId);
     if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
     }
 
     // Clear the client's prompt_config
@@ -219,7 +220,7 @@ router.delete('/clients/:clientId/prompt-config', async (req, res) => {
     res.json({ message: 'Client prompt configuration cleared, using platform defaults' });
   } catch (error) {
     console.error('[Admin] Error clearing client prompt config:', error);
-    res.status(500).json({ error: 'Failed to clear client prompt configuration' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to clear client prompt configuration' });
   }
 });
 
@@ -234,7 +235,7 @@ router.post('/clients/:clientId/prompt-config/preview', async (req, res) => {
 
     const client = await Client.findById(clientId);
     if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
     }
 
     // Use provided config or client's current config
@@ -246,7 +247,7 @@ router.post('/clients/:clientId/prompt-config/preview', async (req, res) => {
     res.json({ prompt });
   } catch (error) {
     console.error('[Admin] Error previewing client prompt:', error);
-    res.status(500).json({ error: 'Failed to preview prompt' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to preview prompt' });
   }
 });
 

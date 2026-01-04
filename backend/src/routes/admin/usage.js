@@ -1,4 +1,5 @@
 import express from 'express';
+import { HTTP_STATUS } from '../../config/constants.js';
 import { Client } from '../../models/Client.js';
 import { UsageTracker } from '../../services/usageTracker.js';
 import { db } from '../../db.js';
@@ -16,7 +17,7 @@ router.get('/clients/:id/usage', async (req, res) => {
     res.json(summary);
   } catch (error) {
     console.error('[Admin] Get client usage error:', error);
-    res.status(500).json({ error: 'Failed to get client usage' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get client usage' });
   }
 });
 
@@ -31,7 +32,7 @@ router.get('/clients/:id/usage/history', async (req, res) => {
     res.json(history);
   } catch (error) {
     console.error('[Admin] Get usage history error:', error);
-    res.status(500).json({ error: 'Failed to get usage history' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get usage history' });
   }
 });
 
@@ -45,7 +46,7 @@ router.get('/clients/:id/usage/daily', async (req, res) => {
     res.json(daily);
   } catch (error) {
     console.error('[Admin] Get daily usage error:', error);
-    res.status(500).json({ error: 'Failed to get daily usage' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get daily usage' });
   }
 });
 
@@ -60,7 +61,7 @@ router.get('/clients/:id/usage/tools', async (req, res) => {
     res.json(tools);
   } catch (error) {
     console.error('[Admin] Get tool usage error:', error);
-    res.status(500).json({ error: 'Failed to get tool usage' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get tool usage' });
   }
 });
 
@@ -75,7 +76,7 @@ router.get('/clients/:id/usage/compare', async (req, res) => {
     res.json(comparison);
   } catch (error) {
     console.error('[Admin] Compare usage error:', error);
-    res.status(500).json({ error: 'Failed to compare usage' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to compare usage' });
   }
 });
 
@@ -87,7 +88,7 @@ router.get('/clients/:id/usage/alerts', async (req, res) => {
   try {
     const client = await Client.findById(req.params.id);
     if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
     }
 
     const limits = {
@@ -100,7 +101,7 @@ router.get('/clients/:id/usage/alerts', async (req, res) => {
     res.json(alerts);
   } catch (error) {
     console.error('[Admin] Get usage alerts error:', error);
-    res.status(500).json({ error: 'Failed to get usage alerts' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get usage alerts' });
   }
 });
 
@@ -113,7 +114,7 @@ router.get('/clients/:id/usage/export', async (req, res) => {
     const { startDate, endDate } = req.query;
 
     if (!startDate || !endDate) {
-      return res.status(400).json({ error: 'Start date and end date are required' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Start date and end date are required' });
     }
 
     const csv = await UsageTracker.exportUsageCSV(req.params.id, startDate, endDate);
@@ -126,7 +127,7 @@ router.get('/clients/:id/usage/export', async (req, res) => {
     res.send(csv);
   } catch (error) {
     console.error('[Admin] Export usage error:', error);
-    res.status(500).json({ error: 'Failed to export usage' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to export usage' });
   }
 });
 
@@ -169,7 +170,7 @@ router.get('/summary', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Get usage summary error:', error);
-    res.status(500).json({ error: 'Failed to get usage summary' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get usage summary' });
   }
 });
 
@@ -211,7 +212,7 @@ router.get('/history', async (req, res) => {
     );
   } catch (error) {
     console.error('[Admin] Get usage history error:', error);
-    res.status(500).json({ error: 'Failed to get usage history' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get usage history' });
   }
 });
 
@@ -226,7 +227,7 @@ router.get('/top-clients', async (req, res) => {
     res.json(topClients);
   } catch (error) {
     console.error('[Admin] Get top clients error:', error);
-    res.status(500).json({ error: 'Failed to get top clients' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get top clients' });
   }
 });
 

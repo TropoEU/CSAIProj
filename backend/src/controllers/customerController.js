@@ -32,7 +32,7 @@ class CustomerController {
       const { accessCode, rememberMe = false } = req.body;
 
       if (!accessCode) {
-        return res.status(400).json({
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'Access code required',
           message: 'Please provide your access code'
         });
@@ -45,7 +45,7 @@ class CustomerController {
         // Log failed attempt (security)
         console.warn('[CustomerAuth] Failed login attempt with code:', accessCode.substring(0, 4) + '***');
 
-        return res.status(401).json({
+        return res.status(HTTP_STATUS.UNAUTHORIZED).json({
           error: 'Invalid access code',
           message: 'The access code you entered is not valid'
         });
@@ -53,7 +53,7 @@ class CustomerController {
 
       // Check if client is active
       if (client.status !== 'active') {
-        return res.status(403).json({
+        return res.status(HTTP_STATUS.FORBIDDEN).json({
           error: 'Account inactive',
           message: 'Your account is currently inactive. Please contact support.'
         });
@@ -85,7 +85,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Login error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Login failed',
         message: 'An error occurred during login'
       });
@@ -193,7 +193,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Overview error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load overview',
         message: 'An error occurred while loading your dashboard'
       });
@@ -236,7 +236,7 @@ class CustomerController {
     } catch (error) {
       console.error('[CustomerController] Actions error:', error);
       console.error('[CustomerController] Actions error details:', error.stack);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load actions',
         message: 'An error occurred while loading available actions',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -374,7 +374,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Conversations error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load conversations',
         message: 'An error occurred while loading your conversations'
       });
@@ -394,7 +394,7 @@ class CustomerController {
       const conversation = await Conversation.findById(conversationId);
 
       if (!conversation) {
-        return res.status(404).json({
+        return res.status(HTTP_STATUS.NOT_FOUND).json({
           error: 'Conversation not found',
           message: 'The requested conversation could not be found'
         });
@@ -402,7 +402,7 @@ class CustomerController {
 
       // Verify client owns this conversation
       if (conversation.client_id !== clientId) {
-        return res.status(403).json({
+        return res.status(HTTP_STATUS.FORBIDDEN).json({
           error: 'Access denied',
           message: 'You do not have permission to view this conversation'
         });
@@ -447,7 +447,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Conversation detail error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load conversation',
         message: 'An error occurred while loading the conversation details'
       });
@@ -478,7 +478,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Invoices error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load invoices',
         message: 'An error occurred while loading your invoices'
       });
@@ -517,7 +517,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Current usage error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load usage',
         message: 'An error occurred while loading your usage data'
       });
@@ -559,7 +559,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Usage trends error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load trends',
         message: 'An error occurred while loading usage trends'
       });
@@ -607,7 +607,7 @@ class CustomerController {
     } catch (error) {
       console.error('[CustomerController] Tool usage error:', error);
       console.error('[CustomerController] Tool usage error details:', error.stack);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load tool usage',
         message: 'An error occurred while loading tool usage data',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -630,7 +630,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Get settings error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load settings',
         message: 'An error occurred while loading your settings'
       });
@@ -649,7 +649,7 @@ class CustomerController {
       // Validate language
       const validLanguages = ['en', 'he'];
       if (language && !validLanguages.includes(language)) {
-        return res.status(400).json({
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'Invalid language',
           message: 'Language must be one of: ' + validLanguages.join(', ')
         });
@@ -660,7 +660,7 @@ class CustomerController {
       if (language) updates.language = language;
 
       if (Object.keys(updates).length === 0) {
-        return res.status(400).json({
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'No updates provided',
           message: 'Please provide at least one field to update'
         });
@@ -680,7 +680,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Update settings error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to update settings',
         message: 'An error occurred while updating your settings'
       });
@@ -732,7 +732,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Get AI behavior error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load AI behavior settings',
         message: 'An error occurred while loading your AI settings'
       });
@@ -787,7 +787,7 @@ class CustomerController {
       // Validate object depth for nested objects
       const MAX_OBJECT_DEPTH = 5;
       if (response_style && getObjectDepth(response_style) > MAX_OBJECT_DEPTH) {
-        return res.status(400).json({
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'Invalid response_style',
           message: `Object nesting depth exceeds maximum of ${MAX_OBJECT_DEPTH} levels`
         });
@@ -803,7 +803,7 @@ class CustomerController {
       if (reasoning_steps !== undefined) {
         // Validate reasoning_steps structure
         if (!Array.isArray(reasoning_steps)) {
-          return res.status(400).json({
+          return res.status(HTTP_STATUS.BAD_REQUEST).json({
             error: 'Invalid reasoning_steps',
             message: 'Reasoning steps must be an array'
           });
@@ -812,7 +812,7 @@ class CustomerController {
         // Limit array length to prevent abuse
         const MAX_REASONING_STEPS = 20;
         if (reasoning_steps.length > MAX_REASONING_STEPS) {
-          return res.status(400).json({
+          return res.status(HTTP_STATUS.BAD_REQUEST).json({
             error: 'Invalid reasoning_steps',
             message: `Maximum ${MAX_REASONING_STEPS} reasoning steps allowed`
           });
@@ -846,7 +846,7 @@ class CustomerController {
 
       if (tool_rules !== undefined) {
         if (!Array.isArray(tool_rules)) {
-          return res.status(400).json({
+          return res.status(HTTP_STATUS.BAD_REQUEST).json({
             error: 'Invalid tool_rules',
             message: 'Tool rules must be an array'
           });
@@ -881,7 +881,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Update AI behavior error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to update AI behavior settings',
         message: 'An error occurred while saving your AI settings'
       });
@@ -1009,7 +1009,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Get escalations error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load escalations',
         message: 'An error occurred while loading escalations'
       });
@@ -1172,13 +1172,13 @@ class CustomerController {
       // Verify ownership
       const escalation = await Escalation.findById(escalationId);
       if (!escalation) {
-        return res.status(404).json({ error: 'Escalation not found' });
+        return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Escalation not found' });
       }
       if (escalation.client_id !== clientId) {
-        return res.status(403).json({ error: 'Access denied' });
+        return res.status(HTTP_STATUS.FORBIDDEN).json({ error: 'Access denied' });
       }
       if (escalation.status !== 'pending') {
-        return res.status(400).json({ error: 'Escalation is not pending' });
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Escalation is not pending' });
       }
 
       const updated = await Escalation.updateStatus(escalationId, 'acknowledged');
@@ -1193,7 +1193,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Acknowledge escalation error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to acknowledge escalation',
         message: 'An error occurred while acknowledging the escalation'
       });
@@ -1213,13 +1213,13 @@ class CustomerController {
       // Verify ownership
       const escalation = await Escalation.findById(escalationId);
       if (!escalation) {
-        return res.status(404).json({ error: 'Escalation not found' });
+        return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Escalation not found' });
       }
       if (escalation.client_id !== clientId) {
-        return res.status(403).json({ error: 'Access denied' });
+        return res.status(HTTP_STATUS.FORBIDDEN).json({ error: 'Access denied' });
       }
       if (escalation.status === 'resolved' || escalation.status === 'cancelled') {
-        return res.status(400).json({ error: 'Escalation is already resolved or cancelled' });
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Escalation is already resolved or cancelled' });
       }
 
       const updated = await Escalation.updateStatus(escalationId, 'resolved', { notes });
@@ -1235,7 +1235,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Resolve escalation error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to resolve escalation',
         message: 'An error occurred while resolving the escalation'
       });
@@ -1267,7 +1267,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Escalation stats error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load escalation stats',
         message: 'An error occurred while loading escalation statistics'
       });
@@ -1287,21 +1287,21 @@ class CustomerController {
       const escalation = await Escalation.findById(escalationId);
 
       if (!escalation) {
-        return res.status(404).json({
+        return res.status(HTTP_STATUS.NOT_FOUND).json({
           error: 'Escalation not found',
           message: 'The requested escalation does not exist'
         });
       }
 
       if (escalation.client_id !== clientId) {
-        return res.status(403).json({
+        return res.status(HTTP_STATUS.FORBIDDEN).json({
           error: 'Access denied',
           message: 'You do not have permission to cancel this escalation'
         });
       }
 
       if (escalation.status === 'resolved' || escalation.status === 'cancelled') {
-        return res.status(400).json({
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'Invalid action',
           message: `Cannot cancel an escalation that is already ${escalation.status}`
         });
@@ -1320,7 +1320,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Cancel escalation error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to cancel escalation',
         message: 'An error occurred while cancelling the escalation'
       });

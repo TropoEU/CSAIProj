@@ -3,6 +3,7 @@ import { Client } from '../../models/Client.js';
 import { Invoice } from '../../models/Invoice.js';
 import { BillingService } from '../../services/billingService.js';
 import { db } from '../../db.js';
+import { HTTP_STATUS } from '../../config/constants.js';
 
 const router = express.Router();
 
@@ -31,7 +32,7 @@ router.get('/', async (req, res) => {
     res.json(clients);
   } catch (error) {
     console.error('[Admin] Get clients error:', error);
-    res.status(500).json({ error: 'Failed to get clients' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get clients' });
   }
 });
 
@@ -43,12 +44,12 @@ router.get('/:id', async (req, res) => {
   try {
     const client = await Client.findById(req.params.id);
     if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
     }
     res.json(client);
   } catch (error) {
     console.error('[Admin] Get client error:', error);
-    res.status(500).json({ error: 'Failed to get client' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get client' });
   }
 });
 
@@ -70,7 +71,7 @@ router.post('/', async (req, res) => {
     } = req.body;
 
     if (!name) {
-      return res.status(400).json({ error: 'Name is required' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Name is required' });
     }
 
     const client = await Client.create(
@@ -83,10 +84,10 @@ router.post('/', async (req, res) => {
       systemPrompt,
       status
     );
-    res.status(201).json(client);
+    res.status(HTTP_STATUS.CREATED).json(client);
   } catch (error) {
     console.error('[Admin] Create client error:', error);
-    res.status(500).json({ error: 'Failed to create client' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to create client' });
   }
 });
 
@@ -125,14 +126,14 @@ router.put('/:id', async (req, res) => {
 
     const client = await Client.update(req.params.id, updates);
     if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
     }
 
     res.json(client);
   } catch (error) {
     console.error('[Admin] Update client error:', error);
     console.error('[Admin] Error stack:', error.stack);
-    res.status(500).json({ error: 'Failed to update client', message: error.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to update client', message: error.message });
   }
 });
 
@@ -144,12 +145,12 @@ router.delete('/:id', async (req, res) => {
   try {
     const client = await Client.deactivate(req.params.id);
     if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
     }
     res.json({ message: 'Client deactivated', client });
   } catch (error) {
     console.error('[Admin] Delete client error:', error);
-    res.status(500).json({ error: 'Failed to delete client' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to delete client' });
   }
 });
 
@@ -161,12 +162,12 @@ router.post('/:id/api-key', async (req, res) => {
   try {
     const client = await Client.regenerateApiKey(req.params.id);
     if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
     }
     res.json(client);
   } catch (error) {
     console.error('[Admin] Regenerate API key error:', error);
-    res.status(500).json({ error: 'Failed to regenerate API key' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to regenerate API key' });
   }
 });
 
@@ -178,16 +179,16 @@ router.put('/:id/api-key', async (req, res) => {
   try {
     const { api_key } = req.body;
     if (!api_key || api_key.trim().length < 10) {
-      return res.status(400).json({ error: 'API key must be at least 10 characters' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'API key must be at least 10 characters' });
     }
     const client = await Client.updateApiKey(req.params.id, api_key.trim());
     if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
     }
     res.json(client);
   } catch (error) {
     console.error('[Admin] Update API key error:', error);
-    res.status(500).json({ error: 'Failed to update API key' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to update API key' });
   }
 });
 
@@ -199,7 +200,7 @@ router.get('/:id/business-info', async (req, res) => {
   try {
     const client = await Client.findById(req.params.id);
     if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
     }
 
     const defaultBusinessInfo = {
@@ -222,7 +223,7 @@ router.get('/:id/business-info', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Get business info error:', error);
-    res.status(500).json({ error: 'Failed to get business information' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get business information' });
   }
 });
 
@@ -235,24 +236,24 @@ router.put('/:id/business-info', async (req, res) => {
     const { business_info } = req.body;
 
     if (!business_info || typeof business_info !== 'object') {
-      return res.status(400).json({ error: 'Invalid business_info format' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Invalid business_info format' });
     }
 
     if (business_info.faq && !Array.isArray(business_info.faq)) {
-      return res.status(400).json({ error: 'FAQ must be an array' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'FAQ must be an array' });
     }
 
     if (business_info.faq) {
       for (const item of business_info.faq) {
         if (!item.question || !item.answer) {
-          return res.status(400).json({ error: 'Each FAQ item must have question and answer' });
+          return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Each FAQ item must have question and answer' });
         }
       }
     }
 
     const client = await Client.update(req.params.id, { business_info });
     if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
     }
 
     res.json({
@@ -261,7 +262,7 @@ router.put('/:id/business-info', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Update business info error:', error);
-    res.status(500).json({ error: 'Failed to update business information' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to update business information' });
   }
 });
 
@@ -273,12 +274,12 @@ router.post('/:id/access-code', async (req, res) => {
   try {
     const client = await Client.regenerateAccessCode(req.params.id);
     if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
     }
     res.json(client);
   } catch (error) {
     console.error('[Admin] Regenerate access code error:', error);
-    res.status(500).json({ error: 'Failed to regenerate access code' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to regenerate access code' });
   }
 });
 
@@ -291,18 +292,18 @@ router.post('/:id/upgrade-plan', async (req, res) => {
     const { newPlan } = req.body;
 
     if (!newPlan) {
-      return res.status(400).json({ error: 'New plan type is required' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'New plan type is required' });
     }
 
     const client = await Client.findById(req.params.id);
     if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
     }
 
     const oldPlan = client.plan_type;
 
     if (oldPlan === newPlan) {
-      return res.status(400).json({ error: 'Client is already on this plan' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Client is already on this plan' });
     }
 
     const now = new Date();
@@ -365,7 +366,7 @@ router.post('/:id/upgrade-plan', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Upgrade plan error:', error);
-    res.status(500).json({ error: 'Failed to upgrade plan' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to upgrade plan' });
   }
 });
 
@@ -399,7 +400,7 @@ router.get('/:id/stats', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Get client stats error:', error);
-    res.status(500).json({ error: 'Failed to get client stats' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get client stats' });
   }
 });
 
@@ -414,7 +415,7 @@ router.get('/:id/invoices', async (req, res) => {
     res.json(invoices);
   } catch (error) {
     console.error('[Admin] Get client invoices error:', error);
-    res.status(500).json({ error: 'Failed to get client invoices' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get client invoices' });
   }
 });
 

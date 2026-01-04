@@ -42,6 +42,48 @@ if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
+// Create write stream for better performance
+// Using append mode with autoClose disabled for persistent stream
+let logStream = fs.createWriteStream(LOG_FILE, { flags: 'a', autoClose: false });
+
+// Handle stream errors
+logStream.on('error', (err) => {
+  console.error('Log stream error:', err.message);
+  // Try to recreate stream
+  try {
+    logStream = fs.createWriteStream(LOG_FILE, { flags: 'a', autoClose: false });
+  } catch (recreateErr) {
+    console.error('Failed to recreate log stream:', recreateErr.message);
+  }
+});
+
+// Graceful shutdown - close stream on process exit
+process.on('exit', () => {
+  try {
+    logStream.end();
+  } catch (err) {
+    // Ignore errors during shutdown
+  }
+});
+
+process.on('SIGINT', () => {
+  try {
+    logStream.end();
+  } catch (err) {
+    // Ignore errors during shutdown
+  }
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  try {
+    logStream.end();
+  } catch (err) {
+    // Ignore errors during shutdown
+  }
+  process.exit(0);
+});
+
 /**
  * Format log entry for file output
  */
@@ -85,14 +127,21 @@ function formatConsoleOutput(level, module, message, data) {
 }
 
 /**
- * Write to log file (async, non-blocking)
+ * Write to log file using write stream (better performance)
  */
 function writeToFile(entry) {
-  fs.appendFile(LOG_FILE, entry + '\n', (err) => {
-    if (err) {
-      console.error('Failed to write to log file:', err.message);
+  try {
+    const success = logStream.write(entry + '\n');
+
+    // If buffer is full, wait for drain event (backpressure handling)
+    if (!success) {
+      logStream.once('drain', () => {
+        // Buffer cleared, ready for more writes
+      });
     }
-  });
+  } catch (err) {
+    console.error('Failed to write to log file:', err.message);
+  }
 }
 
 /**
@@ -174,7 +223,10 @@ export const logger = {
   clear: () => {
     try {
       if (fs.existsSync(LOG_FILE)) {
+        // Close current stream, truncate file, and create new stream
+        logStream.end();
         fs.writeFileSync(LOG_FILE, '');
+        logStream = fs.createWriteStream(LOG_FILE, { flags: 'a', autoClose: false });
       }
     } catch (error) {
       console.error('Failed to clear log file:', error);

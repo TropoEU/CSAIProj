@@ -4,6 +4,7 @@
  */
 
 import jwt from 'jsonwebtoken';
+import { HTTP_STATUS } from '../config/constants.js';
 import { Client } from '../models/Client.js';
 
 /**
@@ -15,7 +16,7 @@ async function customerAuth(req, res, next) {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
         error: 'Access token required',
         message: 'Please log in with your access code'
       });
@@ -29,12 +30,12 @@ async function customerAuth(req, res, next) {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
       if (err.name === 'TokenExpiredError') {
-        return res.status(401).json({
+        return res.status(HTTP_STATUS.UNAUTHORIZED).json({
           error: 'Token expired',
           message: 'Your session has expired. Please log in again.'
         });
       }
-      return res.status(401).json({
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
         error: 'Invalid token',
         message: 'Invalid authentication token'
       });
@@ -44,7 +45,7 @@ async function customerAuth(req, res, next) {
     const client = await Client.findById(decoded.clientId);
 
     if (!client) {
-      return res.status(401).json({
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
         error: 'Client not found',
         message: 'Your account could not be found'
       });
@@ -52,7 +53,7 @@ async function customerAuth(req, res, next) {
 
     // Check if client is active
     if (client.status !== 'active') {
-      return res.status(403).json({
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
         error: 'Account inactive',
         message: 'Your account is currently inactive. Please contact support.'
       });
@@ -65,7 +66,7 @@ async function customerAuth(req, res, next) {
     next();
   } catch (error) {
     console.error('[CustomerAuth] Authentication error:', error);
-    return res.status(500).json({
+    return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       error: 'Authentication failed',
       message: 'An error occurred during authentication'
     });

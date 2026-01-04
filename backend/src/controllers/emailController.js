@@ -1,3 +1,4 @@
+import { HTTP_STATUS } from '../config/constants.js';
 import { EmailChannel } from '../models/EmailChannel.js';
 import { PlatformConfig } from '../models/PlatformConfig.js';
 import { gmailService } from '../services/gmailService.js';
@@ -19,7 +20,7 @@ export async function initiateOAuth(req, res) {
         const { clientId } = req.params;
 
         if (!clientId) {
-            return res.status(400).json({ error: 'Client ID is required' });
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Client ID is required' });
         }
 
         const authUrl = gmailService.getAuthorizationUrl(parseInt(clientId, 10));
@@ -29,7 +30,7 @@ export async function initiateOAuth(req, res) {
         res.json({ authUrl });
     } catch (error) {
         console.error('[EmailController] OAuth initiation error:', error);
-        res.status(500).json({ error: 'Failed to initiate OAuth flow' });
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to initiate OAuth flow' });
     }
 }
 
@@ -134,7 +135,7 @@ export async function getChannels(req, res) {
         res.json(safeChannels);
     } catch (error) {
         console.error('[EmailController] Get channels error:', error);
-        res.status(500).json({ error: 'Failed to get email channels' });
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get email channels' });
     }
 }
 
@@ -149,7 +150,7 @@ export async function getChannel(req, res) {
         const channel = await EmailChannel.findById(parseInt(channelId, 10));
 
         if (!channel) {
-            return res.status(404).json({ error: 'Email channel not found' });
+            return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Email channel not found' });
         }
 
         // Don't expose connection_config
@@ -167,7 +168,7 @@ export async function getChannel(req, res) {
         });
     } catch (error) {
         console.error('[EmailController] Get channel error:', error);
-        res.status(500).json({ error: 'Failed to get email channel' });
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get email channel' });
     }
 }
 
@@ -182,7 +183,7 @@ export async function updateChannel(req, res) {
 
         const channel = await EmailChannel.findById(parseInt(channelId, 10));
         if (!channel) {
-            return res.status(404).json({ error: 'Email channel not found' });
+            return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Email channel not found' });
         }
 
         const updated = await EmailChannel.updateSettings(channel.id, settings);
@@ -194,7 +195,7 @@ export async function updateChannel(req, res) {
         });
     } catch (error) {
         console.error('[EmailController] Update channel error:', error);
-        res.status(500).json({ error: 'Failed to update email channel' });
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to update email channel' });
     }
 }
 
@@ -208,7 +209,7 @@ export async function disconnectChannel(req, res) {
 
         const channel = await EmailChannel.findById(parseInt(channelId, 10));
         if (!channel) {
-            return res.status(404).json({ error: 'Email channel not found' });
+            return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Email channel not found' });
         }
 
         await EmailChannel.delete(channel.id);
@@ -218,7 +219,7 @@ export async function disconnectChannel(req, res) {
         res.json({ message: 'Email channel disconnected successfully' });
     } catch (error) {
         console.error('[EmailController] Disconnect channel error:', error);
-        res.status(500).json({ error: 'Failed to disconnect email channel' });
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to disconnect email channel' });
     }
 }
 
@@ -232,7 +233,7 @@ export async function testConnection(req, res) {
 
         const channel = await EmailChannel.findById(parseInt(channelId, 10));
         if (!channel) {
-            return res.status(404).json({ error: 'Email channel not found' });
+            return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Email channel not found' });
         }
 
         const result = await gmailService.testConnection(channel.id);
@@ -247,7 +248,7 @@ export async function testConnection(req, res) {
         res.json(result);
     } catch (error) {
         console.error('[EmailController] Test connection error:', error);
-        res.status(500).json({ error: 'Failed to test connection', details: error.message });
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to test connection', details: error.message });
     }
 }
 
@@ -261,12 +262,12 @@ export async function sendTestEmail(req, res) {
         const { to, subject, body } = req.body;
 
         if (!to || !subject || !body) {
-            return res.status(400).json({ error: 'Missing required fields: to, subject, body' });
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Missing required fields: to, subject, body' });
         }
 
         const channel = await EmailChannel.findById(parseInt(channelId, 10));
         if (!channel) {
-            return res.status(404).json({ error: 'Email channel not found' });
+            return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Email channel not found' });
         }
 
         const result = await gmailService.sendEmail(channel.id, to, subject, body);
@@ -276,7 +277,7 @@ export async function sendTestEmail(req, res) {
         res.json({ success: true, messageId: result.id });
     } catch (error) {
         console.error('[EmailController] Send test email error:', error);
-        res.status(500).json({ error: 'Failed to send test email', details: error.message });
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to send test email', details: error.message });
     }
 }
 
@@ -291,7 +292,7 @@ export async function getUnreadEmails(req, res) {
 
         const channel = await EmailChannel.findById(parseInt(channelId, 10));
         if (!channel) {
-            return res.status(404).json({ error: 'Email channel not found' });
+            return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Email channel not found' });
         }
 
         const emails = await gmailService.getUnreadEmails(channel.id, parseInt(limit, 10));
@@ -299,7 +300,7 @@ export async function getUnreadEmails(req, res) {
         res.json(emails);
     } catch (error) {
         console.error('[EmailController] Get unread emails error:', error);
-        res.status(500).json({ error: 'Failed to get unread emails', details: error.message });
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get unread emails', details: error.message });
     }
 }
 
@@ -313,6 +314,6 @@ export async function getStats(req, res) {
         res.json(stats);
     } catch (error) {
         console.error('[EmailController] Get stats error:', error);
-        res.status(500).json({ error: 'Failed to get email statistics' });
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get email statistics' });
     }
 }

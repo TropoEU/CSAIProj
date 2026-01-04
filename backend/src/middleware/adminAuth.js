@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { HTTP_STATUS } from '../config/constants.js';
 import { Admin } from '../models/Admin.js';
 
 // JWT secret - required, no fallback for security
@@ -45,7 +46,7 @@ export async function authenticateAdmin(req, res, next) {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
         error: 'Missing or invalid Authorization header. Expected: "Bearer <token>"',
       });
     }
@@ -53,7 +54,7 @@ export async function authenticateAdmin(req, res, next) {
     const token = authHeader.substring(7);
 
     if (!token) {
-      return res.status(401).json({
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
         error: 'Token is required',
       });
     }
@@ -62,7 +63,7 @@ export async function authenticateAdmin(req, res, next) {
     const decoded = verifyToken(token);
 
     if (!decoded) {
-      return res.status(401).json({
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
         error: 'Invalid or expired token',
       });
     }
@@ -71,13 +72,13 @@ export async function authenticateAdmin(req, res, next) {
     const admin = await Admin.findById(decoded.id);
 
     if (!admin) {
-      return res.status(401).json({
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
         error: 'Admin not found',
       });
     }
 
     if (admin.status !== 'active') {
-      return res.status(403).json({
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
         error: 'Admin account is not active',
       });
     }
@@ -88,7 +89,7 @@ export async function authenticateAdmin(req, res, next) {
     next();
   } catch (error) {
     console.error('[AdminAuth] Authentication error:', error);
-    return res.status(500).json({
+    return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       error: 'Authentication failed',
       message: error.message,
     });
@@ -101,11 +102,11 @@ export async function authenticateAdmin(req, res, next) {
 export function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.admin) {
-      return res.status(401).json({ error: 'Not authenticated' });
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: 'Not authenticated' });
     }
 
     if (!roles.includes(req.admin.role)) {
-      return res.status(403).json({
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
         error: 'Insufficient permissions',
         required: roles,
         current: req.admin.role,

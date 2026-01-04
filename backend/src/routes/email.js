@@ -1,4 +1,5 @@
 import express from 'express';
+import { HTTP_STATUS } from '../config/constants.js';
 import { authenticateAdmin } from '../middleware/adminAuth.js';
 import * as emailController from '../controllers/emailController.js';
 import { transactionalEmailService } from '../services/transactionalEmailService.js';
@@ -36,11 +37,11 @@ router.get('/platform/callback', async (req, res) => {
         const { code, error } = req.query;
 
         if (error) {
-            return res.status(400).json({ error });
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({ error });
         }
 
         if (!code) {
-            return res.status(400).json({ error: 'No authorization code provided' });
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'No authorization code provided' });
         }
 
         // Exchange code for tokens
@@ -65,7 +66,7 @@ PLATFORM_EMAIL_REFRESH_TOKEN=${tokens.refresh_token}
         });
     } catch (error) {
         console.error('[Platform Email] OAuth callback error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: error.message });
     }
 });
 
@@ -79,7 +80,7 @@ router.post('/platform/test', authenticateAdmin, async (req, res) => {
         const { to, type, clientId, subject, body } = req.body;
 
         if (!to) {
-            return res.status(400).json({ error: 'Recipient email (to) is required' });
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Recipient email (to) is required' });
         }
 
         let result;
@@ -88,7 +89,7 @@ router.post('/platform/test', authenticateAdmin, async (req, res) => {
             // Send access code email
             const client = await Client.findById(clientId);
             if (!client) {
-                return res.status(404).json({ error: 'Client not found' });
+                return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
             }
             result = await transactionalEmailService.sendAccessCode(
                 to,
@@ -99,7 +100,7 @@ router.post('/platform/test', authenticateAdmin, async (req, res) => {
             // Send welcome email
             const client = await Client.findById(clientId);
             if (!client) {
-                return res.status(404).json({ error: 'Client not found' });
+                return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
             }
             result = await transactionalEmailService.sendWelcomeEmail(
                 to,
@@ -113,17 +114,17 @@ router.post('/platform/test', authenticateAdmin, async (req, res) => {
             // Send invoice email
             const { invoiceId } = req.body;
             if (!invoiceId) {
-                return res.status(400).json({ error: 'invoiceId is required for invoice emails' });
+                return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'invoiceId is required for invoice emails' });
             }
 
             const invoice = await Invoice.findById(invoiceId);
             if (!invoice) {
-                return res.status(404).json({ error: 'Invoice not found' });
+                return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Invoice not found' });
             }
 
             const client = await Client.findById(invoice.client_id);
             if (!client) {
-                return res.status(404).json({ error: 'Client not found' });
+                return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
             }
 
             // Format invoice data for email template
@@ -142,7 +143,7 @@ router.post('/platform/test', authenticateAdmin, async (req, res) => {
                 invoiceData
             );
         } else {
-            return res.status(400).json({
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
                 error: 'Invalid request. Provide: type (access_code/welcome/invoice/custom) with required fields',
                 examples: {
                     access_code: { to: 'email@example.com', type: 'access_code', clientId: 1 },
@@ -156,7 +157,7 @@ router.post('/platform/test', authenticateAdmin, async (req, res) => {
         res.json(result);
     } catch (error) {
         console.error('[Platform Email] Test error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: error.message });
     }
 });
 

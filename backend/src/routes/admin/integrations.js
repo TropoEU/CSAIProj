@@ -1,4 +1,5 @@
 import express from 'express';
+import { HTTP_STATUS } from '../../config/constants.js';
 import { ClientIntegration } from '../../models/ClientIntegration.js';
 import integrationService from '../../services/integrationService.js';
 import integrationTester from '../../services/integrationTester.js';
@@ -20,7 +21,7 @@ router.get('/types', async (req, res) => {
     }
   } catch (error) {
     console.error('[Admin] Get integration types error:', error);
-    res.status(500).json({ error: 'Failed to get integration types' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get integration types' });
   }
 });
 
@@ -61,7 +62,7 @@ router.get('/clients/:clientId/integrations', async (req, res) => {
     res.json(formattedIntegrations);
   } catch (error) {
     console.error('[Admin] Get integrations error:', error);
-    res.status(500).json({ error: 'Failed to get integrations' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get integrations' });
   }
 });
 
@@ -75,7 +76,7 @@ router.post('/clients/:clientId/integrations', async (req, res) => {
       req.body;
 
     if (!integrationType || !name) {
-      return res.status(400).json({ error: 'Integration type and name are required' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Integration type and name are required' });
     }
 
     const connectionConfig = {
@@ -94,10 +95,10 @@ router.post('/clients/:clientId/integrations', async (req, res) => {
       connectionConfig
     );
 
-    res.status(201).json(integration);
+    res.status(HTTP_STATUS.CREATED).json(integration);
   } catch (error) {
     console.error('[Admin] Create integration error:', error);
-    res.status(500).json({ error: 'Failed to create integration' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to create integration' });
   }
 });
 
@@ -111,7 +112,7 @@ router.put('/:id', async (req, res) => {
 
     const existingIntegration = await ClientIntegration.findById(req.params.id);
     if (!existingIntegration) {
-      return res.status(404).json({ error: 'Integration not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Integration not found' });
     }
 
     const connectionConfig = {
@@ -129,7 +130,7 @@ router.put('/:id', async (req, res) => {
     res.json(integration);
   } catch (error) {
     console.error('[Admin] Update integration error:', error);
-    res.status(500).json({ error: 'Failed to update integration' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to update integration' });
   }
 });
 
@@ -141,14 +142,14 @@ router.post('/:id/toggle', async (req, res) => {
   try {
     const integration = await ClientIntegration.findById(req.params.id);
     if (!integration) {
-      return res.status(404).json({ error: 'Integration not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Integration not found' });
     }
 
     const updated = await ClientIntegration.setEnabled(req.params.id, !integration.enabled);
     res.json(updated);
   } catch (error) {
     console.error('[Admin] Toggle integration error:', error);
-    res.status(500).json({ error: 'Failed to toggle integration' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to toggle integration' });
   }
 });
 
@@ -162,7 +163,7 @@ router.delete('/:id', async (req, res) => {
     res.json({ message: 'Integration deleted' });
   } catch (error) {
     console.error('[Admin] Delete integration error:', error);
-    res.status(500).json({ error: 'Failed to delete integration' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to delete integration' });
   }
 });
 
@@ -174,7 +175,7 @@ router.post('/:id/test', async (req, res) => {
   try {
     const integration = await ClientIntegration.findById(req.params.id);
     if (!integration) {
-      return res.status(404).json({ error: 'Integration not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Integration not found' });
     }
 
     const apiUrl =
@@ -196,7 +197,7 @@ router.post('/:id/test', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Test integration error:', error);
-    res.status(500).json({ error: 'Failed to test integration' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to test integration' });
   }
 });
 
@@ -211,7 +212,7 @@ router.get('/debug/integration-test/:clientId/:toolName', async (req, res) => {
 
     const tool = await toolManager.getToolByName(parseInt(clientId, 10), toolName);
     if (!tool) {
-      return res.status(404).json({ error: 'Tool not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Tool not found' });
     }
 
     let integration = null;
@@ -254,7 +255,7 @@ router.get('/debug/integration-test/:clientId/:toolName', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Debug test error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: error.message });
   }
 });
 
