@@ -15,6 +15,12 @@ import { db } from '../db.js';
 import { safeJsonParse, safeJsonGet } from '../utils/jsonUtils.js';
 import promptService from '../services/promptService.js';
 import { refreshCachedConfig } from '../prompts/systemPrompt.js';
+import { RedisCache } from '../services/redisCache.js';
+import { RATE_LIMITS, LIMITS, HTTP_STATUS } from '../config/constants.js';
+import { createLogger } from '../utils/logger.js';
+import { UsageTracker } from '../services/usageTracker.js';
+
+const log = createLogger('CustomerController');
 
 class CustomerController {
   /**
@@ -482,15 +488,16 @@ class CustomerController {
   /**
    * Get current usage
    * GET /api/customer/usage/current
+   * Query params: period (day, week, month, year, all)
    */
   async getCurrentUsage(req, res) {
     try {
       const clientId = req.clientId;
       const client = req.client;
+      const { period = 'month' } = req.query;
 
-      // Get current month usage
-      const usage = await ApiUsage.getCurrentPeriodUsage(clientId);
-      const currentMonth = new Date().toISOString().substring(0, 7);
+      // Get usage for the specified period using UsageTracker
+      const summary = await UsageTracker.getUsageSummary(clientId, period);
 
       // Get limits
       const limits = {
@@ -501,12 +508,12 @@ class CustomerController {
 
       res.json({
         usage: {
-          conversations: parseInt(usage?.total_conversations, 10) || 0,
-          tokens: (parseInt(usage?.total_tokens_input, 10) || 0) + (parseInt(usage?.total_tokens_output, 10) || 0),
-          toolCalls: parseInt(usage?.total_tool_calls, 10) || 0
+          conversations: summary.conversations,
+          tokens: summary.tokens.total,
+          toolCalls: summary.toolCalls
         },
         limits,
-        period: currentMonth
+        period
       });
     } catch (error) {
       console.error('[CustomerController] Current usage error:', error);
@@ -739,6 +746,17 @@ class CustomerController {
   async updateAIBehavior(req, res) {
     try {
       const clientId = req.clientId;
+
+      // Rate limiting for AI behavior updates
+      const rateLimit = await RedisCache.checkRateLimit(clientId, RATE_LIMITS.CUSTOMER_DASHBOARD);
+      if (!rateLimit.allowed) {
+        log.warn('Rate limit exceeded for customer AI behavior update', { clientId });
+        return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
+          error: 'Rate limit exceeded',
+          retryAfter: rateLimit.resetIn
+        });
+      }
+
       const {
         reasoning_enabled,
         reasoning_steps,
@@ -748,12 +766,11 @@ class CustomerController {
       } = req.body;
 
       // Validate total payload size to prevent DoS attacks
-      const MAX_PAYLOAD_SIZE = 100 * 1024; // 100KB max
       const payloadSize = JSON.stringify(req.body).length;
-      if (payloadSize > MAX_PAYLOAD_SIZE) {
-        return res.status(400).json({
+      if (payloadSize > LIMITS.MAX_PAYLOAD_SIZE) {
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'Payload too large',
-          message: `Request body exceeds maximum size of ${MAX_PAYLOAD_SIZE} bytes`
+          message: `Request body exceeds maximum size of ${LIMITS.MAX_PAYLOAD_SIZE} bytes`
         });
       }
 
@@ -878,6 +895,17 @@ class CustomerController {
   async previewAIBehavior(req, res) {
     try {
       const client = req.client;
+
+      // Rate limiting for AI behavior preview
+      const rateLimit = await RedisCache.checkRateLimit(client.id, RATE_LIMITS.CUSTOMER_DASHBOARD);
+      if (!rateLimit.allowed) {
+        log.warn('Rate limit exceeded for customer AI behavior preview', { clientId: client.id });
+        return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
+          error: 'Rate limit exceeded',
+          retryAfter: rateLimit.resetIn
+        });
+      }
+
       const { config } = req.body;
 
       // Use provided config or get current config
@@ -886,8 +914,8 @@ class CustomerController {
 
       res.json({ prompt });
     } catch (error) {
-      console.error('[CustomerController] Preview AI behavior error:', error);
-      res.status(500).json({
+      log.error('Preview AI behavior error', error);
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to generate preview',
         message: 'An error occurred while generating the prompt preview'
       });
@@ -902,13 +930,23 @@ class CustomerController {
     try {
       const clientId = req.clientId;
 
+      // Rate limiting for AI behavior reset
+      const rateLimit = await RedisCache.checkRateLimit(clientId, RATE_LIMITS.CUSTOMER_DASHBOARD);
+      if (!rateLimit.allowed) {
+        log.warn('Rate limit exceeded for customer AI behavior reset', { clientId });
+        return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
+          error: 'Rate limit exceeded',
+          retryAfter: rateLimit.resetIn
+        });
+      }
+
       // Clear the client's prompt_config
       await Client.updatePromptConfig(clientId, {});
 
       // Refresh cached config so new conversations use the defaults
       await refreshCachedConfig();
 
-      console.log(`[CustomerController] Client ${clientId} reset AI behavior to defaults`);
+      log.info('Client reset AI behavior to defaults', { clientId });
 
       // Get the default config to return
       const defaultConfig = await promptService.getDefaultConfig();
@@ -925,8 +963,8 @@ class CustomerController {
         }
       });
     } catch (error) {
-      console.error('[CustomerController] Reset AI behavior error:', error);
-      res.status(500).json({
+      log.error('Reset AI behavior error', error);
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to reset AI behavior settings',
         message: 'An error occurred while resetting your AI settings'
       });

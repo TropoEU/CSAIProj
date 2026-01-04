@@ -32,7 +32,8 @@ export default function Settings() {
 
   const tabs = [
     { id: 'language', name: t('settings.languageTab') },
-    { id: 'ai', name: t('settings.aiTab') },
+    // Hidden for now - admin handles AI behavior via admin dashboard
+    // { id: 'ai', name: t('settings.aiTab') },
   ];
 
   return (
@@ -93,8 +94,8 @@ export default function Settings() {
         />
       )}
 
-      {/* AI Behavior Tab */}
-      {activeTab === 'ai' && <AIBehaviorSettings onMessage={setMessage} />}
+      {/* AI Behavior Tab - Hidden for now */}
+      {/* {activeTab === 'ai' && <AIBehaviorSettings onMessage={setMessage} />} */}
     </div>
   );
 }

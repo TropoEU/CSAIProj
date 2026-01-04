@@ -58,7 +58,7 @@ export const billing = {
 
 // Usage endpoints
 export const usage = {
-  getCurrent: () => api.get('/usage/current'),
+  getCurrent: (params = {}) => api.get('/usage/current', { params }),
   getTrends: (params) => api.get('/usage/trends', { params }),
   getTools: () => api.get('/usage/tools'),
 };
