@@ -627,16 +627,18 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
         }
       }
 
-      // Check for hallucinated dates (dates more than 1 year in the past)
+      // Check for hallucinated dates (dates outside reasonable range: 2 years past/future)
       const dateMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
       if (dateMatch) {
         const inputDate = new Date(value);
         const today = new Date();
-        const oneYearAgo = new Date(today);
-        oneYearAgo.setFullYear(today.getFullYear() - 1);
+        const twoYearsAgo = new Date(today);
+        twoYearsAgo.setFullYear(today.getFullYear() - 2);
+        const twoYearsAhead = new Date(today);
+        twoYearsAhead.setFullYear(today.getFullYear() + 2);
 
-        if (inputDate < oneYearAgo) {
-          return `Parameter '${paramName}' value '${value}' appears to be a hallucinated date (more than 1 year in the past). Use 'today' or ask the user for the actual date.`;
+        if (inputDate < twoYearsAgo || inputDate > twoYearsAhead) {
+          return `Parameter '${paramName}' value '${value}' is outside reasonable date range (2 years past/future). Use 'today' or ask the user for the actual date.`;
         }
       }
     }

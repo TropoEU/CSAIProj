@@ -489,6 +489,11 @@ class CustomerController {
    * Get current usage
    * GET /api/customer/usage/current
    * Query params: period (day, week, month, year, all)
+   *
+   * BUG FIX: Previously used ApiUsage.getCurrentPeriodUsage which had incorrect
+   * date filtering logic. Now using UsageTracker.getUsageSummary with explicit
+   * period parameter for accurate rolling time window calculations (e.g., "month"
+   * means last 30 days, not calendar month).
    */
   async getCurrentUsage(req, res) {
     try {
@@ -497,6 +502,7 @@ class CustomerController {
       const { period = 'month' } = req.query;
 
       // Get usage for the specified period using UsageTracker
+      // Note: 'month' period uses rolling 30-day window (not calendar month)
       const summary = await UsageTracker.getUsageSummary(clientId, period);
 
       // Get limits

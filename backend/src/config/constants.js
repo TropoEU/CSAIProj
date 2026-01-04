@@ -66,12 +66,12 @@ export const LIMITS = {
   N8N_RESPONSE_DATA_MAX: 500,   // 500 chars - max data size to include in formatted response
 };
 
-// ==================== Rate Limits ====================
+// ==================== Rate Limits (requests per minute) ====================
 
 export const RATE_LIMITS = {
-  CHAT_API: 60,                 // 60 requests/minute for chat API
-  CUSTOMER_DASHBOARD: 120,      // 120 requests/minute for customer dashboard
-  ADMIN_DASHBOARD: 300,         // 300 requests/minute for admin dashboard
+  CHAT_API: 60,                 // 60 requests/minute - end-user chat widget (public-facing)
+  CUSTOMER_DASHBOARD: 120,      // 120 requests/minute - authenticated customer portal
+  ADMIN_DASHBOARD: 300,         // 300 requests/minute - admin operations (higher limit for management tasks)
 };
 
 // ==================== Cache Configuration ====================

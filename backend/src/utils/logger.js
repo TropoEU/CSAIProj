@@ -10,6 +10,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { LIMITS } from '../config/constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,8 +50,9 @@ let logStream = fs.createWriteStream(LOG_FILE, { flags: 'a', autoClose: false })
 // Handle stream errors
 logStream.on('error', (err) => {
   console.error('Log stream error:', err.message);
-  // Try to recreate stream
+  // Try to recreate stream (close old one first to prevent resource leak)
   try {
+    logStream.end(); // Close old stream before creating new one
     logStream = fs.createWriteStream(LOG_FILE, { flags: 'a', autoClose: false });
   } catch (recreateErr) {
     console.error('Failed to recreate log stream:', recreateErr.message);
@@ -116,8 +118,8 @@ function formatConsoleOutput(level, module, message, data) {
     dataStr = data.stack || data.message;
   } else if (typeof data === 'object') {
     dataStr = JSON.stringify(data);
-    if (dataStr.length > 500) {
-      dataStr = dataStr.substring(0, 500) + '...';
+    if (dataStr.length > LIMITS.MAX_LOG_LENGTH) {
+      dataStr = dataStr.substring(0, LIMITS.MAX_LOG_LENGTH) + '...';
     }
   } else {
     dataStr = String(data);
