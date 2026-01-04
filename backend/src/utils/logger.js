@@ -87,6 +87,18 @@ process.on('SIGTERM', () => {
 });
 
 /**
+ * Sanitize log input to prevent log injection attacks
+ * Removes control characters, newlines, and other dangerous characters
+ */
+function sanitizeLogInput(input) {
+  if (typeof input !== 'string') {
+    return input;
+  }
+  // Remove control characters, newlines, tabs, and other dangerous characters
+  return input.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+}
+
+/**
  * Format log entry for file output
  */
 function formatLogEntry(level, module, message, data) {
@@ -94,8 +106,8 @@ function formatLogEntry(level, module, message, data) {
   const entry = {
     timestamp,
     level: level.toUpperCase(),
-    module,
-    message,
+    module: sanitizeLogInput(module),
+    message: sanitizeLogInput(message),
     ...(data !== undefined && { data }),
   };
   return JSON.stringify(entry);
@@ -106,26 +118,28 @@ function formatLogEntry(level, module, message, data) {
  */
 function formatConsoleOutput(level, module, message, data) {
   const timestamp = new Date().toISOString().substring(11, 23); // HH:MM:SS.mmm
-  const prefix = `[${timestamp}] [${level.toUpperCase().padEnd(5)}] [${module}]`;
+  const sanitizedModule = sanitizeLogInput(module);
+  const sanitizedMessage = sanitizeLogInput(message);
+  const prefix = `[${timestamp}] [${level.toUpperCase().padEnd(5)}] [${sanitizedModule}]`;
 
   if (data === undefined) {
-    return `${prefix} ${message}`;
+    return `${prefix} ${sanitizedMessage}`;
   }
 
   // Format data for console (truncate if too long)
   let dataStr;
   if (data instanceof Error) {
-    dataStr = data.stack || data.message;
+    dataStr = sanitizeLogInput(data.stack || data.message);
   } else if (typeof data === 'object') {
     dataStr = JSON.stringify(data);
     if (dataStr.length > LIMITS.MAX_LOG_LENGTH) {
       dataStr = dataStr.substring(0, LIMITS.MAX_LOG_LENGTH) + '...';
     }
   } else {
-    dataStr = String(data);
+    dataStr = sanitizeLogInput(String(data));
   }
 
-  return `${prefix} ${message} ${dataStr}`;
+  return `${prefix} ${sanitizedMessage} ${dataStr}`;
 }
 
 /**

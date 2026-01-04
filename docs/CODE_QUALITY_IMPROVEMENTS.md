@@ -11,12 +11,12 @@ This document details comprehensive code quality improvements addressing securit
 ## Issues Addressed
 
 ### ✅ Issue #1: Security - SQL Injection Risk in Client Model
-**Status:** Already Fixed
+**Status:** Fixed
 **Location:** `backend/src/models/Client.js:85-114`
 
 **Finding:** JSONB fields could be exploited with deeply nested objects causing DoS.
 
-**Resolution:** Comprehensive JSONB validation already implemented:
+**Resolution:** Comprehensive JSONB validation implemented:
 - Max size limit: 1MB (`LIMITS.JSONB_MAX_SIZE`)
 - Max nesting depth: 10 levels (`LIMITS.JSONB_MAX_DEPTH`)
 - Validation occurs before database insertion
@@ -36,6 +36,92 @@ if (depth > LIMITS.JSONB_MAX_DEPTH) {
   throw new Error(`JSONB field exceeds maximum nesting depth`);
 }
 ```
+
+---
+
+### ✅ Issue #1a: Security - Prototype Pollution in JSON Parsing
+**Status:** Fixed
+**Date:** January 4, 2026
+**Location:** `backend/src/utils/jsonUtils.js`
+
+**Finding:** `safeJsonParse()` utility did not protect against prototype pollution attacks via malicious JSON payloads containing `__proto__`, `constructor`, or `prototype` keys.
+
+**Attack Vector:**
+```javascript
+// Malicious payload could pollute Object prototype
+JSON.parse('{"__proto__": {"isAdmin": true}}')
+```
+
+**Resolution:** Added prototype pollution protection:
+```javascript
+export function safeJsonParse(value, fallback = null) {
+  // ... parsing logic ...
+  try {
+    const parsed = JSON.parse(value);
+    // Prevent prototype pollution attacks
+    if (parsed && typeof parsed === 'object') {
+      delete parsed.__proto__;
+      delete parsed.constructor;
+      delete parsed.prototype;
+    }
+    return parsed;
+  } catch {
+    return fallback;
+  }
+}
+```
+
+**Impact:**
+- Prevents attackers from polluting the Object prototype
+- Protects against privilege escalation attacks
+- No performance impact (property deletion is O(1))
+- Applied to both string parsing and already-parsed objects
+
+---
+
+### ✅ Issue #1b: Security - Log Injection Vulnerability
+**Status:** Fixed
+**Date:** January 4, 2026
+**Location:** `backend/src/utils/logger.js`
+
+**Finding:** User-controlled input (messages, module names) were written to logs without sanitization, allowing log injection attacks via control characters.
+
+**Attack Vector:**
+```javascript
+// Attacker could inject newlines to fake log entries
+log.info('User action', userInput); // userInput = "valid\n[ERROR] FAKE LOG ENTRY"
+```
+
+**Resolution:** Implemented log input sanitization:
+```javascript
+function sanitizeLogInput(input) {
+  if (typeof input !== 'string') {
+    return input;
+  }
+  // Remove control characters, newlines, tabs, and other dangerous characters
+  return input.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+}
+
+function formatLogEntry(level, module, message, data) {
+  const timestamp = new Date().toISOString();
+  const entry = {
+    timestamp,
+    level: level.toUpperCase(),
+    module: sanitizeLogInput(module),
+    message: sanitizeLogInput(message),
+    ...(data !== undefined && { data }),
+  };
+  return JSON.stringify(entry);
+}
+```
+
+**Impact:**
+- Prevents log injection attacks
+- Removes control characters (0x00-0x1F, 0x7F-0x9F) including newlines, tabs, etc.
+- Applied to both file and console output
+- Sanitizes module names and messages
+- Data objects remain unsanitized (logged as JSON)
+- No impact on legitimate logs
 
 ---
 

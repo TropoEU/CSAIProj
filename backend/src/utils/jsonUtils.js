@@ -3,7 +3,7 @@
  */
 
 /**
- * Safely parse JSON with a fallback value
+ * Safely parse JSON with a fallback value and prototype pollution protection
  * @param {string|object} value - The value to parse (string or already parsed object)
  * @param {*} fallback - The fallback value if parsing fails (default: null)
  * @returns {*} Parsed object or fallback
@@ -13,8 +13,12 @@ export function safeJsonParse(value, fallback = null) {
         return fallback;
     }
 
-    // If already an object, return it
+    // If already an object, return it (after cleaning dangerous properties)
     if (typeof value === 'object') {
+        // Prevent prototype pollution
+        delete value.__proto__;
+        delete value.constructor;
+        delete value.prototype;
         return value;
     }
 
@@ -24,7 +28,14 @@ export function safeJsonParse(value, fallback = null) {
     }
 
     try {
-        return JSON.parse(value);
+        const parsed = JSON.parse(value);
+        // Prevent prototype pollution attacks
+        if (parsed && typeof parsed === 'object') {
+            delete parsed.__proto__;
+            delete parsed.constructor;
+            delete parsed.prototype;
+        }
+        return parsed;
     } catch {
         return fallback;
     }
