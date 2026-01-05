@@ -22,6 +22,7 @@ describe('Logger', () => {
   beforeEach(async () => {
     // Clear module cache to get fresh logger instance
     vi.clearAllMocks();
+    vi.resetModules(); // Reset module cache to force reimport
 
     mockStream = {
       write: vi.fn((data, cb) => {

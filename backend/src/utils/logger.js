@@ -100,6 +100,22 @@ function sanitizeLogInput(input) {
 }
 
 /**
+ * JSON.stringify replacer function that handles circular references
+ */
+function getCircularReplacer() {
+  const seen = new WeakSet();
+  return (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) {
+        return '[Circular]';
+      }
+      seen.add(value);
+    }
+    return value;
+  };
+}
+
+/**
  * Format log entry for file output
  */
 function formatLogEntry(level, module, message, data) {
@@ -111,7 +127,19 @@ function formatLogEntry(level, module, message, data) {
     message: sanitizeLogInput(message),
     ...(data !== undefined && { data }),
   };
-  return JSON.stringify(entry);
+
+  try {
+    return JSON.stringify(entry, getCircularReplacer());
+  } catch {
+    // Fallback if stringify still fails
+    return JSON.stringify({
+      timestamp,
+      level: level.toUpperCase(),
+      module: sanitizeLogInput(module),
+      message: sanitizeLogInput(message),
+      data: '[Unstringifiable]',
+    });
+  }
 }
 
 /**
@@ -132,9 +160,13 @@ function formatConsoleOutput(level, module, message, data) {
   if (data instanceof Error) {
     dataStr = sanitizeLogInput(data.stack || data.message);
   } else if (typeof data === 'object') {
-    dataStr = JSON.stringify(data);
-    if (dataStr.length > LIMITS.MAX_LOG_LENGTH) {
-      dataStr = dataStr.substring(0, LIMITS.MAX_LOG_LENGTH) + '...';
+    try {
+      dataStr = JSON.stringify(data, getCircularReplacer());
+      if (dataStr.length > LIMITS.MAX_LOG_LENGTH) {
+        dataStr = dataStr.substring(0, LIMITS.MAX_LOG_LENGTH) + '...';
+      }
+    } catch {
+      dataStr = '[Unstringifiable]';
     }
   } else {
     dataStr = sanitizeLogInput(String(data));
