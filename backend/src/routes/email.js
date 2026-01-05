@@ -180,7 +180,7 @@ router.get('/platform/status', authenticateAdmin, async (req, res) => {
         });
     } catch (error) {
         console.error('[Platform Email] Status check error:', error);
-        res.status(500).json({ error: 'Failed to check platform email status' });
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to check platform email status' });
     }
 });
 
@@ -196,7 +196,7 @@ router.delete('/platform/disconnect', authenticateAdmin, async (req, res) => {
         res.json({ success: true, message: 'Platform email disconnected' });
     } catch (error) {
         console.error('[Platform Email] Disconnect error:', error);
-        res.status(500).json({ error: 'Failed to disconnect platform email' });
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to disconnect platform email' });
     }
 });
 

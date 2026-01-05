@@ -85,7 +85,8 @@ describe('jsonUtils', () => {
       it('should remove __proto__ from parsed JSON', () => {
         const malicious = '{"__proto__":{"isAdmin":true},"name":"hacker"}';
         const result = safeJsonParse(malicious);
-        expect(result.__proto__).toBeUndefined();
+        // Check that __proto__ is not an own property (inherited is fine)
+        expect(Object.hasOwn(result, '__proto__')).toBe(false);
         expect(result.name).toBe('hacker');
         // Verify pollution didn't happen
         expect({}.isAdmin).toBeUndefined();
@@ -94,14 +95,16 @@ describe('jsonUtils', () => {
       it('should remove constructor from parsed JSON', () => {
         const malicious = '{"constructor":{"prototype":{"isAdmin":true}},"name":"hacker"}';
         const result = safeJsonParse(malicious);
-        expect(result.constructor).toBeUndefined();
+        // Check that constructor is not an own property (inherited is fine)
+        expect(Object.hasOwn(result, 'constructor')).toBe(false);
         expect(result.name).toBe('hacker');
       });
 
       it('should remove prototype from parsed JSON', () => {
         const malicious = '{"prototype":{"isAdmin":true},"name":"hacker"}';
         const result = safeJsonParse(malicious);
-        expect(result.prototype).toBeUndefined();
+        // Check that prototype is not an own property (inherited is fine)
+        expect(Object.hasOwn(result, 'prototype')).toBe(false);
         expect(result.name).toBe('hacker');
       });
 
@@ -113,9 +116,10 @@ describe('jsonUtils', () => {
           name: 'test',
         };
         const result = safeJsonParse(obj);
-        expect(result.__proto__).toBeUndefined();
-        expect(result.constructor).toBeUndefined();
-        expect(result.prototype).toBeUndefined();
+        // Check that dangerous properties are not own properties (inherited is fine)
+        expect(Object.hasOwn(result, '__proto__')).toBe(false);
+        expect(Object.hasOwn(result, 'constructor')).toBe(false);
+        expect(Object.hasOwn(result, 'prototype')).toBe(false);
         expect(result.name).toBe('test');
       });
 

@@ -1,4 +1,5 @@
 import express from 'express';
+import { HTTP_STATUS } from '../config/constants.js';
 
 const router = express.Router();
 
@@ -180,7 +181,7 @@ router.post('/bobs-pizza/inventory/check', (req, res) => {
   const { productName, productSku, quantity = 1 } = req.body;
   
   if (!productName && !productSku) {
-    return res.status(400).json({
+    return res.status(HTTP_STATUS.BAD_REQUEST).json({
       success: false,
       error: 'Please provide either productName or productSku'
     });
@@ -245,7 +246,7 @@ router.post('/bobs-pizza/inventory/check', (req, res) => {
   }
   
   if (!product) {
-    return res.status(404).json({
+    return res.status(HTTP_STATUS.NOT_FOUND).json({
       success: false,
       error: `Product "${productName || productSku}" not found in our catalog`
     });
@@ -375,7 +376,7 @@ router.get('/bobs-pizza/orders/:orderNumber/status', (req, res) => {
   const order = orders[orderNumber];
   
   if (!order) {
-    return res.status(404).json({
+    return res.status(HTTP_STATUS.NOT_FOUND).json({
       success: false,
       error: `Order #${orderNumber} not found. Please check the order number and try again.`
     });
@@ -443,7 +444,7 @@ router.post('/bobs-pizza/bookings', (req, res) => {
   
   // Validation
   if (!date || !time) {
-    return res.status(400).json({
+    return res.status(HTTP_STATUS.BAD_REQUEST).json({
       success: false,
       error: 'Date and time are required for booking'
     });
@@ -498,7 +499,7 @@ router.post('/bobs-pizza/bookings', (req, res) => {
     const availableTimes = ['17:00', '17:30', '18:00', '18:30', '21:00', '21:30']
       .filter(t => !bookedSlots.some(slot => slot.date === dateStr && slot.time === t));
     
-    return res.status(409).json({
+    return res.status(HTTP_STATUS.CONFLICT).json({
       success: false,
       error: `Sorry, ${time} on ${formattedDate} is fully booked.`,
       availableTimes,
@@ -538,7 +539,7 @@ router.post('/bobs-pizza/bookings', (req, res) => {
     message += ` Confirmation sent to ${customerEmail}.`;
   }
   
-  res.status(201).json({
+  res.status(HTTP_STATUS.CREATED).json({
     success: true,
     message,
     data: reservation
@@ -554,7 +555,7 @@ router.get('/bobs-pizza/bookings/:reservationId', (req, res) => {
   const reservation = reservations[reservationId];
   
   if (!reservation) {
-    return res.status(404).json({
+    return res.status(HTTP_STATUS.NOT_FOUND).json({
       success: false,
       error: `Reservation ${reservationId} not found`
     });
@@ -574,7 +575,7 @@ router.get('/bobs-pizza/availability', (req, res) => {
   const { date } = req.query;
   
   if (!date) {
-    return res.status(400).json({
+    return res.status(HTTP_STATUS.BAD_REQUEST).json({
       success: false,
       error: 'Date parameter is required'
     });

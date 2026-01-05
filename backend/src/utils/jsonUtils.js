@@ -23,17 +23,18 @@ function cleanObject(obj) {
         return obj.map(item => cleanObject(item));
     }
 
-    // Handle objects - create a new clean object without prototype
-    const cleaned = Object.create(null);
+    // Handle objects - create a new clean object with normal prototype
+    const cleaned = {};
     for (const key in obj) {
         // Only copy own properties, not inherited ones
         if (Object.prototype.hasOwnProperty.call(obj, key)) {
-            // Skip dangerous properties
+            // Skip dangerous properties to prevent prototype pollution
             if (!DANGEROUS_PROPS.includes(key)) {
                 cleaned[key] = cleanObject(obj[key]);
             }
         }
     }
+
     return cleaned;
 }
 

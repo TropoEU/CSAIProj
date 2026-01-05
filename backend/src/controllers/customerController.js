@@ -650,6 +650,17 @@ class CustomerController {
   async updateSettings(req, res) {
     try {
       const clientId = req.clientId;
+
+      // Rate limiting for settings updates
+      const rateLimit = await RedisCache.checkRateLimit(clientId, RATE_LIMITS.CUSTOMER_DASHBOARD);
+      if (!rateLimit.allowed) {
+        log.warn('Rate limit exceeded for customer settings update', { clientId });
+        return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
+          error: 'Rate limit exceeded',
+          retryAfter: rateLimit.resetIn
+        });
+      }
+
       const { language } = req.body;
 
       // Validate language
@@ -781,8 +792,9 @@ class CustomerController {
       }
 
       // Helper function to check object depth
+      const MAX_RECURSION_DEPTH = 10; // Maximum recursion depth for safety
       const getObjectDepth = (obj, currentDepth = 0) => {
-        if (currentDepth > 10) return currentDepth; // Early exit if too deep
+        if (currentDepth > MAX_RECURSION_DEPTH) return currentDepth; // Early exit if too deep
         if (obj === null || typeof obj !== 'object') return currentDepth;
         const depths = Object.values(obj).map(value =>
           getObjectDepth(value, currentDepth + 1)
@@ -1035,14 +1047,14 @@ class CustomerController {
       const escalation = await Escalation.findById(escalationId);
 
       if (!escalation) {
-        return res.status(404).json({
+        return res.status(HTTP_STATUS.NOT_FOUND).json({
           error: 'Escalation not found',
           message: 'The requested escalation could not be found'
         });
       }
 
       if (escalation.client_id !== clientId) {
-        return res.status(403).json({
+        return res.status(HTTP_STATUS.FORBIDDEN).json({
           error: 'Access denied',
           message: 'You do not have permission to view this escalation'
         });
@@ -1103,7 +1115,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Get escalation detail error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load escalation',
         message: 'An error occurred while loading the escalation details'
       });
@@ -1173,6 +1185,17 @@ class CustomerController {
   async acknowledgeEscalation(req, res) {
     try {
       const clientId = req.clientId;
+
+      // Rate limiting for escalation actions
+      const rateLimit = await RedisCache.checkRateLimit(clientId, RATE_LIMITS.CUSTOMER_DASHBOARD);
+      if (!rateLimit.allowed) {
+        log.warn('Rate limit exceeded for escalation acknowledge', { clientId });
+        return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
+          error: 'Rate limit exceeded',
+          retryAfter: rateLimit.resetIn
+        });
+      }
+
       const escalationId = req.params.id;
 
       // Verify ownership
@@ -1213,6 +1236,17 @@ class CustomerController {
   async resolveEscalation(req, res) {
     try {
       const clientId = req.clientId;
+
+      // Rate limiting for escalation actions
+      const rateLimit = await RedisCache.checkRateLimit(clientId, RATE_LIMITS.CUSTOMER_DASHBOARD);
+      if (!rateLimit.allowed) {
+        log.warn('Rate limit exceeded for escalation resolve', { clientId });
+        return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
+          error: 'Rate limit exceeded',
+          retryAfter: rateLimit.resetIn
+        });
+      }
+
       const escalationId = req.params.id;
       const { notes } = req.body;
 
@@ -1287,6 +1321,17 @@ class CustomerController {
   async cancelEscalation(req, res) {
     try {
       const clientId = req.clientId;
+
+      // Rate limiting for escalation actions
+      const rateLimit = await RedisCache.checkRateLimit(clientId, RATE_LIMITS.CUSTOMER_DASHBOARD);
+      if (!rateLimit.allowed) {
+        log.warn('Rate limit exceeded for escalation cancel', { clientId });
+        return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
+          error: 'Rate limit exceeded',
+          retryAfter: rateLimit.resetIn
+        });
+      }
+
       const escalationId = parseInt(req.params.id, 10);
 
       // Verify escalation belongs to this client

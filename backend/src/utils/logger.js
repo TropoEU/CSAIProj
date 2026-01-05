@@ -52,10 +52,17 @@ logStream.on('error', (err) => {
   console.error('Log stream error:', err.message);
   // Try to recreate stream (close old one first to prevent resource leak)
   try {
-    logStream.end(); // Close old stream before creating new one
-    logStream = fs.createWriteStream(LOG_FILE, { flags: 'a', autoClose: false });
-  } catch (recreateErr) {
-    console.error('Failed to recreate log stream:', recreateErr.message);
+    const oldStream = logStream;
+    // Wait for stream to finish closing before creating new one
+    oldStream.end(() => {
+      try {
+        logStream = fs.createWriteStream(LOG_FILE, { flags: 'a', autoClose: false });
+      } catch (recreateErr) {
+        console.error('Failed to recreate log stream:', recreateErr.message);
+      }
+    });
+  } catch (endErr) {
+    console.error('Failed to close old log stream:', endErr.message);
   }
 });
 
@@ -273,9 +280,15 @@ export const logger = {
     try {
       if (fs.existsSync(LOG_FILE)) {
         // Close current stream, truncate file, and create new stream
-        logStream.end();
-        fs.writeFileSync(LOG_FILE, '');
-        logStream = fs.createWriteStream(LOG_FILE, { flags: 'a', autoClose: false });
+        const oldStream = logStream;
+        oldStream.end(() => {
+          try {
+            fs.writeFileSync(LOG_FILE, '');
+            logStream = fs.createWriteStream(LOG_FILE, { flags: 'a', autoClose: false });
+          } catch (err) {
+            console.error('Failed to recreate log stream after clear:', err);
+          }
+        });
       }
     } catch (error) {
       console.error('Failed to clear log file:', error);
