@@ -3,6 +3,7 @@ import { Admin } from '../models/Admin.js';
 import { Client } from '../models/Client.js';
 import { authenticateAdmin, generateToken } from '../middleware/adminAuth.js';
 import conversationService from '../services/conversationService.js';
+import { HTTP_STATUS } from '../config/constants.js';
 
 // Import sub-routers
 import clientsRouter from './admin/clients.js';
@@ -31,13 +32,13 @@ router.post('/login', async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Username and password are required' });
     }
 
     const admin = await Admin.verifyCredentials(username, password);
 
     if (!admin) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: 'Invalid credentials' });
     }
 
     const token = generateToken(admin);
@@ -53,7 +54,7 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Login error:', error);
-    res.status(500).json({ error: 'Login failed' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Login failed' });
   }
 });
 
@@ -141,13 +142,13 @@ router.post('/test-chat', async (req, res) => {
     const { clientId, message, sessionId } = req.body;
 
     if (!clientId || !message || !sessionId) {
-      return res.status(400).json({ error: 'Client ID, message, and session ID are required' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Client ID, message, and session ID are required' });
     }
 
     // Get client
     const client = await Client.findById(clientId);
     if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
     }
 
     // Process message using conversation service
@@ -161,7 +162,7 @@ router.post('/test-chat', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Test chat error:', error);
-    res.status(500).json({ error: 'Test chat failed', message: error.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Test chat failed', message: error.message });
   }
 });
 

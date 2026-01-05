@@ -1,5 +1,10 @@
 import { ClientTool } from '../models/ClientTool.js';
 import llmService from './llmService.js';
+import { redisClient } from '../redis.js';
+import { CACHE } from '../config/constants.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('ToolManager');
 
 /**
  * Tool Manager Service
@@ -9,21 +14,69 @@ import llmService from './llmService.js';
  * - Format tools for LLM function calling (Claude/OpenAI native, Ollama via prompts)
  * - Validate tool schemas
  * - Parse tool calls from LLM responses
+ * - Cache tool lists for performance
  */
 
 class ToolManager {
   /**
-   * Get all enabled tools for a client
+   * Get all enabled tools for a client (with Redis caching)
    * @param {Number} clientId - Client ID
    * @returns {Array} Tools with full definitions
    */
   async getClientTools(clientId) {
     try {
+      // Try to get from cache first (with Redis error handling)
+      let cachedTools = null;
+      try {
+        const cacheKey = `${CACHE.PREFIX_TOOLS}${clientId}`;
+        cachedTools = await redisClient.get(cacheKey);
+
+        if (cachedTools) {
+          log.debug('Tool list loaded from cache', { clientId });
+          return JSON.parse(cachedTools);
+        }
+      } catch (redisError) {
+        // Redis is down - log warning and fall back to database
+        log.warn('Redis unavailable for tool cache, falling back to database', {
+          clientId,
+          error: redisError.message
+        });
+      }
+
+      // Cache miss or Redis unavailable - fetch from database
+      log.debug('Tool list cache miss - fetching from database', { clientId });
       const tools = await ClientTool.getEnabledTools(clientId);
+
+      // Try to store in cache (fail gracefully if Redis is down)
+      try {
+        const cacheKey = `${CACHE.PREFIX_TOOLS}${clientId}`;
+        await redisClient.setex(cacheKey, CACHE.TOOL_LIST_CACHE_TTL, JSON.stringify(tools));
+      } catch (redisError) {
+        // Redis write failed - just log, don't fail the request
+        log.warn('Failed to cache tools in Redis', {
+          clientId,
+          error: redisError.message
+        });
+      }
+
       return tools;
     } catch (error) {
-      console.error('Error loading client tools:', error);
+      log.error('Error loading client tools', error);
       throw new Error('Failed to load tools for client');
+    }
+  }
+
+  /**
+   * Clear tool cache for a specific client (call when tools are updated)
+   * @param {Number} clientId - Client ID
+   */
+  async clearToolCache(clientId) {
+    try {
+      const cacheKey = `${CACHE.PREFIX_TOOLS}${clientId}`;
+      await redisClient.del(cacheKey);
+      log.info('Tool cache cleared', { clientId });
+    } catch (error) {
+      log.error('Error clearing tool cache', error);
     }
   }
 
@@ -214,10 +267,10 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
             jsonStr = jsonStr.substring(0, jsonEnd);
           }
           const parameters = JSON.parse(jsonStr);
-          console.log(`[ToolManager] Parsed tool call: ${toolName} with params:`, parameters);
+          log.debug('Parsed tool call', { toolName, parameters });
           addToolCall(toolName, parameters);
         } catch (e) {
-          console.warn(`[ToolManager] Failed to parse parameters for ${toolName}:`, match[2], e.message);
+          log.warn('Failed to parse tool parameters', { toolName, rawParams: match[2], error: e.message });
         }
       }
 
@@ -238,7 +291,7 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
               const parameters = JSON.parse(sameLineParams[1]);
               addToolCall(toolName, parameters);
             } catch {
-              console.warn(`Failed to parse same-line parameters for ${toolName}:`, sameLineParams[1]);
+              log.warn('Failed to parse same-line parameters', { toolName, rawParams: sameLineParams[1] });
             }
             continue;
           }
@@ -252,7 +305,7 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
                 const parameters = JSON.parse(nextLineParams[1]);
                 addToolCall(toolName, parameters);
               } catch {
-                console.warn(`Failed to parse next-line parameters for ${toolName}:`, nextLineParams[1]);
+                log.warn('Failed to parse next-line parameters', { toolName, rawParams: nextLineParams[1] });
               }
             }
           }
@@ -277,7 +330,7 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
                 const parameters = JSON.parse(jsonMatch[0]);
                 addToolCall(toolName, parameters);
               } catch {
-                console.warn(`Failed to parse parameters for ${toolName}:`, match[2]);
+                log.warn('Failed to parse fallback parameters', { toolName, rawParams: match[2] });
               }
             }
           }
@@ -292,13 +345,13 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
           const parameters = JSON.parse(match[2]);
           addToolCall(toolName, parameters);
         } catch {
-          console.warn(`Failed to parse parameters for ${toolName}:`, match[2]);
+          log.warn('Failed to parse multiline parameters', { toolName, rawParams: match[2] });
         }
       }
 
       return toolCalls.length > 0 ? toolCalls : null;
     } catch (error) {
-      console.error('Error parsing tool calls from content:', error);
+      log.error('Error parsing tool calls from content', error);
       return null;
     }
   }
@@ -314,23 +367,23 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
     try {
       // Basic validation - check for required properties
       if (schema.type !== 'object') {
-        console.warn('Tool schema should have type "object"');
+        log.warn('Tool schema should have type "object"', { schema });
         return false;
       }
 
       if (schema.properties && typeof schema.properties !== 'object') {
-        console.warn('Tool schema properties should be an object');
+        log.warn('Tool schema properties should be an object', { schema });
         return false;
       }
 
       if (schema.required && !Array.isArray(schema.required)) {
-        console.warn('Tool schema required should be an array');
+        log.warn('Tool schema required should be an array', { schema });
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error('Schema validation error:', error);
+      log.error('Schema validation error', error);
       return false;
     }
   }
@@ -346,7 +399,7 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
       const tools = await this.getClientTools(clientId);
       return tools.find(t => t.tool_name === toolName) || null;
     } catch (error) {
-      console.error(`Error getting tool ${toolName}:`, error);
+      log.error('Error getting tool', { toolName, error });
       return null;
     }
   }
@@ -394,14 +447,14 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
           if (!isNaN(num)) {
             args[paramName] = num; // Mutate the args object
             actualType = 'number';
-            console.log(`[ToolManager] Coerced ${paramName}: "${paramValue}" -> ${num}`);
+            log.debug('Coerced string to number', { paramName, original: paramValue, coerced: num });
           }
         } else if (expectedType === 'integer' && actualType === 'string') {
           const num = parseInt(paramValue, 10);
           if (!isNaN(num)) {
             args[paramName] = num;
             actualType = 'number';
-            console.log(`[ToolManager] Coerced ${paramName}: "${paramValue}" -> ${num}`);
+            log.debug('Coerced string to number', { paramName, original: paramValue, coerced: num });
           }
         } else if (expectedType === 'boolean' && actualType === 'string') {
           const lower = paramValue.toLowerCase();
@@ -438,7 +491,7 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
               errors.push(placeholderError);
             } else {
               // Optional parameters with placeholders should be removed
-              console.log(`[ToolManager] Removing optional placeholder param: ${paramName}="${paramValue}"`);
+              log.debug('Removing optional placeholder parameter', { paramName, paramValue });
               delete args[paramName];
             }
           }
@@ -574,16 +627,18 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
         }
       }
 
-      // Check for hallucinated dates (dates more than 1 year in the past)
+      // Check for hallucinated dates (dates outside reasonable range: 2 years past/future)
       const dateMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
       if (dateMatch) {
         const inputDate = new Date(value);
         const today = new Date();
-        const oneYearAgo = new Date(today);
-        oneYearAgo.setFullYear(today.getFullYear() - 1);
+        const twoYearsAgo = new Date(today);
+        twoYearsAgo.setFullYear(today.getFullYear() - 2);
+        const twoYearsAhead = new Date(today);
+        twoYearsAhead.setFullYear(today.getFullYear() + 2);
 
-        if (inputDate < oneYearAgo) {
-          return `Parameter '${paramName}' value '${value}' appears to be a hallucinated date (more than 1 year in the past). Use 'today' or ask the user for the actual date.`;
+        if (inputDate < twoYearsAgo || inputDate > twoYearsAhead) {
+          return `Parameter '${paramName}' value '${value}' is outside reasonable date range (2 years past/future). Use 'today' or ask the user for the actual date.`;
         }
       }
     }

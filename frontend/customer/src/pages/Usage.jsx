@@ -10,13 +10,14 @@ export default function Usage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [trendPeriod, setTrendPeriod] = useState('30d');
+  const [usagePeriod, setUsagePeriod] = useState('month');
 
-  const fetchData = async (period = trendPeriod) => {
+  const fetchData = async (trendPeriodParam = trendPeriod, usagePeriodParam = usagePeriod) => {
     try {
       setLoading(true);
       const [current, trendsData, tools] = await Promise.all([
-        usage.getCurrent(),
-        usage.getTrends({ period }),
+        usage.getCurrent({ period: usagePeriodParam }),
+        usage.getTrends({ period: trendPeriodParam }),
         usage.getTools(),
       ]);
 
@@ -36,9 +37,14 @@ export default function Usage() {
     fetchData();
   }, []);
 
-  const handlePeriodChange = (newPeriod) => {
+  const handleTrendPeriodChange = (newPeriod) => {
     setTrendPeriod(newPeriod);
-    fetchData(newPeriod);
+    fetchData(newPeriod, usagePeriod);
+  };
+
+  const handleUsagePeriodChange = (newPeriod) => {
+    setUsagePeriod(newPeriod);
+    fetchData(trendPeriod, newPeriod);
   };
 
   if (loading) {
@@ -70,6 +76,34 @@ export default function Usage() {
       <div>
         <h1 className="text-3xl font-bold text-gray-900">{t('usage.title')}</h1>
         <p className="text-gray-600 mt-1">{t('usage.subtitle')}</p>
+      </div>
+
+      {/* Period Selector for Current Usage */}
+      <div className="card p-4">
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-medium text-gray-700">Time Period:</label>
+          <div className="flex gap-2">
+            {[
+              { value: 'day', label: 'Today' },
+              { value: 'week', label: 'This Week' },
+              { value: 'month', label: 'This Month' },
+              { value: 'year', label: 'This Year' },
+              { value: 'all', label: 'All Time' }
+            ].map((period) => (
+              <button
+                key={period.value}
+                onClick={() => handleUsagePeriodChange(period.value)}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  usagePeriod === period.value
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {period.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Current Usage */}
@@ -193,7 +227,7 @@ export default function Usage() {
             {['7d', '14d', '30d', '60d'].map((period) => (
               <button
                 key={period}
-                onClick={() => handlePeriodChange(period)}
+                onClick={() => handleTrendPeriodChange(period)}
                 className={`px-3 py-1 text-sm rounded-md transition-colors ${
                   trendPeriod === period
                     ? 'bg-primary-600 text-white'

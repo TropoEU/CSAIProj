@@ -10,6 +10,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { LIMITS } from '../config/constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,6 +43,85 @@ if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
+// Create write stream for better performance
+// Using append mode with autoClose disabled for persistent stream
+let logStream = fs.createWriteStream(LOG_FILE, { flags: 'a', autoClose: false });
+
+// Handle stream errors
+logStream.on('error', (err) => {
+  console.error('Log stream error:', err.message);
+  // Try to recreate stream (close old one first to prevent resource leak)
+  try {
+    const oldStream = logStream;
+    // Wait for stream to finish closing before creating new one
+    oldStream.end(() => {
+      try {
+        logStream = fs.createWriteStream(LOG_FILE, { flags: 'a', autoClose: false });
+      } catch (recreateErr) {
+        console.error('Failed to recreate log stream:', recreateErr.message);
+      }
+    });
+  } catch (endErr) {
+    console.error('Failed to close old log stream:', endErr.message);
+  }
+});
+
+// Graceful shutdown - close stream on process exit
+process.on('exit', () => {
+  try {
+    logStream.end();
+  } catch {
+    // Ignore errors during shutdown
+  }
+});
+
+process.on('SIGINT', () => {
+  try {
+    logStream.end();
+  } catch {
+    // Ignore errors during shutdown
+  }
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  try {
+    logStream.end();
+  } catch {
+    // Ignore errors during shutdown
+  }
+  process.exit(0);
+});
+
+/**
+ * Sanitize log input to prevent log injection attacks
+ * Removes control characters, newlines, and other dangerous characters
+ */
+function sanitizeLogInput(input) {
+  if (typeof input !== 'string') {
+    return input;
+  }
+  // Remove control characters, newlines, tabs, and other dangerous characters
+  // eslint-disable-next-line no-control-regex
+  return input.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+}
+
+/**
+ * JSON.stringify replacer function that handles circular references
+ */
+function getCircularReplacer() {
+  const seen = new WeakSet();
+  return (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) {
+        return '[Circular]';
+      }
+      seen.add(value);
+    }
+    return value;
+  };
+}
+
 /**
  * Format log entry for file output
  */
@@ -50,11 +130,23 @@ function formatLogEntry(level, module, message, data) {
   const entry = {
     timestamp,
     level: level.toUpperCase(),
-    module,
-    message,
+    module: sanitizeLogInput(module),
+    message: sanitizeLogInput(message),
     ...(data !== undefined && { data }),
   };
-  return JSON.stringify(entry);
+
+  try {
+    return JSON.stringify(entry, getCircularReplacer());
+  } catch {
+    // Fallback if stringify still fails
+    return JSON.stringify({
+      timestamp,
+      level: level.toUpperCase(),
+      module: sanitizeLogInput(module),
+      message: sanitizeLogInput(message),
+      data: '[Unstringifiable]',
+    });
+  }
 }
 
 /**
@@ -62,37 +154,50 @@ function formatLogEntry(level, module, message, data) {
  */
 function formatConsoleOutput(level, module, message, data) {
   const timestamp = new Date().toISOString().substring(11, 23); // HH:MM:SS.mmm
-  const prefix = `[${timestamp}] [${level.toUpperCase().padEnd(5)}] [${module}]`;
+  const sanitizedModule = sanitizeLogInput(module);
+  const sanitizedMessage = sanitizeLogInput(message);
+  const prefix = `[${timestamp}] [${level.toUpperCase().padEnd(5)}] [${sanitizedModule}]`;
 
   if (data === undefined) {
-    return `${prefix} ${message}`;
+    return `${prefix} ${sanitizedMessage}`;
   }
 
   // Format data for console (truncate if too long)
   let dataStr;
   if (data instanceof Error) {
-    dataStr = data.stack || data.message;
+    dataStr = sanitizeLogInput(data.stack || data.message);
   } else if (typeof data === 'object') {
-    dataStr = JSON.stringify(data);
-    if (dataStr.length > 500) {
-      dataStr = dataStr.substring(0, 500) + '...';
+    try {
+      dataStr = JSON.stringify(data, getCircularReplacer());
+      if (dataStr.length > LIMITS.MAX_LOG_LENGTH) {
+        dataStr = dataStr.substring(0, LIMITS.MAX_LOG_LENGTH) + '...';
+      }
+    } catch {
+      dataStr = '[Unstringifiable]';
     }
   } else {
-    dataStr = String(data);
+    dataStr = sanitizeLogInput(String(data));
   }
 
-  return `${prefix} ${message} ${dataStr}`;
+  return `${prefix} ${sanitizedMessage} ${dataStr}`;
 }
 
 /**
- * Write to log file (async, non-blocking)
+ * Write to log file using write stream (better performance)
  */
 function writeToFile(entry) {
-  fs.appendFile(LOG_FILE, entry + '\n', (err) => {
-    if (err) {
-      console.error('Failed to write to log file:', err.message);
+  try {
+    const success = logStream.write(entry + '\n');
+
+    // If buffer is full, wait for drain event (backpressure handling)
+    if (!success) {
+      logStream.once('drain', () => {
+        // Buffer cleared, ready for more writes
+      });
     }
-  });
+  } catch (err) {
+    console.error('Failed to write to log file:', err.message);
+  }
 }
 
 /**
@@ -174,7 +279,16 @@ export const logger = {
   clear: () => {
     try {
       if (fs.existsSync(LOG_FILE)) {
-        fs.writeFileSync(LOG_FILE, '');
+        // Close current stream, truncate file, and create new stream
+        const oldStream = logStream;
+        oldStream.end(() => {
+          try {
+            fs.writeFileSync(LOG_FILE, '');
+            logStream = fs.createWriteStream(LOG_FILE, { flags: 'a', autoClose: false });
+          } catch (err) {
+            console.error('Failed to recreate log stream after clear:', err);
+          }
+        });
       }
     } catch (error) {
       console.error('Failed to clear log file:', error);

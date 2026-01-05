@@ -1,4 +1,5 @@
 import { ClientIntegration } from '../models/ClientIntegration.js';
+import { TIMEOUTS } from '../config/constants.js';
 
 /**
  * Integration Service
@@ -235,7 +236,7 @@ class IntegrationService {
 
       const startTime = Date.now();
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUTS.INTEGRATION_TEST);
 
       try {
         const response = await fetch(formatted.apiUrl, {

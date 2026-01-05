@@ -8,7 +8,10 @@
  * - Track execution time
  */
 
-const DEFAULT_TIMEOUT = 30000; // 30 seconds
+import { TIMEOUTS, LIMITS, RETRY } from '../config/constants.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('n8n');
 
 /**
  * Validate tool parameters to detect placeholder/made-up values
@@ -92,7 +95,7 @@ class N8nService {
    * @returns {Object} { success, data, executionTimeMs, error }
    */
   async executeTool(webhookUrl, parameters = {}, options = {}) {
-    const { timeout = DEFAULT_TIMEOUT, integrations = null, integration = null } =
+    const { timeout = TIMEOUTS.N8N_WEBHOOK, integrations = null, integration = null } =
       typeof options === 'number' ? { timeout: options } : options;
     const startTime = Date.now();
 
@@ -282,7 +285,7 @@ class N8nService {
     try {
       const fullUrl = this.buildWebhookUrl(webhookUrl);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s test timeout
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUTS.N8N_WEBHOOK_TEST);
 
       const response = await fetch(fullUrl, {
         method: 'POST',
@@ -386,9 +389,9 @@ class N8nService {
         // Only include data if it's small and adds value (don't dump huge JSON)
         if (data && data !== message && typeof data === 'object') {
           const dataStr = JSON.stringify(data, null, 2);
-          // Only include data if it's reasonably small (< 500 chars)
+          // Only include data if it's reasonably small
           // The LLM can ask for more details if needed
-          if (dataStr.length < 500) {
+          if (dataStr.length < LIMITS.N8N_RESPONSE_DATA_MAX) {
             formatted += '\n\nDetails:\n' + dataStr;
           } else {
             // For large data, extract key fields with values (not just field names)
@@ -588,7 +591,7 @@ class N8nService {
    * @param {Number} timeout - Timeout per tool
    * @returns {Array} Array of results
    */
-  async executeToolsBatch(toolExecutions, timeout = DEFAULT_TIMEOUT) {
+  async executeToolsBatch(toolExecutions, timeout = TIMEOUTS.N8N_WEBHOOK) {
     console.log(`[n8n] Executing ${toolExecutions.length} tools in parallel`);
 
     const promises = toolExecutions.map(({ webhookUrl, parameters }) =>
@@ -608,7 +611,7 @@ class N8nService {
       const healthUrl = `${n8nUrl}/healthz`;
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUTS.N8N_HEALTH_CHECK);
 
       const response = await fetch(healthUrl, {
         signal: controller.signal
@@ -647,7 +650,7 @@ class N8nService {
    * @param {Number} timeout - Timeout per attempt
    * @returns {Object} Execution result
    */
-  async executeToolWithRetry(webhookUrl, parameters, maxRetries = 2, timeout = DEFAULT_TIMEOUT) {
+  async executeToolWithRetry(webhookUrl, parameters, maxRetries = RETRY.MAX_ATTEMPTS - 1, timeout = TIMEOUTS.N8N_WEBHOOK) {
     let lastError;
 
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
@@ -666,9 +669,9 @@ class N8nService {
         break;
       }
 
-      // Exponential backoff: 1s, 2s, 4s, etc.
-      const delay = Math.pow(2, attempt - 1) * 1000;
-      console.log(`[n8n] Retrying in ${delay}ms...`);
+      // Exponential backoff: initial delay * 2^(attempt-1)
+      const delay = Math.pow(RETRY.BACKOFF_MULTIPLIER, attempt - 1) * RETRY.INITIAL_DELAY;
+      log.info('Retrying tool execution', { delay, attempt, maxRetries });
       await new Promise(resolve => setTimeout(resolve, delay));
     }
 

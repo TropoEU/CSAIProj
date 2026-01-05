@@ -28,12 +28,12 @@ describe('UsageTracker', () => {
 
     it('should return correct filter for month', () => {
       const filter = UsageTracker.getDateFilter('month');
-      expect(filter).toContain('month');
+      expect(filter).toContain('30 days'); // Rolling 30-day window (intentional behavior)
     });
 
     it('should default to month for unknown period', () => {
       const filter = UsageTracker.getDateFilter('unknown');
-      expect(filter).toContain('month');
+      expect(filter).toContain('30 days'); // Rolling 30-day window (intentional behavior)
     });
   });
 

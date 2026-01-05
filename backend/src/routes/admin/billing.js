@@ -2,6 +2,7 @@ import express from 'express';
 import { Invoice } from '../../models/Invoice.js';
 import { Client } from '../../models/Client.js';
 import { BillingService } from '../../services/billingService.js';
+import { HTTP_STATUS } from '../../config/constants.js';
 
 const router = express.Router();
 
@@ -16,7 +17,7 @@ router.get('/clients/:id/invoices', async (req, res) => {
     res.json(invoices);
   } catch (error) {
     console.error('[Admin] Get client invoices error:', error);
-    res.status(500).json({ error: 'Failed to get client invoices' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get client invoices' });
   }
 });
 
@@ -37,7 +38,7 @@ router.get('/invoices', async (req, res) => {
     res.json(invoices);
   } catch (error) {
     console.error('[Admin] Get invoices error:', error);
-    res.status(500).json({ error: 'Failed to get invoices' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get invoices' });
   }
 });
 
@@ -49,7 +50,7 @@ router.get('/invoices/:id', async (req, res) => {
   try {
     const invoice = await Invoice.findById(req.params.id);
     if (!invoice) {
-      return res.status(404).json({ error: 'Invoice not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Invoice not found' });
     }
 
     const client = await Client.findById(invoice.client_id);
@@ -59,7 +60,7 @@ router.get('/invoices/:id', async (req, res) => {
     res.json(invoice);
   } catch (error) {
     console.error('[Admin] Get invoice error:', error);
-    res.status(500).json({ error: 'Failed to get invoice' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get invoice' });
   }
 });
 
@@ -72,26 +73,26 @@ router.post('/generate', async (req, res) => {
     const { clientId, billingPeriod, force = false } = req.body;
 
     if (!billingPeriod) {
-      return res.status(400).json({ error: 'Billing period is required (YYYY-MM format)' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Billing period is required (YYYY-MM format)' });
     }
 
     if (!/^\d{4}-\d{2}$/.test(billingPeriod)) {
-      return res.status(400).json({ error: 'Invalid billing period format. Use YYYY-MM' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Invalid billing period format. Use YYYY-MM' });
     }
 
     if (clientId) {
       const result = await BillingService.generateInvoice(clientId, billingPeriod, force);
-      res.status(201).json(result);
+      res.status(HTTP_STATUS.CREATED).json(result);
     } else {
       const results = await BillingService.generateInvoicesForAllClients(billingPeriod);
-      res.status(201).json({
+      res.status(HTTP_STATUS.CREATED).json({
         message: 'Invoice generation completed',
         results,
       });
     }
   } catch (error) {
     console.error('[Admin] Generate invoice error:', error);
-    res.status(500).json({ error: 'Failed to generate invoice', message: error.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to generate invoice', message: error.message });
   }
 });
 
@@ -111,7 +112,7 @@ router.post('/invoices/:id/mark-paid', async (req, res) => {
     res.json(invoice);
   } catch (error) {
     console.error('[Admin] Mark invoice as paid error:', error);
-    res.status(500).json({ error: 'Failed to mark invoice as paid', message: error.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to mark invoice as paid', message: error.message });
   }
 });
 
@@ -125,13 +126,13 @@ router.post('/invoices/:id/cancel', async (req, res) => {
     const invoice = await Invoice.cancel(req.params.id, notes);
 
     if (!invoice) {
-      return res.status(404).json({ error: 'Invoice not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Invoice not found' });
     }
 
     res.json(invoice);
   } catch (error) {
     console.error('[Admin] Cancel invoice error:', error);
-    res.status(500).json({ error: 'Failed to cancel invoice', message: error.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to cancel invoice', message: error.message });
   }
 });
 
@@ -143,11 +144,11 @@ router.post('/invoices/:id/charge', async (req, res) => {
   try {
     const invoice = await Invoice.findById(req.params.id);
     if (!invoice) {
-      return res.status(404).json({ error: 'Invoice not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Invoice not found' });
     }
 
     if (invoice.status === 'paid') {
-      return res.status(400).json({ error: 'Invoice is already paid' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Invoice is already paid' });
     }
 
     const paymentIntent = await BillingService.createPaymentIntent(
@@ -163,7 +164,7 @@ router.post('/invoices/:id/charge', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Charge invoice error:', error);
-    res.status(500).json({ error: 'Failed to charge invoice', message: error.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to charge invoice', message: error.message });
   }
 });
 
@@ -178,7 +179,7 @@ router.post('/webhook', async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('[Admin] Billing webhook error:', error);
-    res.status(500).json({ error: 'Webhook processing failed', message: error.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Webhook processing failed', message: error.message });
   }
 });
 
@@ -210,7 +211,7 @@ router.get('/revenue', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Get revenue analytics error:', error);
-    res.status(500).json({ error: 'Failed to get revenue analytics' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get revenue analytics' });
   }
 });
 
@@ -224,7 +225,7 @@ router.get('/outstanding', async (req, res) => {
     res.json(outstanding);
   } catch (error) {
     console.error('[Admin] Get outstanding invoices error:', error);
-    res.status(500).json({ error: 'Failed to get outstanding invoices' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get outstanding invoices' });
   }
 });
 

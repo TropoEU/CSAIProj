@@ -361,6 +361,7 @@ export class UsageTracker {
 
   /**
    * Helper: Get date filter for period
+   * Uses rolling time windows (not calendar periods) for better historical visibility
    * @param {string} period - Period name
    * @returns {string} SQL date string
    */
@@ -368,10 +369,11 @@ export class UsageTracker {
     const filters = {
       day: 'CURRENT_DATE',
       week: "CURRENT_DATE - INTERVAL '7 days'",
-      month: "DATE_TRUNC('month', CURRENT_DATE)",
-      last_month: "DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')",
-      quarter: "DATE_TRUNC('quarter', CURRENT_DATE)",
-      year: "DATE_TRUNC('year', CURRENT_DATE)",
+      month: "CURRENT_DATE - INTERVAL '30 days'",
+      last_month: "CURRENT_DATE - INTERVAL '60 days'",
+      quarter: "CURRENT_DATE - INTERVAL '90 days'",
+      year: "CURRENT_DATE - INTERVAL '365 days'",
+      all: "'1970-01-01'::date",
     };
 
     return filters[period] || filters.month;

@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import axios from 'axios';
+import { HTTP_STATUS } from './config/constants.js';
 import toolRoutes from './routes/tools.js';
 import chatRoutes from './routes/chat.js';
 import adminRoutes from './routes/admin.js';
@@ -99,10 +100,10 @@ app.get('/health', async (req, res) => {
     } catch (error) {
       n8nStatus = `n8n: ERROR (${error.message})`;
     }
-    
+
     res.type('text/plain').send(`${redisStatus}\n${postgresStatus}\n${n8nStatus}`);
   } catch (error) {
-    res.status(500).type('text/plain').send(`Health check failed: ${error.message}`);
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).type('text/plain').send(`Health check failed: ${error.message}`);
   }
 });
 

@@ -1,4 +1,5 @@
 import express from 'express';
+import { HTTP_STATUS } from '../../config/constants.js';
 import { Escalation } from '../../models/Escalation.js';
 import { Conversation } from '../../models/Conversation.js';
 import escalationService from '../../services/escalationService.js';
@@ -45,7 +46,7 @@ router.get('/', async (req, res) => {
     res.json(escalations);
   } catch (error) {
     console.error('[Admin] Get escalations error:', error);
-    res.status(500).json({ error: 'Failed to get escalations' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get escalations' });
   }
 });
 
@@ -60,7 +61,7 @@ router.get('/stats/global', async (req, res) => {
     res.json(stats);
   } catch (error) {
     console.error('[Admin] Get escalation stats error:', error);
-    res.status(500).json({ error: 'Failed to get escalation stats' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get escalation stats' });
   }
 });
 
@@ -72,12 +73,12 @@ router.get('/:id', async (req, res) => {
   try {
     const escalation = await Escalation.findById(req.params.id);
     if (!escalation) {
-      return res.status(404).json({ error: 'Escalation not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Escalation not found' });
     }
     res.json(escalation);
   } catch (error) {
     console.error('[Admin] Get escalation error:', error);
-    res.status(500).json({ error: 'Failed to get escalation' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get escalation' });
   }
 });
 
@@ -90,7 +91,7 @@ router.put('/:id/status', async (req, res) => {
     const { status, notes, assigned_to } = req.body;
 
     if (!status || !['acknowledged', 'resolved', 'cancelled'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Invalid status' });
     }
 
     const escalation = await Escalation.updateStatus(req.params.id, status, {
@@ -99,7 +100,7 @@ router.put('/:id/status', async (req, res) => {
     });
 
     if (!escalation) {
-      return res.status(404).json({ error: 'Escalation not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Escalation not found' });
     }
 
     // Update conversation status if resolved/cancelled
@@ -110,7 +111,7 @@ router.put('/:id/status', async (req, res) => {
     res.json(escalation);
   } catch (error) {
     console.error('[Admin] Update escalation status error:', error);
-    res.status(500).json({ error: 'Failed to update escalation status' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to update escalation status' });
   }
 });
 
@@ -124,13 +125,13 @@ router.post('/:id/resolve', async (req, res) => {
     const escalation = await escalationService.resolve(req.params.id, notes);
 
     if (!escalation) {
-      return res.status(404).json({ error: 'Escalation not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Escalation not found' });
     }
 
     res.json(escalation);
   } catch (error) {
     console.error('[Admin] Resolve escalation error:', error);
-    res.status(500).json({ error: 'Failed to resolve escalation' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to resolve escalation' });
   }
 });
 
@@ -143,13 +144,13 @@ router.post('/:id/cancel', async (req, res) => {
     const escalation = await escalationService.cancel(req.params.id);
 
     if (!escalation) {
-      return res.status(404).json({ error: 'Escalation not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Escalation not found' });
     }
 
     res.json(escalation);
   } catch (error) {
     console.error('[Admin] Cancel escalation error:', error);
-    res.status(500).json({ error: 'Failed to cancel escalation' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to cancel escalation' });
   }
 });
 
@@ -163,7 +164,7 @@ router.get('/clients/:clientId/escalations/stats', async (req, res) => {
     res.json(stats);
   } catch (error) {
     console.error('[Admin] Get client escalation stats error:', error);
-    res.status(500).json({ error: 'Failed to get client escalation stats' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get client escalation stats' });
   }
 });
 

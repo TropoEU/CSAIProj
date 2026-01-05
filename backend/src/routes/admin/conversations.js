@@ -1,4 +1,5 @@
 import express from 'express';
+import { HTTP_STATUS } from '../../config/constants.js';
 import { Conversation } from '../../models/Conversation.js';
 import { Message } from '../../models/Message.js';
 import { ToolExecution } from '../../models/ToolExecution.js';
@@ -60,7 +61,7 @@ router.get('/', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Get conversations error:', error);
-    res.status(500).json({ error: 'Failed to get conversations' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get conversations' });
   }
 });
 
@@ -103,7 +104,7 @@ router.get('/export', async (req, res) => {
     }
   } catch (error) {
     console.error('[Admin] Export conversations error:', error);
-    res.status(500).json({ error: 'Failed to export conversations' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to export conversations' });
   }
 });
 
@@ -120,7 +121,7 @@ router.get('/:id', async (req, res) => {
 
     const conversation = await Conversation.findById(req.params.id);
     if (!conversation) {
-      return res.status(404).json({ error: 'Conversation not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Conversation not found' });
     }
 
     conversation.status = conversation.ended_at ? 'ended' : 'active';
@@ -201,7 +202,7 @@ router.get('/:id', async (req, res) => {
     res.json(conversation);
   } catch (error) {
     console.error('[Admin] Get conversation error:', error);
-    res.status(500).json({ error: 'Failed to get conversation' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get conversation' });
   }
 });
 
@@ -219,7 +220,7 @@ router.get('/:id/export', async (req, res) => {
 
     const conversation = await Conversation.findById(req.params.id);
     if (!conversation) {
-      return res.status(404).json({ error: 'Conversation not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Conversation not found' });
     }
 
     const client = await Client.findById(conversation.client_id);
@@ -347,7 +348,7 @@ router.get('/:id/export', async (req, res) => {
     }
   } catch (error) {
     console.error('[Admin] Export conversation error:', error);
-    res.status(500).json({ error: 'Failed to export conversation' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to export conversation' });
   }
 });
 

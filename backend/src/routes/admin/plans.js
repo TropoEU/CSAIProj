@@ -1,4 +1,5 @@
 import express from 'express';
+import { HTTP_STATUS } from '../../config/constants.js';
 import { Plan } from '../../models/Plan.js';
 import { clearPlanCache } from '../../config/planLimits.js';
 
@@ -24,7 +25,7 @@ router.get('/', async (req, res) => {
     res.json(plansWithCount);
   } catch (error) {
     console.error('[Admin] Get plans error:', error);
-    res.status(500).json({ error: 'Failed to get plans' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get plans' });
   }
 });
 
@@ -36,14 +37,14 @@ router.get('/:id', async (req, res) => {
   try {
     const plan = await Plan.findById(req.params.id);
     if (!plan) {
-      return res.status(404).json({ error: 'Plan not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Plan not found' });
     }
 
     plan.clients_count = await Plan.getClientsCount(plan.id);
     res.json(plan);
   } catch (error) {
     console.error('[Admin] Get plan error:', error);
-    res.status(500).json({ error: 'Failed to get plan' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get plan' });
   }
 });
 
@@ -72,13 +73,13 @@ router.post('/', async (req, res) => {
     } = req.body;
 
     if (!name || !displayName) {
-      return res.status(400).json({ error: 'Name and display name are required' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Name and display name are required' });
     }
 
     // Check if plan name already exists
     const existing = await Plan.findByName(name);
     if (existing) {
-      return res.status(409).json({ error: 'A plan with this name already exists' });
+      return res.status(HTTP_STATUS.CONFLICT).json({ error: 'A plan with this name already exists' });
     }
 
     const plan = await Plan.create({
@@ -102,10 +103,10 @@ router.post('/', async (req, res) => {
     // Clear the plan cache so changes take effect immediately
     clearPlanCache();
 
-    res.status(201).json(plan);
+    res.status(HTTP_STATUS.CREATED).json(plan);
   } catch (error) {
     console.error('[Admin] Create plan error:', error);
-    res.status(500).json({ error: 'Failed to create plan' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to create plan' });
   }
 });
 
@@ -117,14 +118,14 @@ router.put('/:id', async (req, res) => {
   try {
     const plan = await Plan.findById(req.params.id);
     if (!plan) {
-      return res.status(404).json({ error: 'Plan not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Plan not found' });
     }
 
     // If changing name, check it doesn't conflict
     if (req.body.name && req.body.name.toLowerCase() !== plan.name.toLowerCase()) {
       const existing = await Plan.findByName(req.body.name);
       if (existing) {
-        return res.status(409).json({ error: 'A plan with this name already exists' });
+        return res.status(HTTP_STATUS.CONFLICT).json({ error: 'A plan with this name already exists' });
       }
     }
 
@@ -136,7 +137,7 @@ router.put('/:id', async (req, res) => {
     res.json(updatedPlan);
   } catch (error) {
     console.error('[Admin] Update plan error:', error);
-    res.status(500).json({ error: 'Failed to update plan' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to update plan' });
   }
 });
 
@@ -148,12 +149,12 @@ router.delete('/:id', async (req, res) => {
   try {
     const plan = await Plan.findById(req.params.id);
     if (!plan) {
-      return res.status(404).json({ error: 'Plan not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Plan not found' });
     }
 
     // Prevent deleting default plan
     if (plan.is_default) {
-      return res.status(400).json({ error: 'Cannot delete the default plan' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Cannot delete the default plan' });
     }
 
     await Plan.delete(req.params.id);
@@ -165,9 +166,9 @@ router.delete('/:id', async (req, res) => {
   } catch (error) {
     console.error('[Admin] Delete plan error:', error);
     if (error.message.includes('clients are currently using')) {
-      return res.status(400).json({ error: error.message });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: error.message });
     }
-    res.status(500).json({ error: 'Failed to delete plan' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to delete plan' });
   }
 });
 
@@ -179,7 +180,7 @@ router.post('/:id/set-default', async (req, res) => {
   try {
     const plan = await Plan.findById(req.params.id);
     if (!plan) {
-      return res.status(404).json({ error: 'Plan not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Plan not found' });
     }
 
     const updatedPlan = await Plan.update(req.params.id, { isDefault: true });
@@ -190,7 +191,7 @@ router.post('/:id/set-default', async (req, res) => {
     res.json(updatedPlan);
   } catch (error) {
     console.error('[Admin] Set default plan error:', error);
-    res.status(500).json({ error: 'Failed to set default plan' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to set default plan' });
   }
 });
 
@@ -204,7 +205,7 @@ router.post('/refresh-cache', async (req, res) => {
     res.json({ message: 'Plan cache cleared successfully' });
   } catch (error) {
     console.error('[Admin] Refresh cache error:', error);
-    res.status(500).json({ error: 'Failed to refresh cache' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to refresh cache' });
   }
 });
 

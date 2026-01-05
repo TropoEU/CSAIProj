@@ -1,3 +1,4 @@
+import { HTTP_STATUS } from '../config/constants.js';
 import conversationService from '../services/conversationService.js';
 import { logger } from '../utils/logger.js';
 import { Conversation } from '../models/Conversation.js';
@@ -39,25 +40,25 @@ export async function sendMessage(req, res) {
 
     // Validation
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
-      return res.status(400).json({
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
         error: 'Message is required and must be a non-empty string'
       });
     }
 
     if (message.length > MAX_MESSAGE_LENGTH) {
-      return res.status(400).json({
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
         error: `Message too long. Maximum ${MAX_MESSAGE_LENGTH} characters allowed.`
       });
     }
 
     if (!sessionId || typeof sessionId !== 'string') {
-      return res.status(400).json({
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
         error: 'Session ID is required'
       });
     }
 
     if (sessionId.length > MAX_SESSION_ID_LENGTH) {
-      return res.status(400).json({
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
         error: `Session ID too long. Maximum ${MAX_SESSION_ID_LENGTH} characters allowed.`
       });
     }
@@ -65,7 +66,7 @@ export async function sendMessage(req, res) {
     // Validate userIdentifier if provided
     if (userIdentifier !== undefined && userIdentifier !== null) {
       if (typeof userIdentifier !== 'string' || userIdentifier.length > MAX_USER_IDENTIFIER_LENGTH) {
-        return res.status(400).json({
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: `User identifier must be a string with maximum ${MAX_USER_IDENTIFIER_LENGTH} characters.`
         });
       }
@@ -79,7 +80,7 @@ export async function sendMessage(req, res) {
     });
 
     if (!client) {
-      return res.status(401).json({
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
         error: 'Invalid API key'
       });
     }
@@ -87,7 +88,7 @@ export async function sendMessage(req, res) {
     // Rate limiting
     const rateLimit = await RedisCache.checkRateLimit(client.id, 60); // 60 requests per minute
     if (!rateLimit.allowed) {
-      return res.status(429).json({
+      return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
         error: 'Rate limit exceeded',
         retryAfter: rateLimit.resetIn
       });
@@ -114,7 +115,7 @@ export async function sendMessage(req, res) {
 
   } catch (error) {
     console.error('[ChatController] Error processing message:', error);
-    return res.status(500).json({
+    return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       error: 'Failed to process message',
       message: error.message
     });
@@ -131,7 +132,7 @@ export async function getHistory(req, res) {
     const client = req.client;
 
     if (!client) {
-      return res.status(401).json({ error: 'Invalid API key' });
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: 'Invalid API key' });
     }
 
     // Get conversation by session
@@ -176,7 +177,7 @@ export async function getHistory(req, res) {
 
   } catch (error) {
     console.error('[ChatController] Error getting history:', error);
-    return res.status(500).json({
+    return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       error: 'Failed to get conversation history',
       message: error.message
     });
@@ -193,7 +194,7 @@ export async function getWidgetConfig(req, res) {
     const client = req.client;
 
     if (!client) {
-      return res.status(401).json({ error: 'Invalid API key' });
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: 'Invalid API key' });
     }
 
     // Return widget configuration including language
@@ -205,7 +206,7 @@ export async function getWidgetConfig(req, res) {
 
   } catch (error) {
     console.error('[ChatController] Error getting widget config:', error);
-    return res.status(500).json({
+    return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       error: 'Failed to get widget configuration',
       message: error.message
     });
@@ -222,11 +223,11 @@ export async function endSession(req, res) {
     const client = req.client;
 
     if (!client) {
-      return res.status(401).json({ error: 'Invalid API key' });
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: 'Invalid API key' });
     }
 
     if (!sessionId) {
-      return res.status(400).json({ error: 'Session ID is required' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Session ID is required' });
     }
 
     await conversationService.endConversation(sessionId);
@@ -238,7 +239,7 @@ export async function endSession(req, res) {
 
   } catch (error) {
     console.error('[ChatController] Error ending session:', error);
-    return res.status(500).json({
+    return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       error: 'Failed to end conversation',
       message: error.message
     });

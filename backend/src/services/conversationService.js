@@ -10,6 +10,7 @@ import integrationService from './integrationService.js';
 import escalationService from './escalationService.js';
 import { safeJsonParse } from '../utils/jsonUtils.js';
 import { createLogger } from '../utils/logger.js';
+import { LIMITS } from '../config/constants.js';
 import {
   STRONG_ENDING_PHRASES,
   WEAK_ENDING_PHRASES,
@@ -655,9 +656,9 @@ class ConversationService {
     // Store tool result as debug message (limit raw_result size to prevent DB issues)
     const rawResultStr = JSON.stringify(result.data);
     let truncatedResult = result.data;
-    if (rawResultStr.length > 5000) {
+    if (rawResultStr.length > LIMITS.TOOL_RESULT_MAX) {
       try {
-        truncatedResult = { _truncated: true, preview: rawResultStr.substring(0, 2000) + '...' };
+        truncatedResult = { _truncated: true, preview: rawResultStr.substring(0, LIMITS.TOOL_RESULT_PREVIEW) + '...' };
       } catch {
         truncatedResult = { _truncated: true, error: 'Could not serialize result' };
       }
@@ -720,10 +721,10 @@ class ConversationService {
         if (jsonMatch) {
           return jsonMatch[1];
         }
-        return toolContent.length < 500 ? toolContent : toolContent.substring(0, 200) + '...';
+        return toolContent.length < LIMITS.MAX_LOG_LENGTH ? toolContent : toolContent.substring(0, LIMITS.MAX_LOG_EXCERPT) + '...';
       }
 
-      return toolContent.length < 500 ? toolContent : `Based on the results: ${toolContent.substring(0, 200)}...`;
+      return toolContent.length < LIMITS.MAX_LOG_LENGTH ? toolContent : `Based on the results: ${toolContent.substring(0, LIMITS.MAX_LOG_EXCERPT)}...`;
     } catch {
       return 'I apologize, but I encountered an issue processing your request. Please try again or rephrase your question.';
     }

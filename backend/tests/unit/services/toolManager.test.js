@@ -273,4 +273,232 @@ describe('ToolManager', () => {
       expect(toolManager.validateToolSchema(schema)).toBe(false);
     });
   });
+
+  describe('detectPlaceholderValue', () => {
+    describe('Exact placeholder matches', () => {
+      it('should detect common placeholders', () => {
+        const placeholders = ['placeholder', 'example', 'value', 'todo', 'tbd', 'test', 'sample'];
+        placeholders.forEach((value) => {
+          const result = toolManager.detectPlaceholderValue('name', value);
+          expect(result).not.toBeNull();
+          expect(result).toContain('placeholder value');
+        });
+      });
+
+      it('should detect template-style placeholders', () => {
+        const result1 = toolManager.detectPlaceholderValue('name', '<value>');
+        expect(result1).toContain('placeholder');
+
+        const result2 = toolManager.detectPlaceholderValue('email', '[required]');
+        expect(result2).toContain('placeholder');
+
+        const result3 = toolManager.detectPlaceholderValue('id', '{{name}}');
+        expect(result3).toContain('placeholder');
+      });
+
+      it('should detect AI-generated placeholders', () => {
+        const aiPlaceholders = ['not provided', 'unknown', 'missing', 'pending'];
+        aiPlaceholders.forEach((value) => {
+          const result = toolManager.detectPlaceholderValue('field', value);
+          expect(result).not.toBeNull();
+        });
+      });
+    });
+
+    describe('Pattern-based detection', () => {
+      it('should detect phrase patterns', () => {
+        const result1 = toolManager.detectPlaceholderValue('name', 'not given');
+        expect(result1).toContain('placeholder');
+
+        const result2 = toolManager.detectPlaceholderValue('email', 'no data');
+        expect(result2).toContain('placeholder');
+
+        const result3 = toolManager.detectPlaceholderValue('phone', 'will provide');
+        expect(result3).toContain('placeholder');
+      });
+
+      it('should detect schema descriptions as placeholders', () => {
+        const result = toolManager.detectPlaceholderValue('name', "the customer's name");
+        expect(result).toContain('description rather than actual data');
+      });
+    });
+
+    describe('Email validation', () => {
+      it('should accept valid-looking emails', () => {
+        const result = toolManager.detectPlaceholderValue('email', 'user@example.com');
+        expect(result).toBeNull();
+      });
+
+      it('should reject email fields without @ or .', () => {
+        const result = toolManager.detectPlaceholderValue('email', 'notanemail');
+        expect(result).toContain("doesn't look like a valid email");
+      });
+    });
+
+    describe('Phone validation', () => {
+      it('should accept phone numbers with digits', () => {
+        const result = toolManager.detectPlaceholderValue('phone', '555-1234');
+        expect(result).toBeNull();
+      });
+
+      it('should reject phone fields without any digits', () => {
+        const result = toolManager.detectPlaceholderValue('phone', 'phonenumber');
+        expect(result).not.toBeNull();
+        expect(result).toContain('description');
+      });
+    });
+
+    describe('Date validation', () => {
+      it('should accept "today" and "tomorrow" as valid', () => {
+        expect(toolManager.detectPlaceholderValue('date', 'today')).toBeNull();
+        expect(toolManager.detectPlaceholderValue('date', 'tomorrow')).toBeNull();
+      });
+
+      it('should accept dates within 2 years past', () => {
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        const dateStr = oneYearAgo.toISOString().split('T')[0];
+
+        const result = toolManager.detectPlaceholderValue('date', dateStr);
+        expect(result).toBeNull();
+      });
+
+      it('should accept dates within 2 years future', () => {
+        const oneYearAhead = new Date();
+        oneYearAhead.setFullYear(oneYearAhead.getFullYear() + 1);
+        const dateStr = oneYearAhead.toISOString().split('T')[0];
+
+        const result = toolManager.detectPlaceholderValue('date', dateStr);
+        expect(result).toBeNull();
+      });
+
+      it('should reject dates more than 2 years in the past', () => {
+        const threeYearsAgo = new Date();
+        threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
+        const dateStr = threeYearsAgo.toISOString().split('T')[0];
+
+        const result = toolManager.detectPlaceholderValue('date', dateStr);
+        expect(result).not.toBeNull();
+        expect(result).toContain('outside reasonable date range');
+      });
+
+      it('should reject dates more than 2 years in the future', () => {
+        const threeYearsAhead = new Date();
+        threeYearsAhead.setFullYear(threeYearsAhead.getFullYear() + 3);
+        const dateStr = threeYearsAhead.toISOString().split('T')[0];
+
+        const result = toolManager.detectPlaceholderValue('date', dateStr);
+        expect(result).not.toBeNull();
+        expect(result).toContain('outside reasonable date range');
+      });
+
+      it('should reject non-numeric date words', () => {
+        const result = toolManager.detectPlaceholderValue('date', 'somedate');
+        expect(result).toContain("doesn't look like a valid date");
+      });
+    });
+
+    describe('Time validation', () => {
+      it('should accept time values with colons or digits', () => {
+        expect(toolManager.detectPlaceholderValue('time', '14:30')).toBeNull();
+        expect(toolManager.detectPlaceholderValue('time', '1430')).toBeNull();
+      });
+
+      it('should reject non-numeric time words', () => {
+        const result = toolManager.detectPlaceholderValue('time', 'sometime');
+        expect(result).toContain("doesn't look like a valid time");
+      });
+    });
+
+    describe('Empty values', () => {
+      it('should reject empty strings', () => {
+        const result = toolManager.detectPlaceholderValue('name', '');
+        expect(result).toContain('empty');
+      });
+
+      it('should reject whitespace-only strings', () => {
+        const result = toolManager.detectPlaceholderValue('name', '   ');
+        expect(result).toContain('empty');
+      });
+    });
+
+    describe('Valid real values', () => {
+      it('should accept normal text values', () => {
+        expect(toolManager.detectPlaceholderValue('name', 'John Doe')).toBeNull();
+        expect(toolManager.detectPlaceholderValue('address', '123 Main St')).toBeNull();
+        expect(toolManager.detectPlaceholderValue('notes', 'This is a note')).toBeNull();
+      });
+
+      it('should return null for non-string values', () => {
+        expect(toolManager.detectPlaceholderValue('count', 123)).toBeNull();
+        expect(toolManager.detectPlaceholderValue('active', true)).toBeNull();
+      });
+    });
+  });
+
+  describe('validateToolArguments', () => {
+    const mockTool = {
+      tool_name: 'test_tool',
+      parameters_schema: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          email: { type: 'string' },
+          age: { type: 'number' },
+          active: { type: 'boolean' },
+        },
+        required: ['name', 'email'],
+      },
+    };
+
+    it('should detect missing required parameters', () => {
+      const args = { name: 'John' }; // missing email
+      const result = toolManager.validateToolArguments(mockTool, args);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('Missing required parameter: email');
+    });
+
+    it('should coerce string numbers to numbers', () => {
+      const args = { name: 'John', email: 'john@example.com', age: '25' };
+      const result = toolManager.validateToolArguments(mockTool, args);
+
+      expect(result.valid).toBe(true);
+      expect(result.coercedArgs.age).toBe(25);
+      expect(typeof result.coercedArgs.age).toBe('number');
+    });
+
+    it('should coerce string booleans to booleans', () => {
+      const args = { name: 'John', email: 'john@example.com', active: 'true' };
+      const result = toolManager.validateToolArguments(mockTool, args);
+
+      expect(result.valid).toBe(true);
+      expect(result.coercedArgs.active).toBe(true);
+      expect(typeof result.coercedArgs.active).toBe('boolean');
+    });
+
+    it('should reject required parameters with placeholder values', () => {
+      const args = { name: 'placeholder', email: 'john@example.com' };
+      const result = toolManager.validateToolArguments(mockTool, args);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes('placeholder'))).toBe(true);
+    });
+
+    it('should remove optional parameters with placeholder values', () => {
+      const args = { name: 'John', email: 'john@example.com', age: 'unknown' };
+      const result = toolManager.validateToolArguments(mockTool, args);
+
+      // age should be removed because it's optional and contains a placeholder
+      expect(result.coercedArgs.age).toBeUndefined();
+    });
+
+    it('should pass validation with all valid arguments', () => {
+      const args = { name: 'John Doe', email: 'john@example.com', age: 30, active: true };
+      const result = toolManager.validateToolArguments(mockTool, args);
+
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+  });
 });

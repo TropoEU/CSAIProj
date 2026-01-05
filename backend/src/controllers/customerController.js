@@ -15,6 +15,12 @@ import { db } from '../db.js';
 import { safeJsonParse, safeJsonGet } from '../utils/jsonUtils.js';
 import promptService from '../services/promptService.js';
 import { refreshCachedConfig } from '../prompts/systemPrompt.js';
+import { RedisCache } from '../services/redisCache.js';
+import { RATE_LIMITS, LIMITS, HTTP_STATUS } from '../config/constants.js';
+import { createLogger } from '../utils/logger.js';
+import { UsageTracker } from '../services/usageTracker.js';
+
+const log = createLogger('CustomerController');
 
 class CustomerController {
   /**
@@ -26,7 +32,7 @@ class CustomerController {
       const { accessCode, rememberMe = false } = req.body;
 
       if (!accessCode) {
-        return res.status(400).json({
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'Access code required',
           message: 'Please provide your access code'
         });
@@ -39,7 +45,7 @@ class CustomerController {
         // Log failed attempt (security)
         console.warn('[CustomerAuth] Failed login attempt with code:', accessCode.substring(0, 4) + '***');
 
-        return res.status(401).json({
+        return res.status(HTTP_STATUS.UNAUTHORIZED).json({
           error: 'Invalid access code',
           message: 'The access code you entered is not valid'
         });
@@ -47,7 +53,7 @@ class CustomerController {
 
       // Check if client is active
       if (client.status !== 'active') {
-        return res.status(403).json({
+        return res.status(HTTP_STATUS.FORBIDDEN).json({
           error: 'Account inactive',
           message: 'Your account is currently inactive. Please contact support.'
         });
@@ -79,7 +85,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Login error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Login failed',
         message: 'An error occurred during login'
       });
@@ -187,7 +193,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Overview error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load overview',
         message: 'An error occurred while loading your dashboard'
       });
@@ -230,7 +236,7 @@ class CustomerController {
     } catch (error) {
       console.error('[CustomerController] Actions error:', error);
       console.error('[CustomerController] Actions error details:', error.stack);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load actions',
         message: 'An error occurred while loading available actions',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -368,7 +374,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Conversations error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load conversations',
         message: 'An error occurred while loading your conversations'
       });
@@ -388,7 +394,7 @@ class CustomerController {
       const conversation = await Conversation.findById(conversationId);
 
       if (!conversation) {
-        return res.status(404).json({
+        return res.status(HTTP_STATUS.NOT_FOUND).json({
           error: 'Conversation not found',
           message: 'The requested conversation could not be found'
         });
@@ -396,7 +402,7 @@ class CustomerController {
 
       // Verify client owns this conversation
       if (conversation.client_id !== clientId) {
-        return res.status(403).json({
+        return res.status(HTTP_STATUS.FORBIDDEN).json({
           error: 'Access denied',
           message: 'You do not have permission to view this conversation'
         });
@@ -441,7 +447,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Conversation detail error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load conversation',
         message: 'An error occurred while loading the conversation details'
       });
@@ -472,7 +478,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Invoices error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load invoices',
         message: 'An error occurred while loading your invoices'
       });
@@ -482,15 +488,22 @@ class CustomerController {
   /**
    * Get current usage
    * GET /api/customer/usage/current
+   * Query params: period (day, week, month, year, all)
+   *
+   * BUG FIX: Previously used ApiUsage.getCurrentPeriodUsage which had incorrect
+   * date filtering logic. Now using UsageTracker.getUsageSummary with explicit
+   * period parameter for accurate rolling time window calculations (e.g., "month"
+   * means last 30 days, not calendar month).
    */
   async getCurrentUsage(req, res) {
     try {
       const clientId = req.clientId;
       const client = req.client;
+      const { period = 'month' } = req.query;
 
-      // Get current month usage
-      const usage = await ApiUsage.getCurrentPeriodUsage(clientId);
-      const currentMonth = new Date().toISOString().substring(0, 7);
+      // Get usage for the specified period using UsageTracker
+      // Note: 'month' period uses rolling 30-day window (not calendar month)
+      const summary = await UsageTracker.getUsageSummary(clientId, period);
 
       // Get limits
       const limits = {
@@ -501,16 +514,16 @@ class CustomerController {
 
       res.json({
         usage: {
-          conversations: parseInt(usage?.total_conversations, 10) || 0,
-          tokens: (parseInt(usage?.total_tokens_input, 10) || 0) + (parseInt(usage?.total_tokens_output, 10) || 0),
-          toolCalls: parseInt(usage?.total_tool_calls, 10) || 0
+          conversations: summary.conversations,
+          tokens: summary.tokens.total,
+          toolCalls: summary.toolCalls
         },
         limits,
-        period: currentMonth
+        period
       });
     } catch (error) {
       console.error('[CustomerController] Current usage error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load usage',
         message: 'An error occurred while loading your usage data'
       });
@@ -552,7 +565,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Usage trends error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load trends',
         message: 'An error occurred while loading usage trends'
       });
@@ -600,7 +613,7 @@ class CustomerController {
     } catch (error) {
       console.error('[CustomerController] Tool usage error:', error);
       console.error('[CustomerController] Tool usage error details:', error.stack);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load tool usage',
         message: 'An error occurred while loading tool usage data',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -623,7 +636,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Get settings error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load settings',
         message: 'An error occurred while loading your settings'
       });
@@ -637,12 +650,23 @@ class CustomerController {
   async updateSettings(req, res) {
     try {
       const clientId = req.clientId;
+
+      // Rate limiting for settings updates
+      const rateLimit = await RedisCache.checkRateLimit(clientId, RATE_LIMITS.CUSTOMER_DASHBOARD);
+      if (!rateLimit.allowed) {
+        log.warn('Rate limit exceeded for customer settings update', { clientId });
+        return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
+          error: 'Rate limit exceeded',
+          retryAfter: rateLimit.resetIn
+        });
+      }
+
       const { language } = req.body;
 
       // Validate language
       const validLanguages = ['en', 'he'];
       if (language && !validLanguages.includes(language)) {
-        return res.status(400).json({
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'Invalid language',
           message: 'Language must be one of: ' + validLanguages.join(', ')
         });
@@ -653,7 +677,7 @@ class CustomerController {
       if (language) updates.language = language;
 
       if (Object.keys(updates).length === 0) {
-        return res.status(400).json({
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'No updates provided',
           message: 'Please provide at least one field to update'
         });
@@ -673,7 +697,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Update settings error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to update settings',
         message: 'An error occurred while updating your settings'
       });
@@ -725,7 +749,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Get AI behavior error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load AI behavior settings',
         message: 'An error occurred while loading your AI settings'
       });
@@ -739,6 +763,17 @@ class CustomerController {
   async updateAIBehavior(req, res) {
     try {
       const clientId = req.clientId;
+
+      // Rate limiting for AI behavior updates
+      const rateLimit = await RedisCache.checkRateLimit(clientId, RATE_LIMITS.CUSTOMER_DASHBOARD);
+      if (!rateLimit.allowed) {
+        log.warn('Rate limit exceeded for customer AI behavior update', { clientId });
+        return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
+          error: 'Rate limit exceeded',
+          retryAfter: rateLimit.resetIn
+        });
+      }
+
       const {
         reasoning_enabled,
         reasoning_steps,
@@ -748,18 +783,18 @@ class CustomerController {
       } = req.body;
 
       // Validate total payload size to prevent DoS attacks
-      const MAX_PAYLOAD_SIZE = 100 * 1024; // 100KB max
       const payloadSize = JSON.stringify(req.body).length;
-      if (payloadSize > MAX_PAYLOAD_SIZE) {
-        return res.status(400).json({
+      if (payloadSize > LIMITS.MAX_PAYLOAD_SIZE) {
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'Payload too large',
-          message: `Request body exceeds maximum size of ${MAX_PAYLOAD_SIZE} bytes`
+          message: `Request body exceeds maximum size of ${LIMITS.MAX_PAYLOAD_SIZE} bytes`
         });
       }
 
       // Helper function to check object depth
+      const MAX_RECURSION_DEPTH = 10; // Maximum recursion depth for safety
       const getObjectDepth = (obj, currentDepth = 0) => {
-        if (currentDepth > 10) return currentDepth; // Early exit if too deep
+        if (currentDepth > MAX_RECURSION_DEPTH) return currentDepth; // Early exit if too deep
         if (obj === null || typeof obj !== 'object') return currentDepth;
         const depths = Object.values(obj).map(value =>
           getObjectDepth(value, currentDepth + 1)
@@ -770,7 +805,7 @@ class CustomerController {
       // Validate object depth for nested objects
       const MAX_OBJECT_DEPTH = 5;
       if (response_style && getObjectDepth(response_style) > MAX_OBJECT_DEPTH) {
-        return res.status(400).json({
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'Invalid response_style',
           message: `Object nesting depth exceeds maximum of ${MAX_OBJECT_DEPTH} levels`
         });
@@ -786,7 +821,7 @@ class CustomerController {
       if (reasoning_steps !== undefined) {
         // Validate reasoning_steps structure
         if (!Array.isArray(reasoning_steps)) {
-          return res.status(400).json({
+          return res.status(HTTP_STATUS.BAD_REQUEST).json({
             error: 'Invalid reasoning_steps',
             message: 'Reasoning steps must be an array'
           });
@@ -795,7 +830,7 @@ class CustomerController {
         // Limit array length to prevent abuse
         const MAX_REASONING_STEPS = 20;
         if (reasoning_steps.length > MAX_REASONING_STEPS) {
-          return res.status(400).json({
+          return res.status(HTTP_STATUS.BAD_REQUEST).json({
             error: 'Invalid reasoning_steps',
             message: `Maximum ${MAX_REASONING_STEPS} reasoning steps allowed`
           });
@@ -829,7 +864,7 @@ class CustomerController {
 
       if (tool_rules !== undefined) {
         if (!Array.isArray(tool_rules)) {
-          return res.status(400).json({
+          return res.status(HTTP_STATUS.BAD_REQUEST).json({
             error: 'Invalid tool_rules',
             message: 'Tool rules must be an array'
           });
@@ -864,7 +899,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Update AI behavior error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to update AI behavior settings',
         message: 'An error occurred while saving your AI settings'
       });
@@ -878,6 +913,17 @@ class CustomerController {
   async previewAIBehavior(req, res) {
     try {
       const client = req.client;
+
+      // Rate limiting for AI behavior preview
+      const rateLimit = await RedisCache.checkRateLimit(client.id, RATE_LIMITS.CUSTOMER_DASHBOARD);
+      if (!rateLimit.allowed) {
+        log.warn('Rate limit exceeded for customer AI behavior preview', { clientId: client.id });
+        return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
+          error: 'Rate limit exceeded',
+          retryAfter: rateLimit.resetIn
+        });
+      }
+
       const { config } = req.body;
 
       // Use provided config or get current config
@@ -886,8 +932,8 @@ class CustomerController {
 
       res.json({ prompt });
     } catch (error) {
-      console.error('[CustomerController] Preview AI behavior error:', error);
-      res.status(500).json({
+      log.error('Preview AI behavior error', error);
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to generate preview',
         message: 'An error occurred while generating the prompt preview'
       });
@@ -902,13 +948,23 @@ class CustomerController {
     try {
       const clientId = req.clientId;
 
+      // Rate limiting for AI behavior reset
+      const rateLimit = await RedisCache.checkRateLimit(clientId, RATE_LIMITS.CUSTOMER_DASHBOARD);
+      if (!rateLimit.allowed) {
+        log.warn('Rate limit exceeded for customer AI behavior reset', { clientId });
+        return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
+          error: 'Rate limit exceeded',
+          retryAfter: rateLimit.resetIn
+        });
+      }
+
       // Clear the client's prompt_config
       await Client.updatePromptConfig(clientId, {});
 
       // Refresh cached config so new conversations use the defaults
       await refreshCachedConfig();
 
-      console.log(`[CustomerController] Client ${clientId} reset AI behavior to defaults`);
+      log.info('Client reset AI behavior to defaults', { clientId });
 
       // Get the default config to return
       const defaultConfig = await promptService.getDefaultConfig();
@@ -925,8 +981,8 @@ class CustomerController {
         }
       });
     } catch (error) {
-      console.error('[CustomerController] Reset AI behavior error:', error);
-      res.status(500).json({
+      log.error('Reset AI behavior error', error);
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to reset AI behavior settings',
         message: 'An error occurred while resetting your AI settings'
       });
@@ -971,7 +1027,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Get escalations error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load escalations',
         message: 'An error occurred while loading escalations'
       });
@@ -991,14 +1047,14 @@ class CustomerController {
       const escalation = await Escalation.findById(escalationId);
 
       if (!escalation) {
-        return res.status(404).json({
+        return res.status(HTTP_STATUS.NOT_FOUND).json({
           error: 'Escalation not found',
           message: 'The requested escalation could not be found'
         });
       }
 
       if (escalation.client_id !== clientId) {
-        return res.status(403).json({
+        return res.status(HTTP_STATUS.FORBIDDEN).json({
           error: 'Access denied',
           message: 'You do not have permission to view this escalation'
         });
@@ -1059,7 +1115,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Get escalation detail error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load escalation',
         message: 'An error occurred while loading the escalation details'
       });
@@ -1129,18 +1185,29 @@ class CustomerController {
   async acknowledgeEscalation(req, res) {
     try {
       const clientId = req.clientId;
+
+      // Rate limiting for escalation actions
+      const rateLimit = await RedisCache.checkRateLimit(clientId, RATE_LIMITS.CUSTOMER_DASHBOARD);
+      if (!rateLimit.allowed) {
+        log.warn('Rate limit exceeded for escalation acknowledge', { clientId });
+        return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
+          error: 'Rate limit exceeded',
+          retryAfter: rateLimit.resetIn
+        });
+      }
+
       const escalationId = req.params.id;
 
       // Verify ownership
       const escalation = await Escalation.findById(escalationId);
       if (!escalation) {
-        return res.status(404).json({ error: 'Escalation not found' });
+        return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Escalation not found' });
       }
       if (escalation.client_id !== clientId) {
-        return res.status(403).json({ error: 'Access denied' });
+        return res.status(HTTP_STATUS.FORBIDDEN).json({ error: 'Access denied' });
       }
       if (escalation.status !== 'pending') {
-        return res.status(400).json({ error: 'Escalation is not pending' });
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Escalation is not pending' });
       }
 
       const updated = await Escalation.updateStatus(escalationId, 'acknowledged');
@@ -1155,7 +1222,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Acknowledge escalation error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to acknowledge escalation',
         message: 'An error occurred while acknowledging the escalation'
       });
@@ -1169,19 +1236,30 @@ class CustomerController {
   async resolveEscalation(req, res) {
     try {
       const clientId = req.clientId;
+
+      // Rate limiting for escalation actions
+      const rateLimit = await RedisCache.checkRateLimit(clientId, RATE_LIMITS.CUSTOMER_DASHBOARD);
+      if (!rateLimit.allowed) {
+        log.warn('Rate limit exceeded for escalation resolve', { clientId });
+        return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
+          error: 'Rate limit exceeded',
+          retryAfter: rateLimit.resetIn
+        });
+      }
+
       const escalationId = req.params.id;
       const { notes } = req.body;
 
       // Verify ownership
       const escalation = await Escalation.findById(escalationId);
       if (!escalation) {
-        return res.status(404).json({ error: 'Escalation not found' });
+        return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Escalation not found' });
       }
       if (escalation.client_id !== clientId) {
-        return res.status(403).json({ error: 'Access denied' });
+        return res.status(HTTP_STATUS.FORBIDDEN).json({ error: 'Access denied' });
       }
       if (escalation.status === 'resolved' || escalation.status === 'cancelled') {
-        return res.status(400).json({ error: 'Escalation is already resolved or cancelled' });
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Escalation is already resolved or cancelled' });
       }
 
       const updated = await Escalation.updateStatus(escalationId, 'resolved', { notes });
@@ -1197,7 +1275,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Resolve escalation error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to resolve escalation',
         message: 'An error occurred while resolving the escalation'
       });
@@ -1229,7 +1307,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Escalation stats error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load escalation stats',
         message: 'An error occurred while loading escalation statistics'
       });
@@ -1243,27 +1321,38 @@ class CustomerController {
   async cancelEscalation(req, res) {
     try {
       const clientId = req.clientId;
+
+      // Rate limiting for escalation actions
+      const rateLimit = await RedisCache.checkRateLimit(clientId, RATE_LIMITS.CUSTOMER_DASHBOARD);
+      if (!rateLimit.allowed) {
+        log.warn('Rate limit exceeded for escalation cancel', { clientId });
+        return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
+          error: 'Rate limit exceeded',
+          retryAfter: rateLimit.resetIn
+        });
+      }
+
       const escalationId = parseInt(req.params.id, 10);
 
       // Verify escalation belongs to this client
       const escalation = await Escalation.findById(escalationId);
 
       if (!escalation) {
-        return res.status(404).json({
+        return res.status(HTTP_STATUS.NOT_FOUND).json({
           error: 'Escalation not found',
           message: 'The requested escalation does not exist'
         });
       }
 
       if (escalation.client_id !== clientId) {
-        return res.status(403).json({
+        return res.status(HTTP_STATUS.FORBIDDEN).json({
           error: 'Access denied',
           message: 'You do not have permission to cancel this escalation'
         });
       }
 
       if (escalation.status === 'resolved' || escalation.status === 'cancelled') {
-        return res.status(400).json({
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'Invalid action',
           message: `Cannot cancel an escalation that is already ${escalation.status}`
         });
@@ -1282,7 +1371,7 @@ class CustomerController {
       });
     } catch (error) {
       console.error('[CustomerController] Cancel escalation error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to cancel escalation',
         message: 'An error occurred while cancelling the escalation'
       });

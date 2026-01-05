@@ -1,5 +1,6 @@
 import express from 'express';
 import { db } from '../../db.js';
+import { HTTP_STATUS } from '../../config/constants.js';
 
 const router = express.Router();
 
@@ -102,7 +103,7 @@ router.get('/overview', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Get overview stats error:', error);
-    res.status(500).json({ error: 'Failed to get overview stats' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get overview stats' });
   }
 });
 
@@ -135,7 +136,7 @@ router.get('/tools', async (req, res) => {
   } catch (error) {
     console.error('[Admin] Get tool stats error:', error);
     console.error('[Admin] Error details:', error.message, error.stack);
-    res.status(500).json({ error: 'Failed to get tool stats', details: error.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get tool stats', details: error.message });
   }
 });
 
@@ -161,7 +162,7 @@ router.get('/conversations', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Get conversation stats error:', error);
-    res.status(500).json({ error: 'Failed to get conversation stats' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get conversation stats' });
   }
 });
 

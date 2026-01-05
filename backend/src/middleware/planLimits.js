@@ -1,3 +1,4 @@
+import { HTTP_STATUS } from '../config/constants.js';
 import { checkLimit, getPlanConfig, hasFeature } from '../config/planLimits.js';
 import { db } from '../db.js';
 
@@ -72,7 +73,7 @@ export function checkPlanLimits(options = {}) {
       const client = req.client;
 
       if (!client) {
-        return res.status(401).json({ error: 'Authentication required' });
+        return res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: 'Authentication required' });
       }
 
       const planType = client.plan_type || 'free';
@@ -107,7 +108,7 @@ export function checkPlanLimits(options = {}) {
       if (violations.length > 0) {
         if (strict) {
           // Strict mode: block the request
-          return res.status(429).json({
+          return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
             error: 'Plan limit exceeded',
             planType,
             violations,
@@ -151,13 +152,13 @@ export function requireFeature(featureName) {
       const client = req.client;
 
       if (!client) {
-        return res.status(401).json({ error: 'Authentication required' });
+        return res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: 'Authentication required' });
       }
 
       const planType = client.plan_type || 'free';
 
       if (!hasFeature(planType, featureName)) {
-        return res.status(403).json({
+        return res.status(HTTP_STATUS.FORBIDDEN).json({
           error: 'Feature not available',
           feature: featureName,
           planType,
@@ -169,7 +170,7 @@ export function requireFeature(featureName) {
     } catch (error) {
       console.error('[Plan Features] Error checking feature:', error);
       // Fail closed for features (deny access on error)
-      return res.status(500).json({ error: 'Failed to check feature access' });
+      return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to check feature access' });
     }
   };
 }

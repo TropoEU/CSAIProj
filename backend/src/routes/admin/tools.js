@@ -1,8 +1,10 @@
 import express from 'express';
+import { HTTP_STATUS } from '../../config/constants.js';
 import { Tool } from '../../models/Tool.js';
 import { ClientTool } from '../../models/ClientTool.js';
 import n8nService from '../../services/n8nService.js';
 import integrationService from '../../services/integrationService.js';
+import toolManager from '../../services/toolManager.js';
 
 const router = express.Router();
 
@@ -16,7 +18,7 @@ router.get('/', async (req, res) => {
     res.json(tools);
   } catch (error) {
     console.error('[Admin] Get tools error:', error);
-    res.status(500).json({ error: 'Failed to get tools' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get tools' });
   }
 });
 
@@ -30,7 +32,7 @@ router.post('/', async (req, res) => {
       req.body;
 
     if (!toolName || !description) {
-      return res.status(400).json({ error: 'Tool name and description are required' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Tool name and description are required' });
     }
 
     const tool = await Tool.create(
@@ -41,10 +43,10 @@ router.post('/', async (req, res) => {
       requiredIntegrations || [],
       capabilities || null
     );
-    res.status(201).json(tool);
+    res.status(HTTP_STATUS.CREATED).json(tool);
   } catch (error) {
     console.error('[Admin] Create tool error:', error);
-    res.status(500).json({ error: 'Failed to create tool' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to create tool' });
   }
 });
 
@@ -68,14 +70,26 @@ router.put('/:id', async (req, res) => {
 
     // Check if there are any updates to make
     if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ error: 'No valid fields provided for update' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'No valid fields provided for update' });
     }
 
     const tool = await Tool.update(req.params.id, updates);
+
+    // Clear cache for all clients using this tool
+    try {
+      const clientsUsingTool = await ClientTool.getClientsUsingTool(req.params.id);
+      for (const client of clientsUsingTool) {
+        await toolManager.clearToolCache(client.client_id);
+      }
+    } catch (cacheError) {
+      console.error('[Admin] Error clearing tool cache after update:', cacheError);
+      // Continue - cache error shouldn't fail the request
+    }
+
     res.json(tool);
   } catch (error) {
     console.error('[Admin] Update tool error:', error);
-    res.status(500).json({ error: error.message || 'Failed to update tool' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: error.message || 'Failed to update tool' });
   }
 });
 
@@ -87,16 +101,28 @@ router.delete('/:id', async (req, res) => {
   try {
     const clientsUsingTool = await ClientTool.getClientsUsingTool(req.params.id);
     if (clientsUsingTool.length > 0) {
-      return res.status(400).json({
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
         error: `Cannot delete tool: currently in use by ${clientsUsingTool.length} client(s)`,
       });
     }
 
     await Tool.delete(req.params.id);
+
+    // Clear cache for any clients that might have had this tool cached
+    // (This is mostly a safety measure since we already checked no one is using it)
+    try {
+      for (const client of clientsUsingTool) {
+        await toolManager.clearToolCache(client.client_id);
+      }
+    } catch (cacheError) {
+      console.error('[Admin] Error clearing tool cache after delete:', cacheError);
+      // Continue - cache error shouldn't fail the request
+    }
+
     res.json({ message: 'Tool deleted' });
   } catch (error) {
     console.error('[Admin] Delete tool error:', error);
-    res.status(500).json({ error: 'Failed to delete tool' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to delete tool' });
   }
 });
 
@@ -109,14 +135,14 @@ router.post('/:id/test', async (req, res) => {
     const { webhookUrl, params } = req.body;
 
     if (!webhookUrl) {
-      return res.status(400).json({ error: 'Webhook URL is required' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Webhook URL is required' });
     }
 
     const result = await n8nService.executeTool(webhookUrl, params || {});
     res.json(result);
   } catch (error) {
     console.error('[Admin] Test tool error:', error);
-    res.status(500).json({ error: 'Tool test failed', message: error.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Tool test failed', message: error.message });
   }
 });
 
@@ -134,7 +160,7 @@ router.get('/clients/:clientId/tools', async (req, res) => {
     res.json(tools);
   } catch (error) {
     console.error('[Admin] Get client tools error:', error);
-    res.status(500).json({ error: 'Failed to get client tools' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get client tools' });
   }
 });
 
@@ -147,7 +173,7 @@ router.post('/clients/:clientId/tools', async (req, res) => {
     const { toolId, webhookUrl, integrationMapping } = req.body;
 
     if (!toolId || !webhookUrl) {
-      return res.status(400).json({ error: 'Tool ID and webhook URL are required' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Tool ID and webhook URL are required' });
     }
 
     const clientTool = await ClientTool.enable(
@@ -157,10 +183,19 @@ router.post('/clients/:clientId/tools', async (req, res) => {
       integrationMapping || {},
       null
     );
-    res.status(201).json(clientTool);
+
+    // Clear cache for this client
+    try {
+      await toolManager.clearToolCache(req.params.clientId);
+    } catch (cacheError) {
+      console.error('[Admin] Error clearing tool cache after enable:', cacheError);
+      // Continue - cache error shouldn't fail the request
+    }
+
+    res.status(HTTP_STATUS.CREATED).json(clientTool);
   } catch (error) {
     console.error('[Admin] Enable tool error:', error);
-    res.status(500).json({ error: 'Failed to enable tool' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to enable tool' });
   }
 });
 
@@ -179,12 +214,21 @@ router.put('/clients/:clientId/tools/:id', async (req, res) => {
 
     const clientTool = await ClientTool.update(req.params.clientId, req.params.id, updates);
     if (!clientTool) {
-      return res.status(404).json({ error: 'Client tool not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client tool not found' });
     }
+
+    // Clear cache for this client
+    try {
+      await toolManager.clearToolCache(req.params.clientId);
+    } catch (cacheError) {
+      console.error('[Admin] Error clearing tool cache after update:', cacheError);
+      // Continue - cache error shouldn't fail the request
+    }
+
     res.json(clientTool);
   } catch (error) {
     console.error('[Admin] Update client tool error:', error);
-    res.status(500).json({ error: 'Failed to update client tool' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to update client tool' });
   }
 });
 
@@ -199,23 +243,23 @@ router.post('/clients/:clientId/tools/:id/test', async (req, res) => {
 
     const clientTool = await ClientTool.find(clientId, toolId);
     if (!clientTool) {
-      return res.status(404).json({ error: 'Tool not found for this client' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Tool not found for this client' });
     }
 
     if (!clientTool.n8n_webhook_url) {
-      return res.status(400).json({ error: 'Tool has no webhook URL configured' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Tool has no webhook URL configured' });
     }
 
     const tool = await Tool.findById(toolId);
     if (!tool) {
-      return res.status(404).json({ error: 'Tool definition not found' });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Tool definition not found' });
     }
 
     if (typeof parameters === 'string') {
       try {
         parameters = JSON.parse(parameters);
       } catch {
-        return res.status(400).json({ error: 'Invalid JSON parameters' });
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Invalid JSON parameters' });
       }
     }
 
@@ -232,7 +276,7 @@ router.post('/clients/:clientId/tools/:id/test', async (req, res) => {
         );
         console.log(`[Admin] Loaded ${Object.keys(integrations).length} integrations for tool test`);
       } catch (intError) {
-        return res.status(400).json({
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           success: false,
           error: 'Integration error',
           message: intError.message,
@@ -255,7 +299,7 @@ router.post('/clients/:clientId/tools/:id/test', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Test client tool error:', error);
-    res.status(500).json({
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       error: 'Tool test failed',
       message: error.message,
@@ -270,10 +314,19 @@ router.post('/clients/:clientId/tools/:id/test', async (req, res) => {
 router.delete('/clients/:clientId/tools/:id', async (req, res) => {
   try {
     await ClientTool.deleteById(req.params.id);
+
+    // Clear cache for this client
+    try {
+      await toolManager.clearToolCache(req.params.clientId);
+    } catch (cacheError) {
+      console.error('[Admin] Error clearing tool cache after delete:', cacheError);
+      // Continue - cache error shouldn't fail the request
+    }
+
     res.json({ message: 'Tool removed from client' });
   } catch (error) {
     console.error('[Admin] Remove client tool error:', error);
-    res.status(500).json({ error: 'Failed to remove tool' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to remove tool' });
   }
 });
 

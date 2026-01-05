@@ -6,7 +6,9 @@ import api from '../../services/api';
  * Allows customizing AI behavior for a specific client (overrides platform defaults)
  */
 export default function ClientAIBehavior({ clientId, clientName }) {
-  const [config, setConfig] = useState(null);
+  const [config, setConfig] = useState(null); // Display config (merged)
+  const [platformDefaults, setPlatformDefaults] = useState(null); // Platform defaults
+  const [originalOverrides, setOriginalOverrides] = useState(null); // Original client overrides
   const [hasCustomConfig, setHasCustomConfig] = useState(false);
   const [customizedFields, setCustomizedFields] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,6 +16,7 @@ export default function ClientAIBehavior({ clientId, clientName }) {
   const [message, setMessage] = useState(null);
   const [preview, setPreview] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
     loadConfig();
@@ -21,10 +24,18 @@ export default function ClientAIBehavior({ clientId, clientName }) {
 
   const loadConfig = async () => {
     try {
-      const response = await api.get(`/admin/clients/${clientId}/prompt-config`);
-      setConfig(response.data.effective);
-      setHasCustomConfig(response.data.hasCustomConfig);
-      setCustomizedFields(response.data.customizedFields || []);
+      // Load client config (effective + overrides)
+      const clientResponse = await api.get(`/admin/clients/${clientId}/prompt-config`);
+
+      // Load platform defaults separately
+      const defaultsResponse = await api.get('/admin/prompt-config');
+
+      setConfig(clientResponse.data.effective);
+      setPlatformDefaults(defaultsResponse.data);
+      setOriginalOverrides(JSON.parse(JSON.stringify(clientResponse.data.overrides || {}))); // Deep copy
+      setHasCustomConfig(clientResponse.data.hasCustomConfig);
+      setCustomizedFields(clientResponse.data.customizedFields || []);
+      setHasUnsavedChanges(false); // Reset on load
     } catch (error) {
       console.error('Failed to load client prompt config:', error);
       setMessage({ type: 'error', text: 'Failed to load AI behavior settings' });
@@ -33,13 +44,50 @@ export default function ClientAIBehavior({ clientId, clientName }) {
     }
   };
 
+  // Track changes to config
+  useEffect(() => {
+    if (!config || !platformDefaults || !originalOverrides) return;
+
+    // Compare current config with original overrides to detect unsaved changes
+    const currentOverrides = computeOverrides(config, platformDefaults);
+    const hasChanges = JSON.stringify(currentOverrides) !== JSON.stringify(originalOverrides);
+    setHasUnsavedChanges(hasChanges);
+  }, [config, platformDefaults, originalOverrides]);
+
+  // Helper function to compute which fields differ from platform defaults
+  const computeOverrides = (currentConfig, defaults) => {
+    if (!currentConfig || !defaults) return {};
+
+    const overrides = {};
+    const fields = ['reasoning_enabled', 'reasoning_steps', 'response_style', 'tool_rules', 'custom_instructions'];
+
+    fields.forEach(field => {
+      const currentValue = currentConfig[field];
+      const defaultValue = defaults[field];
+
+      // Deep comparison for objects/arrays
+      if (JSON.stringify(currentValue) !== JSON.stringify(defaultValue)) {
+        overrides[field] = currentValue;
+      }
+    });
+
+    return overrides;
+  };
+
   // Helper to check if a field is customized
   const isCustomized = (field) => customizedFields.includes(field);
 
   const saveConfig = async () => {
     setSaving(true);
     try {
-      await api.put(`/admin/clients/${clientId}/prompt-config`, config);
+      // Only send fields that differ from platform defaults
+      const overridesToSave = computeOverrides(config, platformDefaults);
+
+      await api.put(`/admin/clients/${clientId}/prompt-config`, overridesToSave);
+
+      // Update original overrides to match what we just saved
+      setOriginalOverrides(JSON.parse(JSON.stringify(overridesToSave)));
+
       // Reload to get updated customizedFields from server
       await loadConfig();
       setMessage({ type: 'success', text: 'AI behavior settings saved!' });
@@ -336,8 +384,9 @@ export default function ClientAIBehavior({ clientId, clientName }) {
           </button>
           <button
             onClick={saveConfig}
-            disabled={saving}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+            disabled={saving || !hasUnsavedChanges}
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={!hasUnsavedChanges ? 'No changes to save' : ''}
           >
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
