@@ -1,8 +1,5 @@
 import { ClientIntegration } from '../models/ClientIntegration.js';
-import { TIMEOUTS, HTTP_STATUS } from '../config/constants.js';
-import { createLogger } from '../utils/logger.js';
-
-const log = createLogger('Integration');
+import { TIMEOUTS } from '../config/constants.js';
 
 /**
  * Integration Service

@@ -10,7 +10,7 @@ import integrationService from './integrationService.js';
 import escalationService from './escalationService.js';
 import { safeJsonParse } from '../utils/jsonUtils.js';
 import { createLogger } from '../utils/logger.js';
-import { LIMITS, CONVERSATION, HTTP_STATUS } from '../config/constants.js';
+import { LIMITS } from '../config/constants.js';
 import {
   STRONG_ENDING_PHRASES,
   WEAK_ENDING_PHRASES,

@@ -344,7 +344,7 @@ describe('ToolManager', () => {
       it('should reject phone fields without any digits', () => {
         const result = toolManager.detectPlaceholderValue('phone', 'phonenumber');
         expect(result).not.toBeNull();
-        expect(result).toContain("doesn't");
+        expect(result).toContain('description');
       });
     });
 

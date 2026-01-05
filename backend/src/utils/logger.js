@@ -63,7 +63,7 @@ logStream.on('error', (err) => {
 process.on('exit', () => {
   try {
     logStream.end();
-  } catch (err) {
+  } catch {
     // Ignore errors during shutdown
   }
 });
@@ -71,7 +71,7 @@ process.on('exit', () => {
 process.on('SIGINT', () => {
   try {
     logStream.end();
-  } catch (err) {
+  } catch {
     // Ignore errors during shutdown
   }
   process.exit(0);
@@ -80,7 +80,7 @@ process.on('SIGINT', () => {
 process.on('SIGTERM', () => {
   try {
     logStream.end();
-  } catch (err) {
+  } catch {
     // Ignore errors during shutdown
   }
   process.exit(0);
@@ -95,6 +95,7 @@ function sanitizeLogInput(input) {
     return input;
   }
   // Remove control characters, newlines, tabs, and other dangerous characters
+  // eslint-disable-next-line no-control-regex
   return input.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
 }
 

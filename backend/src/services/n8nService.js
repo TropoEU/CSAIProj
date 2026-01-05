@@ -8,7 +8,7 @@
  * - Track execution time
  */
 
-import { TIMEOUTS, LIMITS, RETRY, HTTP_STATUS } from '../config/constants.js';
+import { TIMEOUTS, LIMITS, RETRY } from '../config/constants.js';
 import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('n8n');
@@ -671,7 +671,7 @@ class N8nService {
 
       // Exponential backoff: initial delay * 2^(attempt-1)
       const delay = Math.pow(RETRY.BACKOFF_MULTIPLIER, attempt - 1) * RETRY.INITIAL_DELAY;
-      log.info(`Retrying tool execution`, { delay, attempt, maxRetries });
+      log.info('Retrying tool execution', { delay, attempt, maxRetries });
       await new Promise(resolve => setTimeout(resolve, delay));
     }
 
