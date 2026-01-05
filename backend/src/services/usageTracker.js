@@ -96,6 +96,9 @@ export class UsageTracker {
         SUM(tokens_input + tokens_output) as tokens_total,
         SUM(tool_calls_count) as tool_calls,
         SUM(cost_estimate) as cost,
+        SUM(adaptive_count) as adaptive_count,
+        SUM(critique_count) as critique_count,
+        SUM(context_fetch_count) as context_fetch_count,
         COUNT(DISTINCT date) as active_days
        FROM api_usage
        WHERE client_id = $1
@@ -115,6 +118,11 @@ export class UsageTracker {
       },
       toolCalls: parseInt(usage.tool_calls, 10) || 0,
       cost: parseFloat(usage.cost) || 0,
+      reasoning: {
+        adaptiveMessages: parseInt(usage.adaptive_count, 10) || 0,
+        critiqueTriggers: parseInt(usage.critique_count, 10) || 0,
+        contextFetches: parseInt(usage.context_fetch_count, 10) || 0,
+      },
       activeDays: parseInt(usage.active_days, 10) || 0,
       period,
     };

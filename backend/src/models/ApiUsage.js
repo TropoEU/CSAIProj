@@ -10,8 +10,9 @@ export class ApiUsage {
      * @param {number} tokensOutput - Output tokens used
      * @param {number} toolCallsCount - Number of tool calls
      * @param {boolean} isNewConversation - Whether this is a new conversation (default: false)
+     * @param {Object} reasoningMetrics - Optional reasoning metrics {isAdaptive, critiqueTriggered, contextFetchCount}
      */
-    static async recordUsage(clientId, tokensInput, tokensOutput, toolCallsCount = 0, isNewConversation = false) {
+    static async recordUsage(clientId, tokensInput, tokensOutput, toolCallsCount = 0, isNewConversation = false, reasoningMetrics = {}) {
         const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
         // Calculate cost estimate based on client's plan pricing
@@ -36,10 +37,15 @@ export class ApiUsage {
 
         // Convert boolean to explicit boolean for PostgreSQL
         const isNewConvBool = Boolean(isNewConversation);
-        
+
+        // Extract reasoning metrics with defaults
+        const adaptiveIncrement = reasoningMetrics.isAdaptive ? 1 : 0;
+        const critiqueIncrement = reasoningMetrics.critiqueTriggered ? 1 : 0;
+        const contextFetchCount = reasoningMetrics.contextFetchCount || 0;
+
         const result = await db.query(
-            `INSERT INTO api_usage (client_id, date, conversation_count, message_count, tokens_input, tokens_output, tool_calls_count, cost_estimate)
-             VALUES ($1, $2, CASE WHEN $7::boolean THEN 1 ELSE 0 END, 1, $3, $4, $5, $6)
+            `INSERT INTO api_usage (client_id, date, conversation_count, message_count, tokens_input, tokens_output, tool_calls_count, cost_estimate, adaptive_count, critique_count, context_fetch_count)
+             VALUES ($1, $2, CASE WHEN $7::boolean THEN 1 ELSE 0 END, 1, $3, $4, $5, $6, $8, $9, $10)
              ON CONFLICT (client_id, date)
              DO UPDATE SET
                 conversation_count = api_usage.conversation_count + CASE WHEN $7::boolean THEN 1 ELSE 0 END,
@@ -48,9 +54,12 @@ export class ApiUsage {
                 tokens_output = api_usage.tokens_output + $4,
                 tool_calls_count = api_usage.tool_calls_count + $5,
                 cost_estimate = api_usage.cost_estimate + $6,
+                adaptive_count = api_usage.adaptive_count + $8,
+                critique_count = api_usage.critique_count + $9,
+                context_fetch_count = api_usage.context_fetch_count + $10,
                 updated_at = NOW()
              RETURNING *`,
-            [clientId, date, tokensInput, tokensOutput, toolCallsCount, costEstimate, isNewConvBool]
+            [clientId, date, tokensInput, tokensOutput, toolCallsCount, costEstimate, isNewConvBool, adaptiveIncrement, critiqueIncrement, contextFetchCount]
         );
         return result.rows[0];
     }
@@ -77,7 +86,10 @@ export class ApiUsage {
                 SUM(tokens_input) as total_tokens_input,
                 SUM(tokens_output) as total_tokens_output,
                 SUM(tool_calls_count) as total_tool_calls,
-                SUM(cost_estimate) as total_cost
+                SUM(cost_estimate) as total_cost,
+                SUM(adaptive_count) as total_adaptive,
+                SUM(critique_count) as total_critique,
+                SUM(context_fetch_count) as total_context_fetches
              FROM api_usage
              WHERE client_id = $1
              AND date >= DATE_TRUNC('month', CURRENT_DATE)`,

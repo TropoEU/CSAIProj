@@ -183,6 +183,10 @@ export const translations = {
       successRate: 'Success Rate',
       avgTime: 'Avg Time',
       noToolUsage: 'No tool usage data available',
+      aiReasoningMetrics: 'AI Reasoning Metrics (Adaptive Mode)',
+      adaptiveMessages: 'Adaptive Mode Messages',
+      critiqueTriggers: 'Critique Triggers',
+      contextFetches: 'Context Fetches',
     },
 
     // Settings page
@@ -510,6 +514,10 @@ export const translations = {
       successRate: 'אחוז הצלחה',
       avgTime: 'זמן ממוצע',
       noToolUsage: 'אין נתוני שימוש בכלים',
+      aiReasoningMetrics: 'מדדי חשיבה של AI (מצב אדפטיבי)',
+      adaptiveMessages: 'הודעות במצב אדפטיבי',
+      critiqueTriggers: 'הפעלות ביקורת',
+      contextFetches: 'שליפות הקשר',
     },
 
     // Settings page

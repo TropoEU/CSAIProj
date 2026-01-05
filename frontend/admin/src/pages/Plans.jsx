@@ -43,6 +43,7 @@ export default function Plans() {
       usageMultiplier: '0',
       isActive: true,
       sortOrder: 0,
+      aiMode: 'standard',
       features: {
         llmProvider: 'ollama',
         customBranding: false,
@@ -122,6 +123,7 @@ export default function Plans() {
       usageMultiplier: plan.usage_multiplier || '0',
       isActive: plan.is_active,
       sortOrder: plan.sort_order || 0,
+      aiMode: plan.ai_mode || 'standard',
       features: plan.features || {},
     });
     setIsEditModalOpen(true);
@@ -296,6 +298,24 @@ export default function Plans() {
               <option value="gpt-4o">GPT-4o</option>
             </select>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              AI Reasoning Mode
+              <span className="ml-1 text-xs text-gray-500">(affects safety & cost)</span>
+            </label>
+            <select
+              {...form.register('aiMode')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="standard">Standard (Fast, single call)</option>
+              <option value="adaptive">Adaptive (Safe, validates actions)</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Adaptive mode adds self-assessment and validation for risky actions
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
           <Input
             label="Sort Order"
             type="number"
@@ -393,6 +413,7 @@ export default function Plans() {
                 <TableHeader>Plan</TableHeader>
                 <TableHeader>Limits</TableHeader>
                 <TableHeader>Pricing</TableHeader>
+                <TableHeader>AI Mode</TableHeader>
                 <TableHeader>Clients</TableHeader>
                 <TableHeader>Status</TableHeader>
                 <TableHeader>Actions</TableHeader>
@@ -432,6 +453,11 @@ export default function Plans() {
                         </div>
                       )}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={plan.ai_mode === 'adaptive' ? 'primary' : 'default'} size="sm">
+                      {plan.ai_mode === 'adaptive' ? 'Adaptive' : 'Standard'}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <span className="font-medium">{plan.clients_count || 0}</span>

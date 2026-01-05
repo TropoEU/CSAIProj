@@ -310,6 +310,7 @@ export default function UsageReports() {
       {/* Usage Summary Cards */}
       {!loading && summary && (
         <>
+          {/* Main Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             <div className="bg-white shadow rounded-lg p-6">
               <div className="flex items-center justify-between">
@@ -395,6 +396,68 @@ export default function UsageReports() {
               </div>
             </div>
           </div>
+
+          {/* Reasoning Metrics (Adaptive Mode) */}
+          {summary.reasoning && (summary.reasoning.adaptiveMessages > 0 || summary.reasoning.critiqueTriggers > 0 || summary.reasoning.contextFetches > 0) && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Adaptive Mode Messages</p>
+                    <p className="text-2xl font-bold text-gray-900 mt-1">
+                      {formatNumber(summary.reasoning.adaptiveMessages)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {summary.messages > 0 ? `${Math.round((summary.reasoning.adaptiveMessages / summary.messages) * 100)}% of messages` : '0%'}
+                    </p>
+                  </div>
+                  <div className="bg-indigo-100 rounded-full p-3">
+                    <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Critique Triggers</p>
+                    <p className="text-2xl font-bold text-gray-900 mt-1">
+                      {formatNumber(summary.reasoning.critiqueTriggers)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {summary.reasoning.adaptiveMessages > 0 ? `${Math.round((summary.reasoning.critiqueTriggers / summary.reasoning.adaptiveMessages) * 100)}% of adaptive` : '0%'}
+                    </p>
+                  </div>
+                  <div className="bg-orange-100 rounded-full p-3">
+                    <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Context Fetches</p>
+                    <p className="text-2xl font-bold text-gray-900 mt-1">
+                      {formatNumber(summary.reasoning.contextFetches)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {summary.reasoning.adaptiveMessages > 0 ? `${(summary.reasoning.contextFetches / summary.reasoning.adaptiveMessages).toFixed(2)} avg per adaptive msg` : '0 avg'}
+                    </p>
+                  </div>
+                  <div className="bg-teal-100 rounded-full p-3">
+                    <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Additional Stats */}
           <div className="bg-white shadow rounded-lg p-6">

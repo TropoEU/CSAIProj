@@ -326,6 +326,90 @@ export function getErrorMessage() {
   return 'I\'m sorry, I\'m having trouble processing that request. Please try again.';
 }
 
+/**
+ * Get system prompt for Adaptive mode with self-assessment instructions
+ * @param {Object} client - Client configuration
+ * @param {Array} tools - Available tools with full schemas
+ * @returns {String} System prompt with self-assessment instructions
+ */
+export function getAdaptiveModePrompt(client, tools = []) {
+  // For adaptive mode, use MINIMAL prompt - pull context when needed
+  const language = client.language || 'en';
+
+  // Minimal base prompt without business info
+  const basePrompt = `You are a customer support assistant for ${client.name}.
+
+${client.business_info?.custom_instructions || ''}
+
+Current date/time: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`;
+
+  // Format tool schemas for the AI
+  const toolDescriptions = tools.map(t => {
+    const schema = t.parameters_schema || {};
+    const required = schema.required || [];
+    const properties = schema.properties || {};
+
+    let toolDesc = `- **${t.tool_name}**: ${t.description || 'No description'}`;
+    if (required.length > 0) {
+      toolDesc += `\n  Required parameters: ${required.join(', ')}`;
+    }
+    if (Object.keys(properties).length > 0) {
+      toolDesc += `\n  Parameters:`;
+      for (const [param, details] of Object.entries(properties)) {
+        const isRequired = required.includes(param) ? ' (required)' : '';
+        toolDesc += `\n    - ${param}${isRequired}: ${details.description || details.type || ''}`;
+      }
+    }
+    return toolDesc;
+  }).join('\n\n');
+
+  const selfAssessmentInstructions = `
+
+## INSTRUCTIONS
+
+After your response, include reasoning and assessment blocks (English only):
+
+<reasoning>
+UNDERSTAND: [What is the user asking?]
+DECIDE: [Tool needed? Params? Context needed?]
+</reasoning>
+
+<assessment>
+{
+  "confidence": 8,
+  "tool_call": "tool_name",
+  "tool_params": {},
+  "missing_params": [],
+  "is_destructive": false,
+  "needs_confirmation": false,
+  "needs_more_context": []
+}
+</assessment>
+
+**Context Fetching**: Use needs_more_context to request:
+- "business_hours" - Operating hours
+- "contact_info" - Phone, email, address
+- "return_policy" - Return/refund policy
+- "shipping_policy" - Delivery info
+- "payment_methods" - Accepted payments
+- "faqs" - Common questions
+- "about_business" - Company description
+
+**Tools**:
+${toolDescriptions}
+
+**Rules**:
+- Set missing_params if tool needs params you don't have
+- Set needs_more_context if you need business info
+- Never guess/invent data`;
+
+  // Remove the "USE_TOOL" format section from base prompt for adaptive mode
+  // In adaptive mode, tools are communicated via the assessment block, not visible response
+  const adaptivePrompt = basePrompt.replace(/## TOOL FORMAT \(for models without native function calling\)[\s\S]*?(?=\n## |$)/g, '');
+
+  return adaptivePrompt + selfAssessmentInstructions;
+}
+
 // Legacy exports for backwards compatibility
 export const escalationMessage = getEscalationMessage();
 export const errorMessage = getErrorMessage();

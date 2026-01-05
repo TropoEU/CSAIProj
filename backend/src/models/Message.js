@@ -30,12 +30,13 @@ export class Message {
      * @param {number} options.tokensUsed - Tokens used
      * @param {string} options.toolCallId - Tool call ID for matching
      * @param {object} options.metadata - Additional metadata (tool_calls array, etc.)
+     * @param {string} options.reasonCode - Structured reason code for analytics
      */
     static async createDebug(conversationId, role, content, messageType = 'visible', options = {}) {
-        const { tokensUsed = 0, toolCallId = null, metadata = null } = options;
+        const { tokensUsed = 0, toolCallId = null, metadata = null, reasonCode = null } = options;
         const result = await db.query(
-            `INSERT INTO messages (conversation_id, role, content, tokens_used, message_type, tool_call_id, metadata)
-             VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+            `INSERT INTO messages (conversation_id, role, content, tokens_used, message_type, tool_call_id, metadata, reason_code)
+             VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
              RETURNING *`,
             [
                 conversationId,
@@ -44,7 +45,8 @@ export class Message {
                 tokensUsed,
                 messageType,
                 toolCallId,
-                metadata ? JSON.stringify(metadata) : null
+                metadata ? JSON.stringify(metadata) : null,
+                reasonCode
             ]
         );
         return result.rows[0];

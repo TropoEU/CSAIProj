@@ -1,6 +1,7 @@
 import { Conversation } from '../models/Conversation.js';
 import { Message } from '../models/Message.js';
 import { ToolExecution } from '../models/ToolExecution.js';
+import { Plan } from '../models/Plan.js';
 import { RedisCache } from './redisCache.js';
 import { getContextualSystemPrompt } from '../prompts/systemPrompt.js';
 import llmService from './llmService.js';
@@ -8,6 +9,7 @@ import toolManager from './toolManager.js';
 import n8nService from './n8nService.js';
 import integrationService from './integrationService.js';
 import escalationService from './escalationService.js';
+import adaptiveReasoningService from './adaptiveReasoningService.js';
 import { safeJsonParse } from '../utils/jsonUtils.js';
 import { createLogger } from '../utils/logger.js';
 import { LIMITS } from '../config/constants.js';
@@ -757,7 +759,14 @@ class ConversationService {
       const toolCallsCount = toolsUsed.length;
 
       log.debug(`Recording usage: client=${client.id}, tokens=${tokensInput + tokensOutput}, tools=${toolCallsCount}, newConversation=${isNewConversation}`);
-      await ApiUsage.recordUsage(client.id, tokensInput, tokensOutput, toolCallsCount, isNewConversation);
+      await ApiUsage.recordUsage(
+        client.id,
+        tokensInput,
+        tokensOutput,
+        toolCallsCount,
+        isNewConversation,
+        { isAdaptive: false, critiqueTriggered: false, contextFetchCount: 0 } // Standard mode metrics
+      );
       log.debug('Usage recorded successfully');
     } catch (usageError) {
       log.error('Failed to record usage', usageError);
@@ -814,6 +823,61 @@ class ConversationService {
       if (!options.skipUserMessageSave) {
         await this.addMessage(conversation.id, 'user', userMessage);
       }
+
+      // Check if client's plan uses Adaptive mode
+      const plan = await Plan.findByName(client.plan_type || 'unlimited');
+      const aiMode = plan?.ai_mode || 'standard';
+
+      if (aiMode === 'adaptive') {
+        log.info(`[Conversation] Using Adaptive mode for client ${client.id}`);
+        // Route to adaptive reasoning service
+        const result = await adaptiveReasoningService.processAdaptiveMessage(
+          conversation.id,
+          client.id,
+          userMessage,
+          client,
+          conversation
+        );
+
+        // Record usage for billing/analytics
+        try {
+          const { ApiUsage } = await import('../models/ApiUsage.js');
+          // Note: Token tracking in adaptive mode needs enhancement
+          // For now, we track reasoning metrics but not precise token counts
+          const toolCallsCount = result.tool_executed ? 1 : 0;
+          const reasoningMetrics = result.reasoningMetrics || {
+            isAdaptive: true,
+            critiqueTriggered: false,
+            contextFetchCount: 0
+          };
+
+          log.debug(`Recording adaptive mode usage: client=${client.id}, tools=${toolCallsCount}, metrics=`, reasoningMetrics);
+          await ApiUsage.recordUsage(
+            client.id,
+            0, // tokensInput - TODO: aggregate from multiple LLM calls
+            0, // tokensOutput - TODO: aggregate from multiple LLM calls
+            toolCallsCount,
+            false, // isNewConversation - conversation already exists
+            reasoningMetrics
+          );
+          log.debug('Usage recorded successfully');
+        } catch (usageError) {
+          log.error('Failed to record usage', usageError);
+        }
+
+        return {
+          response: result.response,
+          conversationId: conversation.id,
+          sessionId,
+          toolExecuted: result.tool_executed,
+          toolResult: result.tool_result,
+          mode: 'adaptive',
+          reasonCode: result.reason_code
+        };
+      }
+
+      // Standard mode - continue with existing flow
+      log.info(`[Conversation] Using Standard mode for client ${client.id}`);
 
       // Get enabled tools and prepare context
       const clientTools = await toolManager.getClientTools(client.id);

@@ -585,6 +585,87 @@ class LLMService {
   }
 
   /**
+   * Parse self-assessment block from LLM response (Adaptive mode)
+   * @param {string} response - Full LLM response with assessment block
+   * @returns {Object} { visible_response, assessment } or { visible_response, assessment: null } if no assessment found
+   */
+  parseAssessment(response) {
+    try {
+      // Extract reasoning block (if present)
+      const reasoningMatch = response.match(/<reasoning>\s*([\s\S]*?)\s*<\/reasoning>/i);
+      const reasoning = reasoningMatch ? reasoningMatch[1].trim() : null;
+
+      // Extract assessment block
+      const assessmentMatch = response.match(/<assessment>\s*([\s\S]*?)\s*<\/assessment>/i);
+
+      if (!assessmentMatch) {
+        // No assessment block found - this is fine for standard mode or when critique is skipped
+        return {
+          visible_response: response.trim(),
+          assessment: null,
+          reasoning: null
+        };
+      }
+
+      // Remove both reasoning and assessment blocks from visible response
+      const visible_response = response
+        .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '')
+        .replace(/<assessment>[\s\S]*?<\/assessment>/gi, '')
+        .trim();
+
+      // Parse JSON assessment
+      const assessmentJson = assessmentMatch[1].trim();
+
+      // Remove JavaScript-style comments if present
+      const cleanedJson = assessmentJson
+        .replace(/\/\/.*$/gm, '') // Remove single-line comments
+        .replace(/\/\*[\s\S]*?\*\//g, ''); // Remove multi-line comments
+
+      const assessment = JSON.parse(cleanedJson);
+
+      // Validate required fields
+      const requiredFields = ['confidence', 'tool_call', 'tool_params', 'missing_params', 'is_destructive', 'needs_confirmation'];
+      const missingFields = requiredFields.filter(field => !(field in assessment));
+
+      if (missingFields.length > 0) {
+        console.warn('[LLMService] Assessment missing fields:', missingFields);
+        // Fill in defaults for missing fields
+        if (!('confidence' in assessment)) assessment.confidence = 5;
+        if (!('tool_call' in assessment)) assessment.tool_call = null;
+        if (!('tool_params' in assessment)) assessment.tool_params = {};
+        if (!('missing_params' in assessment)) assessment.missing_params = [];
+        if (!('is_destructive' in assessment)) assessment.is_destructive = false;
+        if (!('needs_confirmation' in assessment)) assessment.needs_confirmation = false;
+        if (!('needs_more_context' in assessment)) assessment.needs_more_context = [];
+      }
+
+      // Validate types
+      assessment.confidence = Math.min(10, Math.max(1, parseInt(assessment.confidence) || 5));
+      assessment.tool_call = assessment.tool_call || null;
+      assessment.tool_params = assessment.tool_params || {};
+      assessment.missing_params = Array.isArray(assessment.missing_params) ? assessment.missing_params : [];
+      assessment.is_destructive = Boolean(assessment.is_destructive);
+      assessment.needs_confirmation = Boolean(assessment.needs_confirmation);
+      assessment.needs_more_context = Array.isArray(assessment.needs_more_context) ? assessment.needs_more_context : [];
+
+      return {
+        visible_response,
+        assessment,
+        reasoning
+      };
+    } catch (error) {
+      console.error('[LLMService] Failed to parse assessment:', error.message);
+      // Return full response as visible if parsing fails
+      return {
+        visible_response: response.trim(),
+        assessment: null,
+        reasoning: null,
+        parse_error: error.message
+      };
+    }
+  }
+
+  /**
    * Handle errors with retry logic
    */
   handleError(error) {

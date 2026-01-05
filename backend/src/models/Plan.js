@@ -124,7 +124,7 @@ export class Plan {
       'conversations_per_month', 'messages_per_month', 'tokens_per_month',
       'tool_calls_per_month', 'integrations_enabled', 'cost_limit_usd',
       'features', 'base_cost', 'usage_multiplier',
-      'is_default', 'is_active', 'sort_order'
+      'is_default', 'is_active', 'sort_order', 'ai_mode'
     ];
 
     // Map camelCase to snake_case
@@ -141,6 +141,7 @@ export class Plan {
       isDefault: 'is_default',
       isActive: 'is_active',
       sortOrder: 'sort_order',
+      aiMode: 'ai_mode',
     };
 
     // Convert camelCase keys to snake_case
@@ -241,6 +242,7 @@ export class Plan {
         baseCost: parseFloat(plan.base_cost) || 0,
         usageMultiplier: parseFloat(plan.usage_multiplier) || 0,
       },
+      aiMode: plan.ai_mode || 'standard',
     };
   }
 

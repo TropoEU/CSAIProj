@@ -9,6 +9,7 @@ import crypto from 'crypto';
  * - Rate limiting per client
  * - Response caching to save API costs
  * - Session locks to prevent duplicate processing
+ * - Pending intent caching for confirmation matching
  */
 export class RedisCache {
     // Key prefixes
@@ -16,12 +17,14 @@ export class RedisCache {
     static RATE_LIMIT_PREFIX = 'rate_limit:';
     static CACHE_PREFIX = 'cache:';
     static LOCK_PREFIX = 'lock:conversation:';
+    static PENDING_INTENT_PREFIX = 'pending_intent:';
 
     // TTL values (in seconds)
     static CONVERSATION_TTL = 3600; // 1 hour
     static RATE_LIMIT_TTL = 60; // 60 seconds
     static CACHE_TTL = 300; // 5 minutes
     static LOCK_TTL = 30; // 30 seconds
+    static PENDING_INTENT_TTL = 300; // 5 minutes
 
     /**
      * ============================================
@@ -328,6 +331,95 @@ export class RedisCache {
         }
         
         return false;
+    }
+
+    /**
+     * ============================================
+     * PENDING INTENT (for confirmation matching)
+     * ============================================
+     */
+
+    /**
+     * Store a pending intent for confirmation matching
+     * @param {string} conversationId - Conversation identifier
+     * @param {Object} intent - Intent data {tool, params, hash, timestamp}
+     * @param {number} ttl - Optional custom TTL (default: 5 minutes)
+     * @returns {Promise<boolean>} Success status
+     */
+    static async setPendingIntent(conversationId, intent, ttl = null) {
+        try {
+            const key = `${this.PENDING_INTENT_PREFIX}${conversationId}`;
+            const value = JSON.stringify({
+                ...intent,
+                stored_at: new Date().toISOString()
+            });
+
+            const intentTtl = ttl || this.PENDING_INTENT_TTL;
+            await redisClient.setex(key, intentTtl, value);
+            return true;
+        } catch (error) {
+            console.error('Set pending intent failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Get pending intent for a conversation
+     * @param {string} conversationId - Conversation identifier
+     * @returns {Promise<Object|null>} Intent data or null if not found/expired
+     */
+    static async getPendingIntent(conversationId) {
+        try {
+            const key = `${this.PENDING_INTENT_PREFIX}${conversationId}`;
+            const value = await redisClient.get(key);
+
+            if (!value) {
+                return null;
+            }
+
+            return JSON.parse(value);
+        } catch (error) {
+            console.error('Get pending intent failed:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Clear pending intent for a conversation
+     * @param {string} conversationId - Conversation identifier
+     * @returns {Promise<boolean>} Success status
+     */
+    static async clearPendingIntent(conversationId) {
+        try {
+            const key = `${this.PENDING_INTENT_PREFIX}${conversationId}`;
+            const result = await redisClient.del(key);
+            return result > 0;
+        } catch (error) {
+            console.error('Clear pending intent failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Verify if pending intent matches current intent
+     * @param {string} conversationId - Conversation identifier
+     * @param {string} currentHash - Hash of current intent (tool + params)
+     * @returns {Promise<{matches: boolean, intent: Object|null}>}
+     */
+    static async verifyPendingIntent(conversationId, currentHash) {
+        try {
+            const pending = await this.getPendingIntent(conversationId);
+
+            if (!pending) {
+                return { matches: false, intent: null };
+            }
+
+            const matches = pending.hash === currentHash;
+            return { matches, intent: pending };
+        } catch (error) {
+            console.error('Verify pending intent failed:', error);
+            return { matches: false, intent: null };
+        }
     }
 
     /**

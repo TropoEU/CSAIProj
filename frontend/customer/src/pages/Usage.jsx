@@ -166,6 +166,36 @@ export default function Usage() {
         </div>
       </div>
 
+      {/* Reasoning Metrics (Adaptive Mode) */}
+      {usageData?.reasoning && (usageData.reasoning.adaptiveMessages > 0 || usageData.reasoning.critiqueTriggers > 0 || usageData.reasoning.contextFetches > 0) && (
+        <div className="card p-6">
+          <h2 className="text-lg font-semibold mb-4">{t('usage.aiReasoningMetrics')}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <h3 className="text-sm text-gray-600 mb-2">{t('usage.adaptiveMessages')}</h3>
+              <p className="text-2xl font-bold text-gray-900">{formatNumber(usageData.reasoning.adaptiveMessages)}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {usageData?.conversations > 0 ? `${Math.round((usageData.reasoning.adaptiveMessages / (usageData.conversations || 1)) * 100)}% of messages` : '0%'}
+              </p>
+            </div>
+            <div>
+              <h3 className="text-sm text-gray-600 mb-2">{t('usage.critiqueTriggers')}</h3>
+              <p className="text-2xl font-bold text-gray-900">{formatNumber(usageData.reasoning.critiqueTriggers)}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {usageData.reasoning.adaptiveMessages > 0 ? `${Math.round((usageData.reasoning.critiqueTriggers / usageData.reasoning.adaptiveMessages) * 100)}% of adaptive` : '0%'}
+              </p>
+            </div>
+            <div>
+              <h3 className="text-sm text-gray-600 mb-2">{t('usage.contextFetches')}</h3>
+              <p className="text-2xl font-bold text-gray-900">{formatNumber(usageData.reasoning.contextFetches)}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {usageData.reasoning.adaptiveMessages > 0 ? `${(usageData.reasoning.contextFetches / usageData.reasoning.adaptiveMessages).toFixed(2)} avg per adaptive` : '0 avg'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tool Usage Breakdown */}
       {toolUsage && toolUsage.tools && toolUsage.tools.length > 0 && (
         <div className="card p-6">
