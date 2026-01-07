@@ -250,11 +250,13 @@ router.get('/:id/export', async (req, res) => {
       for (const msg of messages) {
         const msgType = msg.message_type || 'visible';
         const typeLabel = {
-          'visible': '',
+          'visible': '[VISIBLE]',
           'system': '[SYSTEM PROMPT]',
           'tool_call': '[TOOL CALL]',
           'tool_result': '[TOOL RESULT]',
           'internal': '[INTERNAL]',
+          'assessment': '[REASONING]',
+          'critique': '[CRITIQUE]',
         }[msgType] || `[${msgType.toUpperCase()}]`;
 
         const roleLabel = msg.role.toUpperCase();
@@ -262,11 +264,30 @@ router.get('/:id/export', async (req, res) => {
 
         text += `--- ${roleLabel} ${typeLabel} (${timestamp}) ---\n`;
 
-        if (msg.metadata) {
-          text += `Metadata: ${JSON.stringify(msg.metadata, null, 2)}\n`;
+        const content = msg.content || '(no content)';
+
+        // For exports, always include full content (including JSON)
+        // Try to pretty-print JSON for readability
+        let displayContent = content;
+        if (content.startsWith('{') || content.startsWith('[')) {
+          try {
+            const parsed = JSON.parse(content);
+            displayContent = JSON.stringify(parsed, null, 2);
+          } catch {
+            // Not valid JSON, show as-is
+          }
         }
 
-        text += `${msg.content || '(no content)'}\n`;
+        // Include metadata if present and different from content
+        if (msg.metadata) {
+          const metadataStr = JSON.stringify(msg.metadata, null, 2);
+          // Only show metadata if it adds information not already in content
+          if (metadataStr !== displayContent && metadataStr !== '{}') {
+            text += `Metadata: ${metadataStr}\n`;
+          }
+        }
+
+        text += `${displayContent}\n`;
         text += `Tokens: ${msg.tokens_used || 0}\n`;
         text += '\n';
       }

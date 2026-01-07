@@ -275,19 +275,38 @@ export function getContextualSystemPrompt(client, tools = [], context = {}) {
 }
 
 /**
- * Tool-specific instruction templates
+ * Tool-specific instruction templates (now loaded from config)
+ * This is kept for backwards compatibility - actual values come from database
  */
 export const toolInstructions = {
   get_order_status: 'When a customer asks about their order, always use the get_order_status tool. Ask for their order number if they haven\'t provided it.',
-
-  book_appointment: 'When a customer wants to schedule an appointment, reservation, or pickup, use the book_appointment tool immediately. Extract date and time from natural language (e.g., "today at 12:23 pm" = current date + "12:23"). Accept service types like "Pizza Pickup", "Table Reservation", "Delivery", etc. If customer provides name, email, phone, use them. If missing, use reasonable defaults or ask once, then proceed. DO NOT ask multiple times for the same information. DO NOT make up information that the customer did not provide.',
-
+  book_appointment: 'When a customer wants to schedule an appointment, reservation, or pickup, use the book_appointment tool immediately. Extract date and time from natural language. If customer provides name, email, phone, use them. If missing, use reasonable defaults or ask once, then proceed.',
   check_inventory: 'When a customer asks if a product is available, use the check_inventory tool with the product name or SKU.',
-
   get_product_info: 'When a customer asks about product details (price, specs, availability), use the get_product_info tool to fetch live data.',
-
   send_email: 'When a customer requests to receive information via email or needs documentation sent, use the send_email tool.'
 };
+
+/**
+ * Get tool instructions from config with fallback to defaults
+ * @param {string} toolName - Tool name
+ * @param {Object} config - Prompt config (optional)
+ * @returns {string} Tool instruction
+ */
+export function getToolInstruction(toolName, config = null) {
+  const configInstructions = config?.tool_instructions || cachedDefaultConfig?.tool_instructions || {};
+  return configInstructions[toolName] || toolInstructions[toolName] || '';
+}
+
+/**
+ * Get all tool instructions from config
+ * @param {Object} config - Prompt config (optional)
+ * @returns {Object} Tool instructions map
+ */
+export function getAllToolInstructions(config = null) {
+  const defaults = toolInstructions;
+  const configInstructions = config?.tool_instructions || cachedDefaultConfig?.tool_instructions || {};
+  return { ...defaults, ...configInstructions };
+}
 
 /**
  * Get conversation starter message
@@ -309,39 +328,94 @@ export function getGreeting(client) {
 export const fallbackGreeting = 'Hi! How can I help you today?';
 
 /**
+ * Default messages (used as fallbacks)
+ */
+const defaultMessages = {
+  escalation: 'I apologize, but this request requires human assistance. Let me connect you with a team member who can better help you.',
+  error: 'I\'m sorry, I\'m having trouble processing that request. Please try again.'
+};
+
+/**
  * Escalation message template (English only - AI will translate)
  * Used as context for the AI to know what to communicate
+ * @param {Object} config - Prompt config (optional)
  * @returns {String} Escalation message
  */
-export function getEscalationMessage() {
-  return 'I apologize, but this request requires human assistance. Let me connect you with a team member who can better help you.';
+export function getEscalationMessage(config = null) {
+  return config?.escalation_message || cachedDefaultConfig?.escalation_message || defaultMessages.escalation;
 }
 
 /**
  * Error handling message template (English only - AI will translate)
  * Used as fallback when AI fails to respond
+ * @param {Object} config - Prompt config (optional)
  * @returns {String} Error message
  */
-export function getErrorMessage() {
-  return 'I\'m sorry, I\'m having trouble processing that request. Please try again.';
+export function getErrorMessage(config = null) {
+  return config?.error_message || cachedDefaultConfig?.error_message || defaultMessages.error;
 }
 
 /**
- * Get system prompt for Adaptive mode with self-assessment instructions
+ * Get system prompt for Adaptive mode with self-assessment instructions (sync version)
+ * Uses cached config or hardcoded defaults
+ * Reuses the standard mode system prompt and adds adaptive-specific instructions
  * @param {Object} client - Client configuration
  * @param {Array} tools - Available tools with full schemas
  * @returns {String} System prompt with self-assessment instructions
  */
 export function getAdaptiveModePrompt(client, tools = []) {
-  // For adaptive mode, use MINIMAL prompt - pull context when needed
+  // Get defaults from PlatformConfig (sync - uses hardcoded defaults)
+  const config = PlatformConfig.getAdaptiveDefaults();
+  return buildAdaptivePromptFromConfig(client, tools, config);
+}
+
+/**
+ * Get system prompt for Adaptive mode (async version with database config)
+ * Reuses the standard mode system prompt and adds adaptive-specific instructions
+ * @param {Object} client - Client configuration
+ * @param {Array} tools - Available tools with full schemas
+ * @returns {Promise<String>} System prompt with self-assessment instructions
+ */
+export async function getAdaptiveModePromptAsync(client, tools = []) {
+  const config = await PlatformConfig.getAdaptivePromptConfig();
+  return buildAdaptivePromptFromConfig(client, tools, config);
+}
+
+/**
+ * Build adaptive mode prompt from config
+ * Uses a minimal base prompt and relies on contextFetcher for on-demand context loading
+ * @param {Object} client - Client configuration
+ * @param {Array} tools - Available tools
+ * @param {Object} config - Adaptive prompt config
+ * @returns {String} System prompt
+ */
+function buildAdaptivePromptFromConfig(client, tools, config) {
   const language = client.language || 'en';
 
-  // Minimal base prompt without business info
-  const basePrompt = `You are a customer support assistant for ${client.name}.
+  // Build intro from config template - minimal, without loading all business info
+  let prompt = (config.intro_template || 'You are a customer support assistant for {client_name}.')
+    .replace('{client_name}', client.name);
 
-${client.business_info?.custom_instructions || ''}
+  // Add custom AI instructions if available (these are always loaded)
+  if (client.business_info?.ai_instructions) {
+    prompt += `\n\n${client.business_info.ai_instructions}`;
+  }
 
-Current date/time: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`;
+  // Add current date/time
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const day = now.getDate();
+  const hours = now.getHours();
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'pm' : 'am';
+  const hour12 = hours % 12 || 12;
+  const simpleDateTime = `${month}/${day}/${year} ${hour12}:${minutes}${ampm}`;
+  const isoDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowIso = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+  prompt += `\n\nCurrent date/time: ${simpleDateTime}\nWhen calling tools: today=${isoDate}, tomorrow=${tomorrowIso}`;
 
   // Format tool schemas for the AI
   const toolDescriptions = tools.map(t => {
@@ -363,16 +437,39 @@ Current date/time: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeS
     return toolDesc;
   }).join('\n\n');
 
+  // Build reasoning section from config
+  const reasoningSteps = config.reasoning_steps || [];
+  let reasoningSection = '';
+  if (reasoningSteps.length > 0) {
+    reasoningSection = `<reasoning>
+${reasoningSteps.map(s => `${s.title}: [${s.instruction}]`).join('\n')}
+</reasoning>`;
+  }
+
+  // Build context keys section from config
+  const contextKeys = config.context_keys || [];
+  let contextSection = '';
+  if (contextKeys.length > 0) {
+    contextSection = `**Context Fetching**: Use needs_more_context to request:
+${contextKeys.map(c => `- "${c.key}" - ${c.description}`).join('\n')}`;
+  }
+
+  // Build tool rules section from config
+  const toolRules = config.tool_rules || [];
+  let rulesSection = '';
+  if (toolRules.length > 0) {
+    rulesSection = `**Rules**:
+${toolRules.map(r => `- ${r}`).join('\n')}`;
+  }
+
+  // Build the self-assessment instructions section
   const selfAssessmentInstructions = `
 
 ## INSTRUCTIONS
 
 After your response, include reasoning and assessment blocks (English only):
 
-<reasoning>
-UNDERSTAND: [What is the user asking?]
-DECIDE: [Tool needed? Params? Context needed?]
-</reasoning>
+${reasoningSection}
 
 <assessment>
 {
@@ -386,28 +483,33 @@ DECIDE: [Tool needed? Params? Context needed?]
 }
 </assessment>
 
-**Context Fetching**: Use needs_more_context to request:
-- "business_hours" - Operating hours
-- "contact_info" - Phone, email, address
-- "return_policy" - Return/refund policy
-- "shipping_policy" - Delivery info
-- "payment_methods" - Accepted payments
-- "faqs" - Common questions
-- "about_business" - Company description
+${contextSection}
 
 **Tools**:
 ${toolDescriptions}
 
-**Rules**:
-- Set missing_params if tool needs params you don't have
-- Set needs_more_context if you need business info
-- Never guess/invent data`;
+${rulesSection}
 
-  // Remove the "USE_TOOL" format section from base prompt for adaptive mode
-  // In adaptive mode, tools are communicated via the assessment block, not visible response
-  const adaptivePrompt = basePrompt.replace(/## TOOL FORMAT \(for models without native function calling\)[\s\S]*?(?=\n## |$)/g, '');
+**Important**: When tool parameters are missing, ask the customer naturally in the target language. Do not use technical parameter names.`;
 
-  return adaptivePrompt + selfAssessmentInstructions;
+  // Add language instruction for non-English
+  let languageSection = '';
+  if (language !== 'en') {
+    const defaultLanguageNames = {
+      'en': 'English',
+      'he': 'Hebrew (עברית)',
+      'es': 'Spanish (Español)',
+      'fr': 'French (Français)',
+      'de': 'German (Deutsch)',
+      'ar': 'Arabic (العربية)',
+      'ru': 'Russian (Русский)'
+    };
+    const languageNames = config.language_names || defaultLanguageNames;
+    const langName = languageNames[language] || language;
+    languageSection = `\n\n**Language**: Respond in ${langName}. Assessment must remain in English.`;
+  }
+
+  return prompt + selfAssessmentInstructions + languageSection;
 }
 
 // Legacy exports for backwards compatibility

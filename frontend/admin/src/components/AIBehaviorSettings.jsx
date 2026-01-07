@@ -7,6 +7,7 @@ export default function AIBehaviorSettings({ onMessage }) {
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({});
 
   useEffect(() => {
     loadConfig();
@@ -103,6 +104,90 @@ export default function AIBehaviorSettings({ onMessage }) {
     });
   };
 
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  // Tone Instructions handlers
+  const updateToneInstruction = (tone, value) => {
+    setConfig({
+      ...config,
+      tone_instructions: { ...(config.tone_instructions || {}), [tone]: value }
+    });
+  };
+
+  // Formality Instructions handlers
+  const updateFormalityInstruction = (formality, value) => {
+    setConfig({
+      ...config,
+      formality_instructions: { ...(config.formality_instructions || {}), [formality]: value }
+    });
+  };
+
+  // Tool Instructions handlers
+  const updateToolInstruction = (toolName, value) => {
+    setConfig({
+      ...config,
+      tool_instructions: { ...(config.tool_instructions || {}), [toolName]: value }
+    });
+  };
+
+  const addToolInstruction = () => {
+    const newKey = `new_tool_${Date.now()}`;
+    setConfig({
+      ...config,
+      tool_instructions: { ...(config.tool_instructions || {}), [newKey]: '' }
+    });
+  };
+
+  const removeToolInstruction = (toolName) => {
+    const newInstructions = { ...(config.tool_instructions || {}) };
+    delete newInstructions[toolName];
+    setConfig({ ...config, tool_instructions: newInstructions });
+  };
+
+  const renameToolInstruction = (oldKey, newKey) => {
+    if (oldKey === newKey) return;
+    const instructions = config.tool_instructions || {};
+    const value = instructions[oldKey];
+    const newInstructions = { ...instructions };
+    delete newInstructions[oldKey];
+    newInstructions[newKey] = value;
+    setConfig({ ...config, tool_instructions: newInstructions });
+  };
+
+  // Language Names handlers
+  const updateLanguageName = (code, value) => {
+    setConfig({
+      ...config,
+      language_names: { ...(config.language_names || {}), [code]: value }
+    });
+  };
+
+  const addLanguage = () => {
+    const newCode = `xx`;
+    setConfig({
+      ...config,
+      language_names: { ...(config.language_names || {}), [newCode]: 'New Language' }
+    });
+  };
+
+  const removeLanguage = (code) => {
+    const newNames = { ...(config.language_names || {}) };
+    delete newNames[code];
+    setConfig({ ...config, language_names: newNames });
+  };
+
+  const renameLanguageCode = (oldCode, newCode) => {
+    if (oldCode === newCode) return;
+    const names = config.language_names || {};
+    const value = names[oldCode];
+    const newNames = { ...names };
+    delete newNames[oldCode];
+    newNames[newCode] = value;
+    setConfig({ ...config, language_names: newNames });
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -117,6 +202,13 @@ export default function AIBehaviorSettings({ onMessage }) {
 
   return (
     <div className="space-y-6">
+      {/* Info Banner */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p className="text-sm text-blue-800">
+          These settings configure the <strong>Standard Mode</strong> AI behavior. For advanced guided reasoning with self-assessment, see the <strong>Guided Reasoning</strong> tab.
+        </p>
+      </div>
+
       {/* Guided Reasoning Toggle */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between">
@@ -265,6 +357,229 @@ export default function AIBehaviorSettings({ onMessage }) {
         />
       </div>
 
+      {/* Intro Template */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Introduction Template</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          The opening instruction for the AI. Use <code className="bg-gray-100 px-1 rounded">{'{client_name}'}</code> as a placeholder.
+        </p>
+        <textarea
+          value={config.intro_template || ''}
+          onChange={(e) => setConfig({ ...config, intro_template: e.target.value })}
+          placeholder="You are a friendly customer support assistant for {client_name}."
+          rows={2}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+        />
+      </div>
+
+      {/* System Messages */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">System Messages</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Escalation Message</label>
+            <p className="text-xs text-gray-500 mb-2">Shown when conversation is escalated to human support</p>
+            <textarea
+              value={config.escalation_message || ''}
+              onChange={(e) => setConfig({ ...config, escalation_message: e.target.value })}
+              placeholder="I apologize, but this request requires human assistance..."
+              rows={2}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Error Message</label>
+            <p className="text-xs text-gray-500 mb-2">Shown when AI fails to process a request</p>
+            <textarea
+              value={config.error_message || ''}
+              onChange={(e) => setConfig({ ...config, error_message: e.target.value })}
+              placeholder="I'm sorry, I'm having trouble processing that request..."
+              rows={2}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Advanced Settings (Collapsible) */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <button
+          onClick={() => toggleSection('advanced')}
+          className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50"
+        >
+          <div>
+            <h3 className="text-lg font-medium text-gray-900">Advanced Settings</h3>
+            <p className="text-sm text-gray-500">Tone instructions, formality, language names, tool instructions</p>
+          </div>
+          <ChevronIcon expanded={expandedSections.advanced} />
+        </button>
+
+        {expandedSections.advanced && (
+          <div className="px-6 pb-6 space-y-6 border-t border-gray-100 pt-4">
+            {/* Tone Instructions */}
+            <div>
+              <h4 className="text-md font-medium text-gray-800 mb-3">Tone Instructions</h4>
+              <p className="text-sm text-gray-500 mb-3">Instructions for each tone option</p>
+              <div className="space-y-3">
+                {['friendly', 'professional', 'casual'].map((tone) => (
+                  <div key={tone} className="flex gap-3 items-start">
+                    <label className="w-28 text-sm font-medium text-gray-600 pt-2 capitalize">{tone}</label>
+                    <input
+                      type="text"
+                      value={(config.tone_instructions || {})[tone] || ''}
+                      onChange={(e) => updateToneInstruction(tone, e.target.value)}
+                      placeholder={`Instructions for ${tone} tone...`}
+                      className="flex-grow px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Formality Instructions */}
+            <div>
+              <h4 className="text-md font-medium text-gray-800 mb-3">Formality Instructions</h4>
+              <p className="text-sm text-gray-500 mb-3">Instructions for each formality level</p>
+              <div className="space-y-3">
+                {['casual', 'neutral', 'formal'].map((formality) => (
+                  <div key={formality} className="flex gap-3 items-start">
+                    <label className="w-28 text-sm font-medium text-gray-600 pt-2 capitalize">{formality}</label>
+                    <input
+                      type="text"
+                      value={(config.formality_instructions || {})[formality] || ''}
+                      onChange={(e) => updateFormalityInstruction(formality, e.target.value)}
+                      placeholder={`Instructions for ${formality} formality...`}
+                      className="flex-grow px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Language Names */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h4 className="text-md font-medium text-gray-800">Language Names</h4>
+                  <p className="text-sm text-gray-500">Display names for language codes</p>
+                </div>
+                <button onClick={addLanguage} className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100">
+                  <PlusIcon /> Add
+                </button>
+              </div>
+              <div className="space-y-2">
+                {Object.entries(config.language_names || {}).map(([code, name]) => (
+                  <div key={code} className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={code}
+                      onChange={(e) => renameLanguageCode(code, e.target.value)}
+                      className="w-16 px-2 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-primary-500"
+                      placeholder="en"
+                    />
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => updateLanguageName(code, e.target.value)}
+                      className="flex-grow px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                      placeholder="Language name..."
+                    />
+                    <button onClick={() => removeLanguage(code)} className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500">
+                      <CloseIcon />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Tool-Specific Instructions */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h4 className="text-md font-medium text-gray-800">Tool-Specific Instructions</h4>
+                  <p className="text-sm text-gray-500">Custom instructions for each tool</p>
+                </div>
+                <button onClick={addToolInstruction} className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100">
+                  <PlusIcon /> Add
+                </button>
+              </div>
+              <div className="space-y-3">
+                {Object.entries(config.tool_instructions || {}).map(([toolName, instruction]) => (
+                  <div key={toolName} className="p-3 bg-gray-50 rounded-lg">
+                    <div className="flex gap-2 items-center mb-2">
+                      <input
+                        type="text"
+                        value={toolName}
+                        onChange={(e) => renameToolInstruction(toolName, e.target.value)}
+                        className="w-48 px-2 py-1 border border-gray-300 rounded text-sm font-mono focus:ring-2 focus:ring-primary-500"
+                        placeholder="tool_name"
+                      />
+                      <button onClick={() => removeToolInstruction(toolName)} className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500">
+                        <CloseIcon />
+                      </button>
+                    </div>
+                    <textarea
+                      value={instruction}
+                      onChange={(e) => updateToolInstruction(toolName, e.target.value)}
+                      placeholder="Instructions for this tool..."
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                ))}
+                {Object.keys(config.tool_instructions || {}).length === 0 && (
+                  <p className="text-center text-gray-400 py-4">No tool-specific instructions. Tools will use default behavior.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Tool Format & Result Instructions */}
+            <div>
+              <h4 className="text-md font-medium text-gray-800 mb-3">Tool Format Settings</h4>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tool Format Template</label>
+                  <p className="text-xs text-gray-500 mb-2">Format for tool calls (for models without native function calling)</p>
+                  <textarea
+                    value={config.tool_format_template || ''}
+                    onChange={(e) => setConfig({ ...config, tool_format_template: e.target.value })}
+                    placeholder='USE_TOOL: tool_name\nPARAMETERS: {"key": "value"}'
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tool Result Instruction</label>
+                  <p className="text-xs text-gray-500 mb-2">How AI should handle tool results</p>
+                  <textarea
+                    value={config.tool_result_instruction || ''}
+                    onChange={(e) => setConfig({ ...config, tool_result_instruction: e.target.value })}
+                    placeholder="Summarize the result naturally for the customer..."
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Language Instruction Template */}
+            <div>
+              <h4 className="text-md font-medium text-gray-800 mb-2">Language Instruction Template</h4>
+              <p className="text-sm text-gray-500 mb-3">
+                Template for non-English language instructions. Use <code className="bg-gray-100 px-1 rounded">{'{language_name}'}</code> as placeholder.
+              </p>
+              <textarea
+                value={config.language_instruction_template || ''}
+                onChange={(e) => setConfig({ ...config, language_instruction_template: e.target.value })}
+                placeholder="You MUST respond in {language_name}..."
+                rows={2}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Action Buttons */}
       <div className="flex justify-between items-center">
         <button onClick={resetConfig} disabled={saving} className="px-4 py-2 text-gray-600 hover:text-gray-800">
@@ -332,6 +647,14 @@ function CloseIcon({ className = "w-5 h-5" }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+}
+
+function ChevronIcon({ expanded }) {
+  return (
+    <svg className={`w-5 h-5 text-gray-500 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
     </svg>
   );
 }

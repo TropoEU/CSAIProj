@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import AIBehaviorSettings from '../components/AIBehaviorSettings';
+import GuidedReasoningSettings from '../components/GuidedReasoningSettings';
 
 const SETTINGS_TAB_KEY = 'admin_settings_tab';
 
@@ -76,6 +77,7 @@ export default function Settings() {
   const tabs = [
     { id: 'email', name: 'Platform Email' },
     { id: 'ai', name: 'AI Behavior' },
+    { id: 'guided', name: 'Guided Reasoning' },
   ];
 
   return (
@@ -131,6 +133,9 @@ export default function Settings() {
 
       {/* AI Behavior Tab */}
       {activeTab === 'ai' && <AIBehaviorSettings onMessage={setMessage} />}
+
+      {/* Guided Reasoning Tab */}
+      {activeTab === 'guided' && <GuidedReasoningSettings onMessage={setMessage} />}
     </div>
   );
 }

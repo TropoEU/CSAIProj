@@ -140,6 +140,7 @@ export class PlatformConfig {
      */
     static getHardcodedDefaults() {
         return {
+            intro_template: 'You are a friendly customer support assistant for {client_name}.',
             reasoning_enabled: true,
             reasoning_steps: [
                 { title: 'UNDERSTAND', instruction: 'What is the customer actually asking for? Is this a question, request, complaint, or action?' },
@@ -152,6 +153,16 @@ export class PlatformConfig {
                 max_sentences: 2,
                 formality: 'casual'
             },
+            tone_instructions: {
+                friendly: 'Be warm and approachable.',
+                professional: 'Maintain a professional and polished tone.',
+                casual: 'Keep it conversational and relaxed.'
+            },
+            formality_instructions: {
+                casual: 'Use everyday language.',
+                neutral: 'Balance professionalism with approachability.',
+                formal: 'Use formal language and proper grammar.'
+            },
             tool_rules: [
                 'Only call a tool when you need data you do not have',
                 'Never make up information - use a tool or ask the user',
@@ -159,9 +170,93 @@ export class PlatformConfig {
                 'One tool per response maximum',
                 'Never use placeholder values - ask for real data first'
             ],
+            tool_instructions: {
+                get_order_status: 'When a customer asks about their order, always use the get_order_status tool. Ask for their order number if they haven\'t provided it.',
+                book_appointment: 'When a customer wants to schedule an appointment, reservation, or pickup, use the book_appointment tool immediately. Extract date and time from natural language. If customer provides name, email, phone, use them. If missing, use reasonable defaults or ask once, then proceed.',
+                check_inventory: 'When a customer asks if a product is available, use the check_inventory tool with the product name or SKU.',
+                get_product_info: 'When a customer asks about product details (price, specs, availability), use the get_product_info tool to fetch live data.',
+                send_email: 'When a customer requests to receive information via email or needs documentation sent, use the send_email tool.'
+            },
+            tool_format_template: 'USE_TOOL: tool_name\nPARAMETERS: {"key": "value"}',
+            tool_result_instruction: 'Summarize the result naturally for the customer. Do not expose raw data or JSON.',
+            language_names: {
+                'en': 'English',
+                'he': 'Hebrew (עברית)',
+                'es': 'Spanish (Español)',
+                'fr': 'French (Français)',
+                'de': 'German (Deutsch)',
+                'ar': 'Arabic (العربية)',
+                'ru': 'Russian (Русский)'
+            },
+            language_instruction_template: 'You MUST respond in {language_name}. Use natural, conversational {language_name}. All your responses must be in this language.',
+            escalation_message: 'I apologize, but this request requires human assistance. Let me connect you with a team member who can better help you.',
+            error_message: 'I\'m sorry, I\'m having trouble processing that request. Please try again.',
             custom_instructions: null,
             greeting_enabled: true,
             greeting_message: null
+        };
+    }
+
+    /**
+     * Get adaptive mode prompt configuration
+     * @returns {object} Adaptive mode config
+     */
+    static async getAdaptivePromptConfig() {
+        const config = await this.get('adaptive_prompt_config');
+        return config || this.getAdaptiveDefaults();
+    }
+
+    /**
+     * Update adaptive mode prompt configuration
+     * @param {object} config - New adaptive prompt config
+     * @returns {object} The saved config
+     */
+    static async setAdaptivePromptConfig(config) {
+        return await this.set('adaptive_prompt_config', config);
+    }
+
+    /**
+     * Get hardcoded defaults for adaptive mode as fallback
+     */
+    static getAdaptiveDefaults() {
+        return {
+            intro_template: 'You are a customer support assistant for {client_name}.',
+            reasoning_steps: [
+                { title: 'UNDERSTAND', instruction: 'What is the user asking?' },
+                { title: 'DECIDE', instruction: 'Tool needed? Params? Context needed?' }
+            ],
+            context_keys: [
+                { key: 'business_hours', description: 'Operating hours' },
+                { key: 'contact_info', description: 'Phone, email, address' },
+                { key: 'return_policy', description: 'Return/refund policy' },
+                { key: 'shipping_policy', description: 'Delivery info' },
+                { key: 'payment_methods', description: 'Accepted payments' },
+                { key: 'faqs', description: 'Common questions' },
+                { key: 'about_business', description: 'Company description' }
+            ],
+            tool_rules: [
+                'Set missing_params if tool needs params you don\'t have',
+                'Set needs_more_context if you need business info',
+                'Never guess/invent data'
+            ],
+            language_names: {
+                'en': 'English',
+                'he': 'Hebrew (עברית)',
+                'es': 'Spanish (Español)',
+                'fr': 'French (Français)',
+                'de': 'German (Deutsch)',
+                'ar': 'Arabic (العربية)',
+                'ru': 'Russian (Русский)'
+            },
+            assessment_fields: {
+                confidence: 'Confidence level 1-10',
+                tool_call: 'Tool name or null',
+                tool_params: 'Parameters object',
+                missing_params: 'List of missing required params',
+                is_destructive: 'true for cancel/delete/refund actions',
+                needs_confirmation: 'true if user should confirm',
+                needs_more_context: 'List of context keys needed'
+            }
         };
     }
 }

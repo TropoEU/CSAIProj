@@ -23,6 +23,10 @@ function getMessageTypeStyles(messageType) {
       return 'bg-cyan-50 border-l-4 border-cyan-500';
     case 'internal':
       return 'bg-gray-100 border-l-4 border-gray-400';
+    case 'assessment':
+      return 'bg-indigo-50 border-l-4 border-indigo-500';
+    case 'critique':
+      return 'bg-orange-50 border-l-4 border-orange-500';
     default:
       return '';
   }
@@ -41,6 +45,10 @@ function getMessageTypeLabel(messageType) {
       return { text: 'TOOL RESULT', color: 'bg-cyan-100 text-cyan-800' };
     case 'internal':
       return { text: 'INTERNAL', color: 'bg-gray-200 text-gray-700' };
+    case 'assessment':
+      return { text: 'REASONING', color: 'bg-indigo-100 text-indigo-800' };
+    case 'critique':
+      return { text: 'CRITIQUE', color: 'bg-orange-100 text-orange-800' };
     default:
       return null;
   }
@@ -53,6 +61,8 @@ function getAvatarStyles(messageType, role) {
   if (messageType === 'system') return 'bg-purple-200 text-purple-700';
   if (messageType === 'tool_call') return 'bg-amber-200 text-amber-700';
   if (messageType === 'tool_result') return 'bg-cyan-200 text-cyan-700';
+  if (messageType === 'assessment') return 'bg-indigo-200 text-indigo-700';
+  if (messageType === 'critique') return 'bg-orange-200 text-orange-700';
   if (role === 'user') return 'bg-primary-100 text-primary-600';
   if (role === 'tool') return 'bg-cyan-100 text-cyan-600';
   return 'bg-gray-200 text-gray-600';
@@ -65,6 +75,8 @@ function getSenderName(messageType, role) {
   if (messageType === 'system') return 'System';
   if (messageType === 'tool_call') return 'AI → Tool';
   if (messageType === 'tool_result') return 'Tool → AI';
+  if (messageType === 'assessment') return 'AI Reasoning';
+  if (messageType === 'critique') return 'AI Critique';
   if (role === 'user') return 'Customer';
   if (role === 'tool') return 'Tool Response';
   return 'AI Assistant';
@@ -121,7 +133,7 @@ function MessageIcon({ messageType, role }) {
  */
 export default function MessageItem({ message, debugMode }) {
   const messageType = message.message_type || 'visible';
-  const isDebugMessage = messageType !== 'visible';
+  const isDebugMessage = ['system', 'tool_call', 'tool_result', 'internal', 'assessment', 'critique'].includes(messageType);
   const typeLabel = getMessageTypeLabel(messageType);
 
   const containerStyles = `p-4 ${

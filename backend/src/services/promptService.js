@@ -202,6 +202,146 @@ class PromptService {
    */
   clearCache() {
     this.clientConfigCache.clear();
+    this.adaptiveConfig = null;
+  }
+
+  /**
+   * Get adaptive mode prompt configuration
+   * @returns {Object} Adaptive mode config
+   */
+  async getAdaptiveConfig() {
+    if (!this.adaptiveConfig) {
+      try {
+        this.adaptiveConfig = await PlatformConfig.getAdaptivePromptConfig();
+      } catch (error) {
+        log.warn('Failed to load adaptive config, using defaults', error.message);
+        this.adaptiveConfig = PlatformConfig.getAdaptiveDefaults();
+      }
+    }
+    return this.adaptiveConfig;
+  }
+
+  /**
+   * Update adaptive mode prompt configuration
+   * @param {Object} config - New config
+   */
+  async updateAdaptiveConfig(config) {
+    await PlatformConfig.setAdaptivePromptConfig(config);
+    this.adaptiveConfig = config;
+    log.info('Adaptive prompt config updated');
+  }
+
+  /**
+   * Build adaptive mode system prompt from config
+   * @param {Object} client - Client object
+   * @param {Array} tools - Available tools with schemas
+   * @returns {String} Generated system prompt
+   */
+  async buildAdaptivePrompt(client, tools = []) {
+    const config = await this.getAdaptiveConfig();
+    const language = client.language || 'en';
+
+    // Build intro from configurable template
+    let prompt = (config.intro_template || 'You are a customer support assistant for {client_name}.')
+      .replace('{client_name}', client.name);
+
+    // Add custom AI instructions if available
+    if (client.business_info?.ai_instructions) {
+      prompt += `\n\n${client.business_info.ai_instructions}`;
+    }
+
+    // Add current date/time
+    const now = new Date();
+    prompt += `\n\nCurrent date/time: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+
+    // Format tool descriptions
+    const toolDescriptions = tools.map(t => {
+      const schema = t.parameters_schema || {};
+      const required = schema.required || [];
+      const properties = schema.properties || {};
+
+      let toolDesc = `- **${t.tool_name}**: ${t.description || 'No description'}`;
+      if (required.length > 0) {
+        toolDesc += `\n  Required parameters: ${required.join(', ')}`;
+      }
+      if (Object.keys(properties).length > 0) {
+        toolDesc += `\n  Parameters:`;
+        for (const [param, details] of Object.entries(properties)) {
+          const isRequired = required.includes(param) ? ' (required)' : '';
+          toolDesc += `\n    - ${param}${isRequired}: ${details.description || details.type || ''}`;
+        }
+      }
+      return toolDesc;
+    }).join('\n\n');
+
+    // Build reasoning section
+    const reasoningSteps = config.reasoning_steps || [];
+    let reasoningSection = '';
+    if (reasoningSteps.length > 0) {
+      reasoningSection = `\n<reasoning>
+${reasoningSteps.map(s => `${s.title}: [${s.instruction}]`).join('\n')}
+</reasoning>`;
+    }
+
+    // Build context keys section
+    const contextKeys = config.context_keys || [];
+    let contextSection = '';
+    if (contextKeys.length > 0) {
+      contextSection = `\n**Context Fetching**: Use needs_more_context to request:
+${contextKeys.map(c => `- "${c.key}" - ${c.description}`).join('\n')}`;
+    }
+
+    // Build tool rules section
+    const toolRules = config.tool_rules || [];
+    let rulesSection = '';
+    if (toolRules.length > 0) {
+      rulesSection = `\n\n**Rules**:
+${toolRules.map(r => `- ${r}`).join('\n')}`;
+    }
+
+    // Build assessment section
+    const assessmentExample = `{
+  "confidence": 8,
+  "tool_call": "tool_name",
+  "tool_params": {},
+  "missing_params": [],
+  "is_destructive": false,
+  "needs_confirmation": false,
+  "needs_more_context": []
+}`;
+
+    // Assemble the full prompt
+    prompt += `
+
+## INSTRUCTIONS
+
+After your response, include reasoning and assessment blocks (English only):
+${reasoningSection}
+
+<assessment>
+${assessmentExample}
+</assessment>
+${contextSection}
+
+**Tools**:
+${toolDescriptions}
+${rulesSection}`;
+
+    // Add language instruction for non-English
+    if (language !== 'en') {
+      const languageNames = {
+        'he': 'Hebrew (עברית)',
+        'es': 'Spanish (Español)',
+        'fr': 'French (Français)',
+        'de': 'German (Deutsch)',
+        'ar': 'Arabic (العربية)',
+        'ru': 'Russian (Русский)'
+      };
+      const langName = languageNames[language] || language;
+      prompt += `\n\n**Language**: Respond in ${langName}. Assessment must remain in English.`;
+    }
+
+    return prompt;
   }
 }
 

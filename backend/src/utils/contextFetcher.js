@@ -8,9 +8,30 @@
 /**
  * Valid context keys that can be fetched
  * Maps request keys to business_info paths
+ * Includes both detailed keys (policies.returns) and simplified keys (return_policy)
+ * Supports both nested structures (contact.hours) and flat structures (business_hours)
  */
 const CONTEXT_MAP = {
-    // Policies
+    // Simplified keys (as told to AI in the prompt)
+    // Support both nested and flat business_info structures
+    'business_hours': (businessInfo) => businessInfo?.contact?.hours || businessInfo?.business_hours,
+    'contact_info': (businessInfo) => {
+        // Prefer nested contact object
+        if (businessInfo?.contact) return businessInfo.contact;
+        // Fall back to flat structure
+        const flat = {};
+        if (businessInfo?.contact_phone) flat.phone = businessInfo.contact_phone;
+        if (businessInfo?.contact_email) flat.email = businessInfo.contact_email;
+        if (businessInfo?.contact_address) flat.address = businessInfo.contact_address;
+        if (businessInfo?.business_hours) flat.hours = businessInfo.business_hours;
+        return Object.keys(flat).length > 0 ? flat : undefined;
+    },
+    'return_policy': (businessInfo) => businessInfo?.policies?.returns || businessInfo?.return_policy,
+    'shipping_policy': (businessInfo) => businessInfo?.policies?.shipping || businessInfo?.shipping_policy,
+    'payment_methods': (businessInfo) => businessInfo?.policies?.payment_methods || businessInfo?.payment_methods,
+    'about_business': (businessInfo) => businessInfo?.about?.description || businessInfo?.about_business,
+
+    // Detailed keys (for granular fetching)
     'policies.returns': (businessInfo) => businessInfo?.policies?.returns,
     'policies.shipping': (businessInfo) => businessInfo?.policies?.shipping,
     'policies.privacy': (businessInfo) => businessInfo?.policies?.privacy,
@@ -98,11 +119,40 @@ export function fetchFullContext(client) {
 export function formatContextForPrompt(context, clientName) {
     let formatted = '';
 
-    // Policies
-    if (context['policies.returns']) {
+    // Simplified keys (from AI needs_more_context)
+    if (context['return_policy']) {
+        formatted += `\n\n## Return Policy\n${context['return_policy']}`;
+    }
+    if (context['shipping_policy']) {
+        formatted += `\n\n## Shipping Policy\n${context['shipping_policy']}`;
+    }
+    if (context['payment_methods']) {
+        formatted += `\n\n## Payment Methods\n${context['payment_methods']}`;
+    }
+    if (context['business_hours']) {
+        formatted += `\n\n## Business Hours\n${context['business_hours']}`;
+    }
+    if (context['about_business']) {
+        formatted += `\n\n## About ${clientName}\n${context['about_business']}`;
+    }
+    if (context['contact_info']) {
+        const contact = context['contact_info'];
+        formatted += `\n\n## Contact Information`;
+        if (typeof contact === 'string') {
+            formatted += `\n${contact}`;
+        } else if (typeof contact === 'object') {
+            if (contact.phone) formatted += `\nPhone: ${contact.phone}`;
+            if (contact.email) formatted += `\nEmail: ${contact.email}`;
+            if (contact.address) formatted += `\nAddress: ${contact.address}`;
+            if (contact.hours) formatted += `\nHours: ${contact.hours}`;
+        }
+    }
+
+    // Detailed keys (policies.returns, etc.)
+    if (context['policies.returns'] && !context['return_policy']) {
         formatted += `\n\n## Return Policy\n${context['policies.returns']}`;
     }
-    if (context['policies.shipping']) {
+    if (context['policies.shipping'] && !context['shipping_policy']) {
         formatted += `\n\n## Shipping Policy\n${context['policies.shipping']}`;
     }
     if (context['policies.privacy']) {
@@ -111,7 +161,7 @@ export function formatContextForPrompt(context, clientName) {
     if (context['policies.terms']) {
         formatted += `\n\n## Terms of Service\n${context['policies.terms']}`;
     }
-    if (context.policies && !context['policies.returns']) {
+    if (context.policies && !context['policies.returns'] && !context['return_policy']) {
         // Full policies object
         const policies = context.policies;
         if (policies.returns) formatted += `\n\n## Return Policy\n${policies.returns}`;
@@ -120,35 +170,35 @@ export function formatContextForPrompt(context, clientName) {
         if (policies.terms) formatted += `\n\n## Terms of Service\n${policies.terms}`;
     }
 
-    // Contact
-    if (context['contact.full']) {
+    // Contact (detailed keys)
+    if (context['contact.full'] && !context['contact_info']) {
         const contact = context['contact.full'];
         formatted += `\n\n## Contact Information`;
         if (contact.phone) formatted += `\nPhone: ${contact.phone}`;
         if (contact.email) formatted += `\nEmail: ${contact.email}`;
         if (contact.address) formatted += `\nAddress: ${contact.address}`;
         if (contact.hours) formatted += `\nHours: ${contact.hours}`;
-    } else {
+    } else if (!context['contact_info']) {
         // Individual contact fields
         const contactFields = [];
         if (context['contact.phone']) contactFields.push(`Phone: ${context['contact.phone']}`);
         if (context['contact.email']) contactFields.push(`Email: ${context['contact.email']}`);
         if (context['contact.address']) contactFields.push(`Address: ${context['contact.address']}`);
-        if (context['contact.hours']) contactFields.push(`Hours: ${context['contact.hours']}`);
+        if (context['contact.hours'] && !context['business_hours']) contactFields.push(`Hours: ${context['contact.hours']}`);
 
         if (contactFields.length > 0) {
             formatted += `\n\n## Contact Information\n${contactFields.join('\n')}`;
         }
     }
 
-    // About
-    if (context['about.full']) {
+    // About (detailed keys)
+    if (context['about.full'] && !context['about_business']) {
         const about = context['about.full'];
         formatted += `\n\n## About ${clientName}`;
         if (about.description) formatted += `\n${about.description}`;
         if (about.history) formatted += `\n\n**History:** ${about.history}`;
         if (about.team) formatted += `\n\n**Team:** ${about.team}`;
-    } else {
+    } else if (!context['about_business']) {
         // Individual about fields
         if (context['about.description']) {
             formatted += `\n\n## About ${clientName}\n${context['about.description']}`;
