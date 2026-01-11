@@ -94,27 +94,27 @@ export const DEFAULT_POLICY = {
 export const IMPLIED_DESTRUCTIVE_PHRASES = {
     en: [
         "don't want",
-        "get rid of",
-        "remove",
-        "undo",
-        "delete",
-        "cancel",
-        "throw away",
-        "discard",
-        "eliminate",
-        "refund"
+        'get rid of',
+        'remove',
+        'undo',
+        'delete',
+        'cancel',
+        'throw away',
+        'discard',
+        'eliminate',
+        'refund'
     ],
     he: [
-        "לא רוצה",
-        "תבטל",
-        "בטל",
-        "תסיר",
-        "תמחק",
-        "מחק",
-        "להיפטר",
-        "לזרוק",
-        "לבטל",
-        "החזר"
+        'לא רוצה',
+        'תבטל',
+        'בטל',
+        'תסיר',
+        'תמחק',
+        'מחק',
+        'להיפטר',
+        'לזרוק',
+        'לבטל',
+        'החזר'
     ]
 };
 
@@ -124,62 +124,78 @@ export const IMPLIED_DESTRUCTIVE_PHRASES = {
  */
 export const CONFIRMATION_PHRASES = {
     en: [
-        "yes",
-        "yeah",
-        "yep",
-        "sure",
-        "ok",
-        "okay",
-        "confirm",
-        "confirmed",
-        "go ahead",
-        "do it",
-        "proceed",
-        "correct",
-        "right",
-        "affirmative"
+        'yes',
+        'yeah',
+        'yep',
+        'sure',
+        'ok',
+        'okay',
+        'confirm',
+        'confirmed',
+        'go ahead',
+        'do it',
+        'proceed',
+        'correct',
+        'right',
+        'affirmative'
     ],
     he: [
-        "כן",
-        "בסדר",
-        "אוקיי",
-        "נכון",
-        "תאשר",
-        "אישור",
-        "תמשיך",
-        "קדימה",
-        "בצע",
-        "המשך"
+        'כן',
+        'בסדר',
+        'אוקיי',
+        'נכון',
+        'תאשר',
+        'אישור',
+        'תמשיך',
+        'קדימה',
+        'בצע',
+        'המשך'
     ]
 };
 
 /**
  * Get policy for a specific tool
+ * Uses database fields if available, falls back to hardcoded defaults
  * @param {string} toolName - Name of the tool
+ * @param {Object} toolObject - Optional tool object from database with is_destructive, requires_confirmation, max_confidence
  * @returns {Object} Policy object with maxConfidence, isDestructive, requiresConfirmation
  */
-export function getToolPolicy(toolName) {
+export function getToolPolicy(toolName, toolObject = null) {
+    // If tool object provided with database fields, use those
+    if (toolObject) {
+        return {
+            maxConfidence: toolObject.max_confidence ?? DEFAULT_POLICY.maxConfidence,
+            isDestructive: toolObject.is_destructive ?? DEFAULT_POLICY.isDestructive,
+            requiresConfirmation: toolObject.requires_confirmation ?? DEFAULT_POLICY.requiresConfirmation
+        };
+    }
+
+    // Fall back to hardcoded policies (for backwards compatibility)
     return TOOL_POLICIES[toolName] || DEFAULT_POLICY;
 }
 
 /**
  * Check if a tool is destructive
+ * Uses database fields if available, falls back to hardcoded defaults
  * @param {string} toolName - Name of the tool
+ * @param {Object} toolObject - Optional tool object from database
  * @returns {boolean} True if the tool is destructive
  */
-export function isDestructiveTool(toolName) {
-    const policy = getToolPolicy(toolName);
+export function isDestructiveTool(toolName, toolObject = null) {
+    const policy = getToolPolicy(toolName, toolObject);
     return policy.isDestructive;
 }
 
 /**
  * Apply confidence floor to model's confidence score
+ * Uses database fields if available, falls back to hardcoded defaults
  * @param {string} toolName - Name of the tool
  * @param {number} modelConfidence - Confidence reported by the model (1-10)
+ * @param {Object} toolObject - Optional tool object from database
  * @returns {number} Effective confidence after applying floor
  */
-export function applyConfidenceFloor(toolName, modelConfidence) {
-    const policy = getToolPolicy(toolName);
+export function applyConfidenceFloor(toolName, modelConfidence, toolObject = null) {
+    const policy = getToolPolicy(toolName, toolObject);
     return Math.min(modelConfidence, policy.maxConfidence);
 }
 

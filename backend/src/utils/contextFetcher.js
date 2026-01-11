@@ -3,6 +3,9 @@
  *
  * Fetches specific parts of business_info on-demand for Adaptive mode
  * Prevents loading full context when only specific info is needed
+ *
+ * TODO: DRY the formatContextForPrompt() and formatFullBusinessInfo() functions.
+ * They share similar formatting logic that could be extracted into smaller helpers.
  */
 
 /**
@@ -137,7 +140,7 @@ export function formatContextForPrompt(context, clientName) {
     }
     if (context['contact_info']) {
         const contact = context['contact_info'];
-        formatted += `\n\n## Contact Information`;
+        formatted += '\n\n## Contact Information';
         if (typeof contact === 'string') {
             formatted += `\n${contact}`;
         } else if (typeof contact === 'object') {
@@ -173,7 +176,7 @@ export function formatContextForPrompt(context, clientName) {
     // Contact (detailed keys)
     if (context['contact.full'] && !context['contact_info']) {
         const contact = context['contact.full'];
-        formatted += `\n\n## Contact Information`;
+        formatted += '\n\n## Contact Information';
         if (contact.phone) formatted += `\nPhone: ${contact.phone}`;
         if (contact.email) formatted += `\nEmail: ${contact.email}`;
         if (contact.address) formatted += `\nAddress: ${contact.address}`;
@@ -213,7 +216,7 @@ export function formatContextForPrompt(context, clientName) {
 
     // FAQs
     if (context.faqs && Array.isArray(context.faqs) && context.faqs.length > 0) {
-        formatted += `\n\n## Frequently Asked Questions\n`;
+        formatted += '\n\n## Frequently Asked Questions\n';
         formatted += context.faqs.map((faq, i) =>
             `${i + 1}. Q: ${faq.question}\n   A: ${faq.answer}`
         ).join('\n');
@@ -252,7 +255,7 @@ function formatFullBusinessInfo(businessInfo, clientName) {
 
     // Contact
     if (businessInfo.contact) {
-        formatted += `\n\n## Contact Information`;
+        formatted += '\n\n## Contact Information';
         if (businessInfo.contact.phone) formatted += `\nPhone: ${businessInfo.contact.phone}`;
         if (businessInfo.contact.email) formatted += `\nEmail: ${businessInfo.contact.email}`;
         if (businessInfo.contact.address) formatted += `\nAddress: ${businessInfo.contact.address}`;
@@ -277,7 +280,7 @@ function formatFullBusinessInfo(businessInfo, clientName) {
 
     // FAQs
     if (businessInfo.faqs && Array.isArray(businessInfo.faqs) && businessInfo.faqs.length > 0) {
-        formatted += `\n\n## Frequently Asked Questions\n`;
+        formatted += '\n\n## Frequently Asked Questions\n';
         formatted += businessInfo.faqs.map((faq, i) =>
             `${i + 1}. Q: ${faq.question}\n   A: ${faq.answer}`
         ).join('\n');

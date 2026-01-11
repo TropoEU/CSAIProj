@@ -222,8 +222,8 @@ export class PlatformConfig {
         return {
             intro_template: 'You are a customer support assistant for {client_name}.',
             reasoning_steps: [
-                { title: 'UNDERSTAND', instruction: 'What is the user asking?' },
-                { title: 'DECIDE', instruction: 'Tool needed? Params? Context needed?' }
+                { title: 'UNDERSTAND', instruction: 'What is the user asking? Is it a greeting, question, or action request?' },
+                { title: 'DECIDE', instruction: 'Can I answer directly? Tool needed? Only request context if REQUIRED to answer.' }
             ],
             context_keys: [
                 { key: 'business_hours', description: 'Operating hours' },
@@ -235,9 +235,11 @@ export class PlatformConfig {
                 { key: 'about_business', description: 'Company description' }
             ],
             tool_rules: [
+                'For greetings (hi, hello, hey), just respond warmly - NO tools or context needed',
+                'Only set needs_more_context if the user\'s question REQUIRES that specific info to answer',
                 'Set missing_params if tool needs params you don\'t have',
-                'Set needs_more_context if you need business info',
-                'Never guess/invent data'
+                'Never guess/invent data',
+                'Keep needs_more_context EMPTY unless you genuinely cannot answer without it'
             ],
             language_names: {
                 'en': 'English',

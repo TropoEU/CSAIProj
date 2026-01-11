@@ -10,8 +10,10 @@ export class Tool {
      * @param {Array} requiredIntegrations - Array of integration requirements (optional)
      *   Format: [{"key": "order_api", "name": "Order API", "required": true, "description": "..."}]
      * @param {Array} capabilities - Array of capability descriptions (optional)
+     * @param {Object} riskSettings - Risk/policy settings (optional)
+     *   Format: { isDestructive: boolean, requiresConfirmation: boolean, maxConfidence: number }
      */
-    static async create(toolName, description, parametersSchema = null, category = null, requiredIntegrations = null, capabilities = null) {
+    static async create(toolName, description, parametersSchema = null, category = null, requiredIntegrations = null, capabilities = null, riskSettings = {}) {
         // Format JSONB fields properly - ensure arrays/objects are JSON strings
         const formattedParams = parametersSchema
             ? (typeof parametersSchema === 'string' ? parametersSchema : JSON.stringify(parametersSchema))
@@ -23,11 +25,16 @@ export class Tool {
             ? (Array.isArray(requiredIntegrations) ? JSON.stringify(requiredIntegrations) : (typeof requiredIntegrations === 'string' ? requiredIntegrations : JSON.stringify(requiredIntegrations)))
             : '[]';
 
+        // Risk settings with defaults
+        const isDestructive = riskSettings.isDestructive ?? false;
+        const requiresConfirmation = riskSettings.requiresConfirmation ?? false;
+        const maxConfidence = riskSettings.maxConfidence ?? 7;
+
         const result = await db.query(
-            `INSERT INTO tools (tool_name, description, parameters_schema, category, required_integrations, capabilities)
-             VALUES ($1, $2, $3::jsonb, $4, $5::jsonb, $6::jsonb)
+            `INSERT INTO tools (tool_name, description, parameters_schema, category, required_integrations, capabilities, is_destructive, requires_confirmation, max_confidence)
+             VALUES ($1, $2, $3::jsonb, $4, $5::jsonb, $6::jsonb, $7, $8, $9)
              RETURNING *`,
-            [toolName, description, formattedParams, category, formattedIntegrations, formattedCapabilities]
+            [toolName, description, formattedParams, category, formattedIntegrations, formattedCapabilities, isDestructive, requiresConfirmation, maxConfidence]
         );
         return result.rows[0];
     }
@@ -79,7 +86,7 @@ export class Tool {
      * Update tool
      */
     static async update(id, updates) {
-        const allowedFields = ['tool_name', 'description', 'parameters_schema', 'category', 'required_integrations', 'capabilities'];
+        const allowedFields = ['tool_name', 'description', 'parameters_schema', 'category', 'required_integrations', 'capabilities', 'is_destructive', 'requires_confirmation', 'max_confidence'];
         const fields = [];
         const values = [];
         let paramIndex = 1;

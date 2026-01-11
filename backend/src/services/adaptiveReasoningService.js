@@ -6,6 +6,11 @@
  * - Conditional critique when risky actions are detected
  * - Server-side policy enforcement
  * - Confirmation matching via pending intent cache
+ *
+ * TODO: Consider splitting this file into smaller modules:
+ * - adaptiveReasoningService.js (orchestration only, ~500 lines)
+ * - toolExecutionService.js (executeTool, generateToolResultResponse, basicFormatToolResult)
+ * - confirmationService.js (handleConfirmation, pending intent logic)
  */
 
 import llmService from './llmService.js';
@@ -17,6 +22,7 @@ import escalationService from './escalationService.js';
 import { Message } from '../models/Message.js';
 import { ToolExecution } from '../models/ToolExecution.js';
 import { getToolPolicy, applyConfidenceFloor, isDestructiveTool, isConfirmation } from '../config/toolPolicies.js';
+import { ADAPTIVE_REASONING } from '../config/constants.js';
 import { REASON_CODES } from '../constants/reasonCodes.js';
 import { generateIntentHash } from '../utils/intentHash.js';
 import { getCritiquePrompt } from '../prompts/critiquePrompt.js';
@@ -70,9 +76,9 @@ class AdaptiveReasoningService {
             // Step 3: Build adaptive mode system prompt (async to use database config)
             const systemPrompt = await getAdaptiveModePromptAsync(client, toolSchemas);
 
-            // Step 4: Get recent conversation history (last 5 messages for context)
+            // Step 4: Get recent conversation history for context
             // Note: Recent messages already includes the current user message (saved before this service is called)
-            const recentMessages = await Message.getRecent(conversationId, 5);
+            const recentMessages = await Message.getRecent(conversationId, ADAPTIVE_REASONING.CONTEXT_MESSAGE_COUNT);
             const formattedHistory = recentMessages.map(m => ({
                 role: m.role,
                 content: m.content
@@ -105,8 +111,8 @@ class AdaptiveReasoningService {
             let totalOutputTokens = 0;
 
             const llmResponse = await llmService.chat(messages, {
-                maxTokens: 2048,
-                temperature: 0.3,
+                maxTokens: ADAPTIVE_REASONING.DEFAULT_MAX_TOKENS,
+                temperature: ADAPTIVE_REASONING.DEFAULT_TEMPERATURE,
                 provider: client.llm_provider,
                 model: client.model_name
             });
@@ -138,16 +144,15 @@ class AdaptiveReasoningService {
             // Step 7: Check if more context is needed (context fetch feature)
             let currentAssessment = assessment;
             let currentResponse = visible_response;
-            const MAX_CONTEXT_FETCHES = 2;
 
             while (
                 currentAssessment &&
                 currentAssessment.needs_more_context &&
                 currentAssessment.needs_more_context.length > 0 &&
-                contextFetchCount < MAX_CONTEXT_FETCHES
+                contextFetchCount < ADAPTIVE_REASONING.MAX_CONTEXT_FETCHES
             ) {
                 contextFetchCount++;
-                console.log(`[AdaptiveReasoning] Context fetch attempt ${contextFetchCount}/${MAX_CONTEXT_FETCHES}:`, currentAssessment.needs_more_context);
+                console.log(`[AdaptiveReasoning] Context fetch attempt ${contextFetchCount}/${ADAPTIVE_REASONING.MAX_CONTEXT_FETCHES}:`, currentAssessment.needs_more_context);
 
                 // Fetch requested context
                 const { success, context, missing } = fetchContext(client, currentAssessment.needs_more_context);
@@ -178,8 +183,8 @@ class AdaptiveReasoningService {
                 ];
 
                 const contextResponse = await llmService.chat(contextMessages, {
-                    maxTokens: 2048,
-                    temperature: 0.3,
+                    maxTokens: ADAPTIVE_REASONING.DEFAULT_MAX_TOKENS,
+                    temperature: ADAPTIVE_REASONING.DEFAULT_TEMPERATURE,
                     provider: client.llm_provider,
                     model: client.model_name
                 });
@@ -231,7 +236,7 @@ class AdaptiveReasoningService {
             }
 
             // Check if we hit the context fetch limit
-            if (contextFetchCount >= MAX_CONTEXT_FETCHES && currentAssessment?.needs_more_context?.length > 0) {
+            if (contextFetchCount >= ADAPTIVE_REASONING.MAX_CONTEXT_FETCHES && currentAssessment?.needs_more_context?.length > 0) {
                 console.warn('[AdaptiveReasoning] Context fetch limit reached, fetching full context');
 
                 // Fetch full context and make one final attempt
@@ -245,8 +250,8 @@ class AdaptiveReasoningService {
                 ];
 
                 const finalResponse = await llmService.chat(finalMessages, {
-                    maxTokens: 2048,
-                    temperature: 0.3,
+                    maxTokens: ADAPTIVE_REASONING.DEFAULT_MAX_TOKENS,
+                    temperature: ADAPTIVE_REASONING.DEFAULT_TEMPERATURE,
                     provider: client.llm_provider,
                     model: client.model_name
                 });
@@ -311,8 +316,8 @@ class AdaptiveReasoningService {
                         ];
 
                         const repromptResponse = await llmService.chat(repromptMessages, {
-                            maxTokens: 512,
-                            temperature: 0.3,
+                            maxTokens: ADAPTIVE_REASONING.REPROMPT_MAX_TOKENS,
+                            temperature: ADAPTIVE_REASONING.DEFAULT_TEMPERATURE,
                             provider: client.llm_provider,
                             model: client.model_name
                         });
@@ -522,7 +527,7 @@ class AdaptiveReasoningService {
             return {
                 allowed: false,
                 reason_code: REASON_CODES.TOOL_NOT_FOUND,
-                message: `I apologize, but I don't have access to that capability. Let me help you another way.`,
+                message: 'I apologize, but I don\'t have access to that capability. Let me help you another way.',
                 updated_assessment: assessment
             };
         }
@@ -551,20 +556,20 @@ class AdaptiveReasoningService {
             };
         }
 
-        // Apply confidence floor
-        const policy = getToolPolicy(toolName);
+        // Apply confidence floor (using database policy from tool object)
+        const policy = getToolPolicy(toolName, tool);
         const original_confidence = assessment.confidence;
-        const effective_confidence = applyConfidenceFloor(toolName, assessment.confidence);
+        const effective_confidence = applyConfidenceFloor(toolName, assessment.confidence, tool);
 
         if (effective_confidence < original_confidence) {
-            console.log(`[Policy] Confidence floor applied: ${original_confidence} -> ${effective_confidence} for tool ${toolName}`);
+            console.log(`[Policy] Confidence floor applied: ${original_confidence} -> ${effective_confidence} for tool ${toolName} (max: ${policy.maxConfidence})`);
         }
 
-        // Override needs_confirmation for destructive tools
+        // Override needs_confirmation for destructive tools (using database policy)
         const updated_assessment = {
             ...assessment,
             confidence: effective_confidence,
-            is_destructive: isDestructiveTool(toolName) || assessment.is_destructive,
+            is_destructive: isDestructiveTool(toolName, tool) || assessment.is_destructive,
             needs_confirmation: policy.requiresConfirmation || assessment.needs_confirmation
         };
 
@@ -591,15 +596,15 @@ class AdaptiveReasoningService {
         const tool = tools.find(t => t.tool_name === toolName);
         if (!tool) return true; // Hallucinated tool - needs critique to catch
 
-        // Trigger if destructive
-        if (assessment.is_destructive) {
-            console.log('[Critique Trigger] Destructive tool detected');
+        // Trigger if destructive (check both assessment and database flag)
+        if (assessment.is_destructive || isDestructiveTool(toolName, tool)) {
+            console.log('[Critique Trigger] Destructive tool detected (assessment:', assessment.is_destructive, ', db:', tool.is_destructive, ')');
             return true;
         }
 
         // Trigger if low confidence after floor
-        if (assessment.confidence < 7) {
-            console.log(`[Critique Trigger] Low confidence: ${assessment.confidence}`);
+        if (assessment.confidence < ADAPTIVE_REASONING.MIN_CONFIDENCE_FOR_ACTION) {
+            console.log(`[Critique Trigger] Low confidence: ${assessment.confidence} (min: ${ADAPTIVE_REASONING.MIN_CONFIDENCE_FOR_ACTION})`);
             return true;
         }
 
@@ -631,7 +636,6 @@ class AdaptiveReasoningService {
      * @returns {Promise<Object>} Critique result {decision, reasoning, message, tokens}
      */
     async runCritique(userMessage, assessment, tools, conversationHistory = [], client, retryCount = 0, tokenTracking = {}) {
-        const MAX_RETRIES = 1; // Only retry once
         let inputTokens = 0;
         let outputTokens = 0;
 
@@ -641,8 +645,8 @@ class AdaptiveReasoningService {
             const critiqueResponse = await llmService.chat([
                 { role: 'user', content: critiquePrompt }
             ], {
-                maxTokens: 1024,
-                temperature: 0.2, // Lower temperature for more consistent critique
+                maxTokens: ADAPTIVE_REASONING.CRITIQUE_MAX_TOKENS,
+                temperature: ADAPTIVE_REASONING.CRITIQUE_TEMPERATURE,
                 provider: client.llm_provider,
                 model: client.model_name
             });
@@ -669,13 +673,13 @@ class AdaptiveReasoningService {
             return critiqueResult;
 
         } catch (error) {
-            console.error(`[Critique] Failed (attempt ${retryCount + 1}/${MAX_RETRIES + 1}):`, error.message);
+            console.error(`[Critique] Failed (attempt ${retryCount + 1}/${ADAPTIVE_REASONING.CRITIQUE_MAX_RETRIES + 1}):`, error.message);
 
             // Retry only if we haven't exceeded max retries
-            if (retryCount < MAX_RETRIES) {
+            if (retryCount < ADAPTIVE_REASONING.CRITIQUE_MAX_RETRIES) {
                 console.log('[Critique] Retrying...');
                 // Add a small delay before retry to avoid rate limits
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, ADAPTIVE_REASONING.CRITIQUE_RETRY_DELAY));
                 return await this.runCritique(userMessage, assessment, tools, conversationHistory, client, retryCount + 1, tokenTracking);
             }
 
@@ -683,7 +687,7 @@ class AdaptiveReasoningService {
             console.error('[Critique] All retry attempts exhausted, escalating');
             return {
                 decision: 'ESCALATE',
-                reasoning: `Critique step failed after ${MAX_RETRIES + 1} attempts: ${error.message}`,
+                reasoning: `Critique step failed after ${ADAPTIVE_REASONING.CRITIQUE_MAX_RETRIES + 1} attempts: ${error.message}`,
                 message: 'Unable to validate this request safely',
                 tokens: { input: inputTokens, output: outputTokens }
             };
@@ -970,8 +974,8 @@ Instructions:
             ];
 
             const response = await llmService.chat(messages, {
-                maxTokens: 512,
-                temperature: 0.3,
+                maxTokens: ADAPTIVE_REASONING.REPROMPT_MAX_TOKENS,
+                temperature: ADAPTIVE_REASONING.DEFAULT_TEMPERATURE,
                 provider: client.llm_provider,
                 model: client.model_name
             });

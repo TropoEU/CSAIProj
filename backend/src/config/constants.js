@@ -124,6 +124,30 @@ export const CONVERSATION = {
   MAX_ITERATIONS: 10,           // Maximum LLM iterations per conversation turn
 };
 
+// ==================== Adaptive Reasoning ====================
+
+export const ADAPTIVE_REASONING = {
+  // Context fetching
+  MAX_CONTEXT_FETCHES: 2,       // Maximum context fetch attempts before loading full context
+
+  // Confidence thresholds
+  MIN_CONFIDENCE_FOR_ACTION: 7, // Minimum confidence to proceed without critique
+
+  // LLM settings for adaptive mode
+  DEFAULT_MAX_TOKENS: 2048,     // Default max tokens for main LLM calls
+  REPROMPT_MAX_TOKENS: 512,     // Max tokens for re-prompt (missing params, tool results)
+  CRITIQUE_MAX_TOKENS: 1024,    // Max tokens for critique step
+  DEFAULT_TEMPERATURE: 0.3,     // Temperature for consistent responses
+  CRITIQUE_TEMPERATURE: 0.2,    // Lower temperature for critique (more deterministic)
+
+  // Retry settings
+  CRITIQUE_MAX_RETRIES: 1,      // Max retry attempts for critique step
+  CRITIQUE_RETRY_DELAY: 1000,   // Delay between critique retries (ms)
+
+  // Recent message context
+  CONTEXT_MESSAGE_COUNT: 5,     // Number of recent messages to include for context
+};
+
 // ==================== HTTP Status Codes ====================
 
 export const HTTP_STATUS = {

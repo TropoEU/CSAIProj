@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 
 /**
@@ -18,11 +18,7 @@ export default function ClientAIBehavior({ clientId, clientName }) {
   const [showPreview, setShowPreview] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  useEffect(() => {
-    loadConfig();
-  }, [clientId]);
-
-  const loadConfig = async () => {
+  const loadConfig = useCallback(async () => {
     try {
       // Load client config (effective + overrides)
       const clientResponse = await api.get(`/admin/clients/${clientId}/prompt-config`);
@@ -42,7 +38,11 @@ export default function ClientAIBehavior({ clientId, clientName }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [clientId]);
+
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
 
   // Track changes to config
   useEffect(() => {

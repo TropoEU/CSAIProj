@@ -141,6 +141,9 @@ export default function Tools() {
       capabilities: Array.isArray(tool.capabilities)
         ? tool.capabilities.join('\n')
         : '',
+      isDestructive: tool.is_destructive || false,
+      requiresConfirmation: tool.requires_confirmation || false,
+      maxConfidence: tool.max_confidence ?? 7,
     });
     setIsEditModalOpen(true);
   };
@@ -163,6 +166,9 @@ export default function Tools() {
         requiredIntegrations,
         parametersSchema,
         capabilities,
+        isDestructive: data.isDestructive || false,
+        requiresConfirmation: data.requiresConfirmation || false,
+        maxConfidence: data.maxConfidence ?? 7,
       });
       setIsEditModalOpen(false);
       setEditingTool(null);
@@ -445,6 +451,49 @@ export default function Tools() {
             />
           </div>
 
+          {/* Risk Settings */}
+          <div className="border-t pt-4 mt-4">
+            <h4 className="font-medium text-gray-900 mb-3">Risk Settings</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="isDestructive"
+                  {...register('isDestructive')}
+                  className="h-4 w-4 text-primary-600 rounded border-gray-300"
+                />
+                <label htmlFor="isDestructive" className="text-sm text-gray-700">
+                  <span className="font-medium">Destructive</span>
+                  <p className="text-xs text-gray-500">Triggers critique step (cancel, delete, refund)</p>
+                </label>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="requiresConfirmation"
+                  {...register('requiresConfirmation')}
+                  className="h-4 w-4 text-primary-600 rounded border-gray-300"
+                />
+                <label htmlFor="requiresConfirmation" className="text-sm text-gray-700">
+                  <span className="font-medium">Requires Confirmation</span>
+                  <p className="text-xs text-gray-500">Always ask user to confirm</p>
+                </label>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Max Confidence (1-10)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  defaultValue={7}
+                  {...register('maxConfidence', { valueAsNumber: true })}
+                  className="input mt-1 w-full"
+                />
+                <p className="text-xs text-gray-500 mt-1">Caps AI confidence for this tool</p>
+              </div>
+            </div>
+          </div>
+
           <div className="flex justify-end gap-3 mt-6">
             <Button
               type="button"
@@ -618,6 +667,48 @@ export default function Tools() {
   "required": ["orderId"]
 }`}
             />
+          </div>
+
+          {/* Risk Settings */}
+          <div className="border-t pt-4 mt-4">
+            <h4 className="font-medium text-gray-900 mb-3">Risk Settings</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="editIsDestructive"
+                  {...editForm.register('isDestructive')}
+                  className="h-4 w-4 text-primary-600 rounded border-gray-300"
+                />
+                <label htmlFor="editIsDestructive" className="text-sm text-gray-700">
+                  <span className="font-medium">Destructive</span>
+                  <p className="text-xs text-gray-500">Triggers critique step (cancel, delete, refund)</p>
+                </label>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="editRequiresConfirmation"
+                  {...editForm.register('requiresConfirmation')}
+                  className="h-4 w-4 text-primary-600 rounded border-gray-300"
+                />
+                <label htmlFor="editRequiresConfirmation" className="text-sm text-gray-700">
+                  <span className="font-medium">Requires Confirmation</span>
+                  <p className="text-xs text-gray-500">Always ask user to confirm</p>
+                </label>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Max Confidence (1-10)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  {...editForm.register('maxConfidence', { valueAsNumber: true })}
+                  className="input mt-1 w-full"
+                />
+                <p className="text-xs text-gray-500 mt-1">Caps AI confidence for this tool</p>
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 mt-6">

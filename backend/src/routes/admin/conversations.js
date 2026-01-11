@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
       SELECT c.*, cl.name as client_name,
         COALESCE(c.llm_provider, cl.llm_provider, 'ollama') as llm_provider,
         COALESCE(c.model_name, cl.model_name) as model_name,
-        (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count,
+        (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND (message_type IS NULL OR message_type = 'visible')) as message_count,
         (SELECT COUNT(*) FROM tool_executions WHERE conversation_id = c.id) as tool_call_count,
         CASE WHEN c.ended_at IS NULL THEN 'active' ELSE 'ended' END as status
       FROM conversations c
@@ -135,6 +135,11 @@ router.get('/:id', async (req, res) => {
     const messages = includeDebug
       ? await Message.getAllWithDebug(conversation.id, true)
       : await Message.getAll(conversation.id);
+
+    // Always get full message counts for the metadata cards (regardless of debug mode)
+    const allMessages = await Message.getAllWithDebug(conversation.id, true);
+    conversation.visible_message_count = allMessages.filter(m => !m.message_type || m.message_type === 'visible').length;
+    conversation.debug_message_count = allMessages.filter(m => m.message_type && m.message_type !== 'visible').length;
 
     let cumulativeTokens = 0;
     conversation.messages = messages.map((msg) => {

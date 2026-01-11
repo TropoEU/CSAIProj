@@ -120,6 +120,14 @@ export class RedisCache {
      * @param {string|number} clientId - Client identifier
      * @param {number} maxRequests - Maximum requests allowed per minute
      * @returns {Promise<{allowed: boolean, remaining: number, resetIn: number}>}
+     *
+     * TODO: Fix race condition - current implementation uses GET-then-INCR which allows
+     * parallel requests to all read count=0 before any increment occurs. Should use
+     * atomic INCR-then-check pattern instead:
+     *   1. INCR the key first (atomic)
+     *   2. If count === 1, set TTL with EXPIRE
+     *   3. If count > maxRequests, return not allowed
+     * This ensures accurate counting even under high concurrency.
      */
     static async checkRateLimit(clientId, maxRequests = 60) {
         try {

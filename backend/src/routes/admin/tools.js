@@ -28,12 +28,27 @@ router.get('/', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
-    const { toolName, description, parametersSchema, category, requiredIntegrations, capabilities } =
-      req.body;
+    const {
+      toolName,
+      description,
+      parametersSchema,
+      category,
+      requiredIntegrations,
+      capabilities,
+      isDestructive,
+      requiresConfirmation,
+      maxConfidence
+    } = req.body;
 
     if (!toolName || !description) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Tool name and description are required' });
     }
+
+    const riskSettings = {
+      isDestructive: isDestructive ?? false,
+      requiresConfirmation: requiresConfirmation ?? false,
+      maxConfidence: maxConfidence ?? 7
+    };
 
     const tool = await Tool.create(
       toolName,
@@ -41,7 +56,8 @@ router.post('/', async (req, res) => {
       parametersSchema || {},
       category || null,
       requiredIntegrations || [],
-      capabilities || null
+      capabilities || null,
+      riskSettings
     );
     res.status(HTTP_STATUS.CREATED).json(tool);
   } catch (error) {
@@ -56,8 +72,17 @@ router.post('/', async (req, res) => {
  */
 router.put('/:id', async (req, res) => {
   try {
-    const { toolName, description, parametersSchema, category, requiredIntegrations, capabilities } =
-      req.body;
+    const {
+      toolName,
+      description,
+      parametersSchema,
+      category,
+      requiredIntegrations,
+      capabilities,
+      isDestructive,
+      requiresConfirmation,
+      maxConfidence
+    } = req.body;
     const updates = {};
 
     // Use !== undefined to allow empty strings and null values
@@ -67,6 +92,9 @@ router.put('/:id', async (req, res) => {
     if (category !== undefined) updates.category = category;
     if (requiredIntegrations !== undefined) updates.required_integrations = requiredIntegrations;
     if (capabilities !== undefined) updates.capabilities = capabilities;
+    if (isDestructive !== undefined) updates.is_destructive = isDestructive;
+    if (requiresConfirmation !== undefined) updates.requires_confirmation = requiresConfirmation;
+    if (maxConfidence !== undefined) updates.max_confidence = maxConfidence;
 
     // Check if there are any updates to make
     if (Object.keys(updates).length === 0) {

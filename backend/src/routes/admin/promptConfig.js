@@ -213,8 +213,6 @@ router.post('/adaptive/preview', async (req, res) => {
     // Temporarily set the config if provided
     let prompt;
     if (config) {
-      // Build prompt manually from provided config
-      const { buildAdaptivePromptFromConfig } = await import('../../prompts/systemPrompt.js');
       // Use mock tools for preview
       const mockTools = [
         { tool_name: 'book_appointment', description: 'Book appointments', parameters_schema: { properties: { date: { type: 'string' }, time: { type: 'string' } }, required: ['date', 'time'] } },

@@ -428,7 +428,7 @@ function buildAdaptivePromptFromConfig(client, tools, config) {
       toolDesc += `\n  Required parameters: ${required.join(', ')}`;
     }
     if (Object.keys(properties).length > 0) {
-      toolDesc += `\n  Parameters:`;
+      toolDesc += '\n  Parameters:';
       for (const [param, details] of Object.entries(properties)) {
         const isRequired = required.includes(param) ? ' (required)' : '';
         toolDesc += `\n    - ${param}${isRequired}: ${details.description || details.type || ''}`;
