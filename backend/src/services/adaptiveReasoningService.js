@@ -7,27 +7,28 @@
  * - Server-side policy enforcement
  * - Confirmation matching via pending intent cache
  *
- * TODO: Consider splitting this file into smaller modules:
- * - adaptiveReasoningService.js (orchestration only, ~500 lines)
- * - toolExecutionService.js (executeTool, generateToolResultResponse, basicFormatToolResult)
- * - confirmationService.js (handleConfirmation, pending intent logic)
+ * Tool execution and confirmation handling are delegated to specialized services:
+ * - toolExecutionService.js - Tool execution via n8n
+ * - confirmationService.js - Pending intent management
  */
 
 import llmService from './llmService.js';
 import toolManager from './toolManager.js';
-import n8nService from './n8nService.js';
-import integrationService from './integrationService.js';
-import { RedisCache } from './redisCache.js';
 import escalationService from './escalationService.js';
+import toolExecutionService from './toolExecutionService.js';
+import confirmationService from './confirmationService.js';
 import { Message } from '../models/Message.js';
-import { ToolExecution } from '../models/ToolExecution.js';
 import { getToolPolicy, applyConfidenceFloor, isDestructiveTool, isConfirmation } from '../config/toolPolicies.js';
 import { ADAPTIVE_REASONING } from '../config/constants.js';
 import { REASON_CODES } from '../constants/reasonCodes.js';
-import { generateIntentHash } from '../utils/intentHash.js';
 import { getCritiquePrompt } from '../prompts/critiquePrompt.js';
 import { getAdaptiveModePromptAsync } from '../prompts/systemPrompt.js';
 import { fetchContext, fetchFullContext, formatContextForPrompt } from '../utils/contextFetcher.js';
+import {
+    formatConversationHistory,
+    formatCritiqueDisplay,
+    generateErrorMessageViaLLM
+} from '../utils/messageHelpers.js';
 
 class AdaptiveReasoningService {
     /**
@@ -49,7 +50,12 @@ class AdaptiveReasoningService {
             // Step 1: Check for confirmation first
             const language = client.language || 'en';
             if (isConfirmation(userMessage, language)) {
-                const confirmationResult = await this.handleConfirmation(conversationId, userMessage, client, conversation);
+                const confirmationResult = await confirmationService.handleConfirmation(
+                    conversationId,
+                    userMessage,
+                    client,
+                    conversation
+                );
                 if (confirmationResult) {
                     // Add reasoning metrics to confirmation result
                     confirmationResult.reasoningMetrics = {
@@ -57,36 +63,30 @@ class AdaptiveReasoningService {
                         critiqueTriggered: false,
                         contextFetchCount: 0
                     };
-                    return confirmationResult; // Confirmation was matched and processed
+                    return confirmationResult;
                 }
                 // If no pending intent, continue with normal flow
             }
 
-            // Step 2: Load available tools with full schemas for parameter validation
+            // Step 2: Load available tools with full schemas
             const tools = await toolManager.getClientTools(clientId);
             console.log('[AdaptiveReasoning] Loaded tools:', tools.map(t => t.tool_name).join(', '));
 
-            // Format tools with schemas for the AI
             const toolSchemas = tools.map(t => ({
                 tool_name: t.tool_name,
                 description: t.description,
                 parameters_schema: t.parameters_schema
             }));
 
-            // Step 3: Build adaptive mode system prompt (async to use database config)
+            // Step 3: Build adaptive mode system prompt
             const systemPrompt = await getAdaptiveModePromptAsync(client, toolSchemas);
 
-            // Step 4: Get recent conversation history for context
-            // Note: Recent messages already includes the current user message (saved before this service is called)
+            // Step 4: Get recent conversation history
             const recentMessages = await Message.getRecent(conversationId, ADAPTIVE_REASONING.CONTEXT_MESSAGE_COUNT);
-            const formattedHistory = recentMessages.map(m => ({
-                role: m.role,
-                content: m.content
-            }));
+            const formattedHistory = formatConversationHistory(recentMessages);
 
-            // Store system prompt only on first message of conversation (when there's only 1 recent message)
-            const isFirstMessage = recentMessages.length <= 1;
-            if (isFirstMessage) {
+            // Store system prompt on first message
+            if (recentMessages.length <= 1) {
                 await Message.createDebug(
                     conversationId,
                     'system',
@@ -99,14 +99,12 @@ class AdaptiveReasoningService {
                 );
             }
 
-            // Step 4: Call LLM with self-assessment instructions
-            // Don't add userMessage again - it's already in formattedHistory
+            // Step 5: Call LLM with self-assessment instructions
             const messages = [
                 { role: 'system', content: systemPrompt },
                 ...formattedHistory
             ];
 
-            // Track total tokens across all LLM calls
             let totalInputTokens = 0;
             let totalOutputTokens = 0;
 
@@ -117,17 +115,14 @@ class AdaptiveReasoningService {
                 model: client.model_name
             });
 
-            // Track tokens from first call
             if (llmResponse.tokens) {
                 totalInputTokens += llmResponse.tokens.input || 0;
                 totalOutputTokens += llmResponse.tokens.output || 0;
             }
 
-            // Step 6: Parse assessment and reasoning from response
+            // Step 6: Parse assessment and reasoning
             const { visible_response, assessment, reasoning } = llmService.parseAssessment(llmResponse.content);
 
-            // Store combined reasoning + assessment as single debug entry
-            // Assessment is stored as metadata (collapsible in UI)
             if (reasoning || assessment) {
                 await Message.createDebug(
                     conversationId,
@@ -141,228 +136,41 @@ class AdaptiveReasoningService {
                 );
             }
 
-            // Step 7: Check if more context is needed (context fetch feature)
-            let currentAssessment = assessment;
-            let currentResponse = visible_response;
+            // Step 7: Handle context fetching if needed
+            const contextResult = await this._handleContextFetching(
+                assessment,
+                visible_response,
+                systemPrompt,
+                formattedHistory,
+                client,
+                conversationId,
+                contextFetchCount,
+                { totalInputTokens, totalOutputTokens }
+            );
 
-            while (
-                currentAssessment &&
-                currentAssessment.needs_more_context &&
-                currentAssessment.needs_more_context.length > 0 &&
-                contextFetchCount < ADAPTIVE_REASONING.MAX_CONTEXT_FETCHES
-            ) {
-                contextFetchCount++;
-                console.log(`[AdaptiveReasoning] Context fetch attempt ${contextFetchCount}/${ADAPTIVE_REASONING.MAX_CONTEXT_FETCHES}:`, currentAssessment.needs_more_context);
+            contextFetchCount = contextResult.contextFetchCount;
+            totalInputTokens = contextResult.totalInputTokens;
+            totalOutputTokens = contextResult.totalOutputTokens;
+            const finalAssessment = contextResult.assessment;
+            const finalVisibleResponse = contextResult.visibleResponse;
 
-                // Fetch requested context
-                const { success, context, missing } = fetchContext(client, currentAssessment.needs_more_context);
-
-                if (!success && missing.length > 0) {
-                    console.warn('[AdaptiveReasoning] Some context keys not found:', missing);
-                }
-
-                // Format context for prompt (even if some keys are missing)
-                let additionalContext = formatContextForPrompt(context, client.name);
-
-                // If some context was requested but not available, tell the model
-                if (missing.length > 0) {
-                    additionalContext += `\n\n## Note: The following information was requested but is not configured for this business: ${missing.join(', ')}. Please inform the customer that this information is not available and suggest they contact the business directly.`;
-                }
-
-                // If NO context at all was found, still inform the model
-                if (Object.keys(context).length === 0 && missing.length > 0) {
-                    additionalContext = `\n\n## Context Not Available\nThe following information was requested but is not configured: ${missing.join(', ')}. Please inform the customer that this information is not available and suggest they contact the business directly.`;
-                }
-
-                // Re-prompt with additional context (even if just telling model what's unavailable)
-                const updatedSystemPrompt = systemPrompt + additionalContext;
-
-                const contextMessages = [
-                    { role: 'system', content: updatedSystemPrompt },
-                    ...formattedHistory
-                ];
-
-                const contextResponse = await llmService.chat(contextMessages, {
-                    maxTokens: ADAPTIVE_REASONING.DEFAULT_MAX_TOKENS,
-                    temperature: ADAPTIVE_REASONING.DEFAULT_TEMPERATURE,
-                    provider: client.llm_provider,
-                    model: client.model_name
-                });
-
-                // Track tokens
-                if (contextResponse.tokens) {
-                    totalInputTokens += contextResponse.tokens.input || 0;
-                    totalOutputTokens += contextResponse.tokens.output || 0;
-                }
-
-                // Parse new assessment
-                const { visible_response: newResponse, assessment: newAssessment } = llmService.parseAssessment(contextResponse.content);
-
-                // Store context fetch log
-                await Message.createDebug(
-                    conversationId,
-                    'assistant',
-                    `Context fetched (attempt ${contextFetchCount}): requested=${currentAssessment.needs_more_context.join(', ')}, found=${Object.keys(context).join(', ') || 'none'}, missing=${missing.join(', ') || 'none'}`,
-                    'internal',
-                    {
-                        metadata: { context_keys: currentAssessment.needs_more_context, fetched: Object.keys(context), missing },
-                        reasonCode: REASON_CODES.CONTEXT_FETCHED
-                    }
-                );
-
-                // Update current state
-                currentAssessment = newAssessment;
-                currentResponse = newResponse;
-
-                // Store new assessment
-                if (newAssessment) {
-                    await Message.createDebug(
-                        conversationId,
-                        'assistant',
-                        JSON.stringify(newAssessment, null, 2),
-                        'assessment',
-                        {
-                            metadata: newAssessment,
-                            reasonCode: REASON_CODES.ASSESSMENT_COMPLETED
-                        }
-                    );
-                }
-
-                // If context was unavailable and model now knows, don't keep looping
-                if (missing.length > 0 && Object.keys(context).length === 0) {
-                    console.log('[AdaptiveReasoning] Context unavailable, model informed, breaking loop');
-                    break;
-                }
-            }
-
-            // Check if we hit the context fetch limit
-            if (contextFetchCount >= ADAPTIVE_REASONING.MAX_CONTEXT_FETCHES && currentAssessment?.needs_more_context?.length > 0) {
-                console.warn('[AdaptiveReasoning] Context fetch limit reached, fetching full context');
-
-                // Fetch full context and make one final attempt
-                const fullContext = fetchFullContext(client);
-                const fullContextFormatted = formatContextForPrompt({ all: fullContext }, client.name);
-
-                const finalSystemPrompt = systemPrompt + fullContextFormatted;
-                const finalMessages = [
-                    { role: 'system', content: finalSystemPrompt },
-                    ...formattedHistory
-                ];
-
-                const finalResponse = await llmService.chat(finalMessages, {
-                    maxTokens: ADAPTIVE_REASONING.DEFAULT_MAX_TOKENS,
-                    temperature: ADAPTIVE_REASONING.DEFAULT_TEMPERATURE,
-                    provider: client.llm_provider,
-                    model: client.model_name
-                });
-
-                // Track tokens
-                if (finalResponse.tokens) {
-                    totalInputTokens += finalResponse.tokens.input || 0;
-                    totalOutputTokens += finalResponse.tokens.output || 0;
-                }
-
-                const { visible_response: finalVisibleResponse, assessment: finalAssessment } = llmService.parseAssessment(finalResponse.content);
-
-                // Store context loop detection
-                await Message.createDebug(
-                    conversationId,
-                    'assistant',
-                    'Context fetch limit reached - loaded full context',
-                    'internal',
-                    {
-                        reasonCode: REASON_CODES.CONTEXT_LOOP_DETECTED
-                    }
-                );
-
-                // Update with final results
-                currentAssessment = finalAssessment;
-                currentResponse = finalVisibleResponse;
-
-                if (finalAssessment) {
-                    await Message.createDebug(
-                        conversationId,
-                        'assistant',
-                        JSON.stringify(finalAssessment, null, 2),
-                        'assessment',
-                        {
-                            metadata: finalAssessment,
-                            reasonCode: REASON_CODES.ASSESSMENT_COMPLETED
-                        }
-                    );
-                }
-            }
-
-            // Continue with current assessment and response
-            const finalAssessment = currentAssessment;
-            const finalVisibleResponse = currentResponse;
-
-            // Enforce server-side policies
+            // Step 8: Enforce server-side policies
             if (finalAssessment && finalAssessment.tool_call) {
                 const policyResult = this.enforceServerPolicies(finalAssessment, tools);
 
                 if (!policyResult.allowed) {
-                    // Policy check info is already in the assessment metadata - no need for separate debug message
-                    console.log(`[Policy] Check failed: ${policyResult.reason_code}`);
-
-                    // If missing params and no model-generated message, re-prompt the model
-                    // to generate a natural response asking for the missing info
-                    if (policyResult.reason_code === REASON_CODES.MISSING_PARAM && !policyResult.message) {
-                        const missingParamsPrompt = `The tool "${finalAssessment.tool_call}" requires additional information that the customer hasn't provided yet. The following parameters are missing: ${policyResult.missing_params.join(', ')}. Please ask the customer for this information in a natural, friendly way in their language. Do not mention technical parameter names - ask naturally (e.g., instead of "customerName", ask "What is your name?").`;
-
-                        const repromptMessages = [
-                            { role: 'system', content: missingParamsPrompt },
-                            ...formattedHistory
-                        ];
-
-                        const repromptResponse = await llmService.chat(repromptMessages, {
-                            maxTokens: ADAPTIVE_REASONING.REPROMPT_MAX_TOKENS,
-                            temperature: ADAPTIVE_REASONING.DEFAULT_TEMPERATURE,
-                            provider: client.llm_provider,
-                            model: client.model_name
-                        });
-
-                        // Track tokens
-                        if (repromptResponse.tokens) {
-                            totalInputTokens += repromptResponse.tokens.input || 0;
-                            totalOutputTokens += repromptResponse.tokens.output || 0;
-                        }
-
-                        const modelMessage = repromptResponse.content || 'I need some more information to help you. Could you please provide a few more details?';
-
-                        await Message.create(conversationId, 'assistant', modelMessage, totalOutputTokens);
-
-                        return {
-                            response: modelMessage,
-                            tool_executed: false,
-                            reason_code: policyResult.reason_code,
-                            reasoningMetrics: {
-                                isAdaptive: true,
-                                critiqueTriggered: false,
-                                contextFetchCount,
-                                totalInputTokens,
-                                totalOutputTokens
-                            }
-                        };
-                    }
-
-                    // For other policy failures (e.g., tool not found), use the visible response if available
-                    const responseMessage = policyResult.message || finalVisibleResponse || 'I apologize, but I cannot complete that action.';
-                    await Message.create(conversationId, 'assistant', responseMessage, 0);
-
-                    return {
-                        response: responseMessage,
-                        tool_executed: false,
-                        reason_code: policyResult.reason_code,
-                        reasoningMetrics: {
-                            isAdaptive: true,
-                            critiqueTriggered: false,
-                            contextFetchCount
-                        }
-                    };
+                    return await this._handlePolicyFailure(
+                        policyResult,
+                        finalAssessment,
+                        finalVisibleResponse,
+                        formattedHistory,
+                        client,
+                        conversationId,
+                        contextFetchCount,
+                        { totalInputTokens, totalOutputTokens }
+                    );
                 }
 
-                // Update assessment with policy-enforced values
                 Object.assign(finalAssessment, policyResult.updated_assessment);
             }
 
@@ -370,111 +178,51 @@ class AdaptiveReasoningService {
             const needsCritique = finalAssessment && finalAssessment.tool_call && this.shouldTriggerCritique(finalAssessment, tools);
 
             if (!needsCritique) {
-                // No critique needed - proceed directly
-                console.log('[AdaptiveReasoning] Critique skipped - simple query or read-only tool');
-
-                // Store skipped critique log
-                await Message.createDebug(
-                    conversationId,
-                    'assistant',
-                    'Critique skipped - no risky action detected',
-                    'internal',
-                    {
-                        reasonCode: REASON_CODES.CRITIQUE_SKIPPED
-                    }
-                );
-
-                // Execute tool if present
-                if (finalAssessment && finalAssessment.tool_call) {
-                    await Message.createDebug(
-                        conversationId,
-                        'assistant', // Use 'assistant' role - DB constraint only allows user/assistant/system
-                        `Tool Call: ${finalAssessment.tool_call}\n${JSON.stringify(finalAssessment.tool_params, null, 2)}`,
-                        'tool_call',
-                        { reasonCode: 'TOOL_CALL', metadata: { tool: finalAssessment.tool_call, params: finalAssessment.tool_params } }
-                    );
-
-                    const toolResult = await this.executeTool(finalAssessment, conversationId, clientId, tools, { client, formattedHistory });
-
-                    if (toolResult.executed) {
-                        await Message.createDebug(
-                            conversationId,
-                            'assistant', // Use 'assistant' role - DB constraint only allows user/assistant/system
-                            JSON.stringify(toolResult.result, null, 2),
-                            'tool_result',
-                            {
-                                reasonCode: REASON_CODES.EXECUTED_SUCCESSFULLY,
-                                metadata: { tool: finalAssessment.tool_call }
-                            }
-                        );
-
-                        // Store the formatted response as a visible message
-                        const responseMessage = toolResult.final_response || finalVisibleResponse;
-                        await Message.create(
-                            conversationId,
-                            'assistant',
-                            responseMessage,
-                            totalOutputTokens
-                        );
-
-                        return {
-                            response: responseMessage,
-                            tool_executed: true,
-                            tool_result: toolResult.result,
-                            reason_code: REASON_CODES.EXECUTED_SUCCESSFULLY,
-                            reasoningMetrics: {
-                                isAdaptive: true,
-                                critiqueTriggered: false,
-                                contextFetchCount,
-                                totalInputTokens,
-                                totalOutputTokens
-                            }
-                        };
-                    } else {
-                        await Message.createDebug(
-                            conversationId,
-                            'assistant', // Use 'assistant' role - DB constraint only allows user/assistant/system
-                            `Tool execution failed: ${toolResult.error}`,
-                            'tool_result',
-                            { reasonCode: 'TOOL_FAILED' }
-                        );
-                    }
-                }
-
-                // No tool or tool failed - return visible response
-                await Message.create(
-                    conversationId,
-                    'assistant',
+                return await this._handleNoCritique(
+                    finalAssessment,
                     finalVisibleResponse,
-                    totalOutputTokens
+                    conversationId,
+                    clientId,
+                    tools,
+                    client,
+                    formattedHistory,
+                    contextFetchCount,
+                    { totalInputTokens, totalOutputTokens }
                 );
-
-                return {
-                    response: finalVisibleResponse,
-                    tool_executed: false,
-                    reason_code: REASON_CODES.RESPONDED_SUCCESSFULLY,
-                    reasoningMetrics: {
-                        isAdaptive: true,
-                        critiqueTriggered: false,
-                        contextFetchCount,
-                        totalInputTokens,
-                        totalOutputTokens
-                    }
-                };
             }
 
             // Step 10: Run critique
             console.log('[AdaptiveReasoning] Critique triggered');
-            const critiqueResult = await this.runCritique(userMessage, finalAssessment, tools, formattedHistory, client, 0, { totalInputTokens, totalOutputTokens });
+            const critiqueResult = await this.runCritique(userMessage, finalAssessment, tools, formattedHistory, client);
 
-            // Track tokens from critique
             if (critiqueResult.tokens) {
                 totalInputTokens += critiqueResult.tokens.input || 0;
                 totalOutputTokens += critiqueResult.tokens.output || 0;
             }
 
-            // Store critique as internal message
-            await Message.createDebug(conversationId, 'assistant', JSON.stringify(critiqueResult, null, 2), 'critique', { metadata: critiqueResult, reasonCode: REASON_CODES.CRITIQUE_TRIGGERED });
+            // Format critique debug content to match REASONING style
+            const critiqueDisplay = formatCritiqueDisplay(finalAssessment, critiqueResult);
+
+            const critiqueDebugMetadata = {
+                input: {
+                    tool: finalAssessment.tool_call,
+                    params: finalAssessment.tool_params,
+                    confidence: finalAssessment.confidence
+                },
+                understanding: critiqueResult.understanding,
+                tool_choice: critiqueResult.tool_choice,
+                execution: critiqueResult.execution,
+                decision: critiqueResult.decision,
+                reasoning: critiqueResult.reasoning
+            };
+
+            await Message.createDebug(
+                conversationId,
+                'assistant',
+                critiqueDisplay,
+                'critique',
+                { metadata: critiqueDebugMetadata, reasonCode: REASON_CODES.CRITIQUE_TRIGGERED }
+            );
 
             // Step 11: Act on critique decision
             const critiqueDecisionResult = await this.actOnCritiqueDecision(
@@ -490,7 +238,6 @@ class AdaptiveReasoningService {
                 formattedHistory
             );
 
-            // Add reasoning metrics to result
             critiqueDecisionResult.reasoningMetrics = {
                 isAdaptive: true,
                 critiqueTriggered: true,
@@ -503,12 +250,299 @@ class AdaptiveReasoningService {
 
         } catch (error) {
             console.error('[AdaptiveReasoning] Error:', error);
-
-            // Log error and escalate
-            await Message.createDebug(conversationId, 'assistant', `Error in adaptive reasoning: ${error.message}`, 'internal', { reasonCode: REASON_CODES.CRITIQUE_FAILED });
-
+            await Message.createDebug(
+                conversationId,
+                'assistant',
+                `Error in adaptive reasoning: ${error.message}`,
+                'internal',
+                { reasonCode: REASON_CODES.CRITIQUE_FAILED }
+            );
             throw error;
         }
+    }
+
+    /**
+     * Handle context fetching loop
+     * @private
+     */
+    async _handleContextFetching(assessment, visibleResponse, systemPrompt, formattedHistory, client, conversationId, contextFetchCount, tokens) {
+        let currentAssessment = assessment;
+        let currentResponse = visibleResponse;
+        let totalInputTokens = tokens.totalInputTokens;
+        let totalOutputTokens = tokens.totalOutputTokens;
+
+        while (
+            currentAssessment &&
+            currentAssessment.needs_more_context &&
+            currentAssessment.needs_more_context.length > 0 &&
+            contextFetchCount < ADAPTIVE_REASONING.MAX_CONTEXT_FETCHES
+        ) {
+            contextFetchCount++;
+            console.log(`[AdaptiveReasoning] Context fetch attempt ${contextFetchCount}/${ADAPTIVE_REASONING.MAX_CONTEXT_FETCHES}:`, currentAssessment.needs_more_context);
+
+            const { success, context, missing } = fetchContext(client, currentAssessment.needs_more_context);
+
+            if (!success && missing.length > 0) {
+                console.warn('[AdaptiveReasoning] Some context keys not found:', missing);
+            }
+
+            let additionalContext = formatContextForPrompt(context, client.name);
+
+            if (missing.length > 0) {
+                additionalContext += `\n\n## Note: The following information was requested but is not configured for this business: ${missing.join(', ')}. Please inform the customer that this information is not available and suggest they contact the business directly.`;
+            }
+
+            if (Object.keys(context).length === 0 && missing.length > 0) {
+                additionalContext = `\n\n## Context Not Available\nThe following information was requested but is not configured: ${missing.join(', ')}. Please inform the customer that this information is not available and suggest they contact the business directly.`;
+            }
+
+            const updatedSystemPrompt = systemPrompt + additionalContext;
+            const contextMessages = [
+                { role: 'system', content: updatedSystemPrompt },
+                ...formattedHistory
+            ];
+
+            const contextResponse = await llmService.chat(contextMessages, {
+                maxTokens: ADAPTIVE_REASONING.DEFAULT_MAX_TOKENS,
+                temperature: ADAPTIVE_REASONING.DEFAULT_TEMPERATURE,
+                provider: client.llm_provider,
+                model: client.model_name
+            });
+
+            if (contextResponse.tokens) {
+                totalInputTokens += contextResponse.tokens.input || 0;
+                totalOutputTokens += contextResponse.tokens.output || 0;
+            }
+
+            const { visible_response: newResponse, assessment: newAssessment } = llmService.parseAssessment(contextResponse.content);
+
+            await Message.createDebug(
+                conversationId,
+                'assistant',
+                `Context fetched (attempt ${contextFetchCount}): requested=${currentAssessment.needs_more_context.join(', ')}, found=${Object.keys(context).join(', ') || 'none'}, missing=${missing.join(', ') || 'none'}`,
+                'internal',
+                {
+                    metadata: { context_keys: currentAssessment.needs_more_context, fetched: Object.keys(context), missing },
+                    reasonCode: REASON_CODES.CONTEXT_FETCHED
+                }
+            );
+
+            currentAssessment = newAssessment;
+            currentResponse = newResponse;
+
+            if (newAssessment) {
+                await Message.createDebug(
+                    conversationId,
+                    'assistant',
+                    JSON.stringify(newAssessment, null, 2),
+                    'assessment',
+                    {
+                        metadata: newAssessment,
+                        reasonCode: REASON_CODES.ASSESSMENT_COMPLETED
+                    }
+                );
+            }
+
+            if (missing.length > 0 && Object.keys(context).length === 0) {
+                console.log('[AdaptiveReasoning] Context unavailable, model informed, breaking loop');
+                break;
+            }
+        }
+
+        // Handle context fetch limit
+        if (contextFetchCount >= ADAPTIVE_REASONING.MAX_CONTEXT_FETCHES && currentAssessment?.needs_more_context?.length > 0) {
+            console.warn('[AdaptiveReasoning] Context fetch limit reached, fetching full context');
+
+            const fullContext = fetchFullContext(client);
+            const fullContextFormatted = formatContextForPrompt({ all: fullContext }, client.name);
+
+            const finalSystemPrompt = systemPrompt + fullContextFormatted;
+            const finalMessages = [
+                { role: 'system', content: finalSystemPrompt },
+                ...formattedHistory
+            ];
+
+            const finalResponse = await llmService.chat(finalMessages, {
+                maxTokens: ADAPTIVE_REASONING.DEFAULT_MAX_TOKENS,
+                temperature: ADAPTIVE_REASONING.DEFAULT_TEMPERATURE,
+                provider: client.llm_provider,
+                model: client.model_name
+            });
+
+            if (finalResponse.tokens) {
+                totalInputTokens += finalResponse.tokens.input || 0;
+                totalOutputTokens += finalResponse.tokens.output || 0;
+            }
+
+            const { visible_response: finalVisibleResponse, assessment: finalAssessment } = llmService.parseAssessment(finalResponse.content);
+
+            await Message.createDebug(
+                conversationId,
+                'assistant',
+                'Context fetch limit reached - loaded full context',
+                'internal',
+                { reasonCode: REASON_CODES.CONTEXT_LOOP_DETECTED }
+            );
+
+            currentAssessment = finalAssessment;
+            currentResponse = finalVisibleResponse;
+
+            if (finalAssessment) {
+                await Message.createDebug(
+                    conversationId,
+                    'assistant',
+                    JSON.stringify(finalAssessment, null, 2),
+                    'assessment',
+                    {
+                        metadata: finalAssessment,
+                        reasonCode: REASON_CODES.ASSESSMENT_COMPLETED
+                    }
+                );
+            }
+        }
+
+        return {
+            assessment: currentAssessment,
+            visibleResponse: currentResponse,
+            contextFetchCount,
+            totalInputTokens,
+            totalOutputTokens
+        };
+    }
+
+    /**
+     * Handle policy failure (missing params, tool not found, etc.)
+     * @private
+     */
+    async _handlePolicyFailure(policyResult, assessment, visibleResponse, formattedHistory, client, conversationId, contextFetchCount, tokens) {
+        let { totalInputTokens, totalOutputTokens } = tokens;
+
+        console.log(`[Policy] Check failed: ${policyResult.reason_code}`);
+
+        if (policyResult.reason_code === REASON_CODES.MISSING_PARAM && !policyResult.message) {
+            const missingParamsPrompt = `The tool "${assessment.tool_call}" requires additional information that the customer hasn't provided yet. The following parameters are missing: ${policyResult.missing_params.join(', ')}. Please ask the customer for this information in a natural, friendly way in their language. Do not mention technical parameter names - ask naturally (e.g., instead of "customerName", ask "What is your name?").`;
+
+            const repromptMessages = [
+                { role: 'system', content: missingParamsPrompt },
+                ...formattedHistory
+            ];
+
+            const repromptResponse = await llmService.chat(repromptMessages, {
+                maxTokens: ADAPTIVE_REASONING.REPROMPT_MAX_TOKENS,
+                temperature: ADAPTIVE_REASONING.DEFAULT_TEMPERATURE,
+                provider: client.llm_provider,
+                model: client.model_name
+            });
+
+            if (repromptResponse.tokens) {
+                totalInputTokens += repromptResponse.tokens.input || 0;
+                totalOutputTokens += repromptResponse.tokens.output || 0;
+            }
+
+            const modelMessage = repromptResponse.content || 'I need some more information to help you. Could you please provide a few more details?';
+
+            await Message.create(conversationId, 'assistant', modelMessage, totalOutputTokens);
+
+            return {
+                response: modelMessage,
+                tool_executed: false,
+                reason_code: policyResult.reason_code,
+                reasoningMetrics: {
+                    isAdaptive: true,
+                    critiqueTriggered: false,
+                    contextFetchCount,
+                    totalInputTokens,
+                    totalOutputTokens
+                }
+            };
+        }
+
+        // Generate error message via LLM if no message provided
+        let responseMessage = policyResult.message || visibleResponse;
+        if (!responseMessage) {
+            responseMessage = await this.generateErrorMessage(
+                policyResult.reason_code || 'action_blocked',
+                'Unable to complete the requested action',
+                client,
+                formattedHistory
+            );
+        }
+        await Message.create(conversationId, 'assistant', responseMessage, 0);
+
+        return {
+            response: responseMessage,
+            tool_executed: false,
+            reason_code: policyResult.reason_code,
+            reasoningMetrics: {
+                isAdaptive: true,
+                critiqueTriggered: false,
+                contextFetchCount,
+                totalInputTokens,
+                totalOutputTokens
+            }
+        };
+    }
+
+    /**
+     * Handle case when no critique is needed
+     * @private
+     */
+    async _handleNoCritique(assessment, visibleResponse, conversationId, clientId, tools, client, formattedHistory, contextFetchCount, tokens) {
+        const { totalInputTokens, totalOutputTokens } = tokens;
+
+        console.log('[AdaptiveReasoning] Critique skipped - simple query or read-only tool');
+
+        await Message.createDebug(
+            conversationId,
+            'assistant',
+            'Critique skipped - no risky action detected',
+            'internal',
+            { reasonCode: REASON_CODES.CRITIQUE_SKIPPED }
+        );
+
+        if (assessment && assessment.tool_call) {
+            const toolResult = await toolExecutionService.executeTool(
+                assessment,
+                conversationId,
+                clientId,
+                tools,
+                { client, formattedHistory }
+            );
+
+            if (toolResult.executed) {
+                const responseMessage = toolResult.final_response || visibleResponse;
+                await Message.create(conversationId, 'assistant', responseMessage, totalOutputTokens);
+
+                return {
+                    response: responseMessage,
+                    tool_executed: true,
+                    tool_result: toolResult.result,
+                    reason_code: REASON_CODES.EXECUTED_SUCCESSFULLY,
+                    reasoningMetrics: {
+                        isAdaptive: true,
+                        critiqueTriggered: false,
+                        contextFetchCount,
+                        totalInputTokens,
+                        totalOutputTokens
+                    }
+                };
+            }
+        }
+
+        await Message.create(conversationId, 'assistant', visibleResponse, totalOutputTokens);
+
+        return {
+            response: visibleResponse,
+            tool_executed: false,
+            reason_code: REASON_CODES.RESPONDED_SUCCESSFULLY,
+            reasoningMetrics: {
+                isAdaptive: true,
+                critiqueTriggered: false,
+                contextFetchCount,
+                totalInputTokens,
+                totalOutputTokens
+            }
+        };
     }
 
     /**
@@ -527,7 +561,8 @@ class AdaptiveReasoningService {
             return {
                 allowed: false,
                 reason_code: REASON_CODES.TOOL_NOT_FOUND,
-                message: 'I apologize, but I don\'t have access to that capability. Let me help you another way.',
+                // Message will be generated by LLM in calling code
+                message: null,
                 updated_assessment: assessment
             };
         }
@@ -535,7 +570,6 @@ class AdaptiveReasoningService {
         console.log('[Policy] Tool found, checking schema. Has parameters_schema:', !!tool.parameters_schema);
 
         // HARD STOP 2: Missing required parameters
-        // Check both AI's missing_params AND validate against actual schema
         const schema = tool.parameters_schema || {};
         const required = schema.required || [];
         const provided = Object.keys(assessment.tool_params || {});
@@ -545,18 +579,16 @@ class AdaptiveReasoningService {
 
         if (actuallyMissing.length > 0) {
             console.log('[Policy] Server-side validation found missing params:', actuallyMissing);
-            // Don't generate hardcoded message - mark as missing and let the model handle it
-            // The model will be re-prompted with missing_params info and can generate a natural response
             return {
                 allowed: false,
                 reason_code: REASON_CODES.MISSING_PARAM,
-                message: null, // Let the model generate the response
+                message: null,
                 missing_params: actuallyMissing,
                 updated_assessment: { ...assessment, missing_params: actuallyMissing }
             };
         }
 
-        // Apply confidence floor (using database policy from tool object)
+        // Apply confidence floor
         const policy = getToolPolicy(toolName, tool);
         const original_confidence = assessment.confidence;
         const effective_confidence = applyConfidenceFloor(toolName, assessment.confidence, tool);
@@ -565,7 +597,6 @@ class AdaptiveReasoningService {
             console.log(`[Policy] Confidence floor applied: ${original_confidence} -> ${effective_confidence} for tool ${toolName} (max: ${policy.maxConfidence})`);
         }
 
-        // Override needs_confirmation for destructive tools (using database policy)
         const updated_assessment = {
             ...assessment,
             confidence: effective_confidence,
@@ -589,38 +620,31 @@ class AdaptiveReasoningService {
     shouldTriggerCritique(assessment, tools) {
         const toolName = assessment.tool_call;
 
-        // No tool call = no critique needed
         if (!toolName) return false;
 
-        // Check if tool exists
         const tool = tools.find(t => t.tool_name === toolName);
-        if (!tool) return true; // Hallucinated tool - needs critique to catch
+        if (!tool) return true;
 
-        // Trigger if destructive (check both assessment and database flag)
         if (assessment.is_destructive || isDestructiveTool(toolName, tool)) {
-            console.log('[Critique Trigger] Destructive tool detected (assessment:', assessment.is_destructive, ', db:', tool.is_destructive, ')');
+            console.log('[Critique Trigger] Destructive tool detected');
             return true;
         }
 
-        // Trigger if low confidence after floor
         if (assessment.confidence < ADAPTIVE_REASONING.MIN_CONFIDENCE_FOR_ACTION) {
-            console.log(`[Critique Trigger] Low confidence: ${assessment.confidence} (min: ${ADAPTIVE_REASONING.MIN_CONFIDENCE_FOR_ACTION})`);
+            console.log(`[Critique Trigger] Low confidence: ${assessment.confidence}`);
             return true;
         }
 
-        // Trigger if missing params (should be caught earlier but double-check)
         if (assessment.missing_params && assessment.missing_params.length > 0) {
             console.log('[Critique Trigger] Missing parameters');
             return true;
         }
 
-        // Trigger if AI explicitly says needs confirmation
         if (assessment.needs_confirmation) {
             console.log('[Critique Trigger] Needs confirmation flag set');
             return true;
         }
 
-        // No critique needed - safe to proceed
         return false;
     }
 
@@ -630,12 +654,11 @@ class AdaptiveReasoningService {
      * @param {Object} assessment - AI's self-assessment
      * @param {Array} tools - Available tools
      * @param {Array} conversationHistory - Recent messages
-     * @param {Object} client - Client object with provider and model info
-     * @param {number} retryCount - Current retry attempt (internal)
-     * @param {Object} tokenTracking - Token tracking object (internal)
-     * @returns {Promise<Object>} Critique result {decision, reasoning, message, tokens}
+     * @param {Object} client - Client object
+     * @param {number} retryCount - Current retry attempt
+     * @returns {Promise<Object>} Critique result
      */
-    async runCritique(userMessage, assessment, tools, conversationHistory = [], client, retryCount = 0, tokenTracking = {}) {
+    async runCritique(userMessage, assessment, tools, conversationHistory = [], client, retryCount = 0) {
         let inputTokens = 0;
         let outputTokens = 0;
 
@@ -651,39 +674,36 @@ class AdaptiveReasoningService {
                 model: client.model_name
             });
 
-            // Track tokens
             if (critiqueResponse.tokens) {
                 inputTokens = critiqueResponse.tokens.input || 0;
                 outputTokens = critiqueResponse.tokens.output || 0;
             }
 
-            // Parse critique response (should be JSON)
-            const critiqueResult = JSON.parse(critiqueResponse.content);
+            // Strip markdown code blocks if present (LLM sometimes wraps JSON in ```json ... ```)
+            let jsonContent = critiqueResponse.content.trim();
+            if (jsonContent.startsWith('```')) {
+                jsonContent = jsonContent.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+            }
+            const critiqueResult = JSON.parse(jsonContent);
 
-            // Validate decision
-            const validDecisions = ['PROCEED', 'ASK_USER', 'ESCALATE'];
+            const validDecisions = ['PROCEED', 'RETRY', 'ASK_USER', 'ESCALATE'];
             if (!validDecisions.includes(critiqueResult.decision)) {
                 console.warn('[Critique] Invalid decision:', critiqueResult.decision);
-                critiqueResult.decision = 'ASK_USER'; // Safe default
+                critiqueResult.decision = 'ASK_USER';
             }
 
-            // Include token tracking
             critiqueResult.tokens = { input: inputTokens, output: outputTokens };
-
             return critiqueResult;
 
         } catch (error) {
             console.error(`[Critique] Failed (attempt ${retryCount + 1}/${ADAPTIVE_REASONING.CRITIQUE_MAX_RETRIES + 1}):`, error.message);
 
-            // Retry only if we haven't exceeded max retries
             if (retryCount < ADAPTIVE_REASONING.CRITIQUE_MAX_RETRIES) {
                 console.log('[Critique] Retrying...');
-                // Add a small delay before retry to avoid rate limits
                 await new Promise(resolve => setTimeout(resolve, ADAPTIVE_REASONING.CRITIQUE_RETRY_DELAY));
-                return await this.runCritique(userMessage, assessment, tools, conversationHistory, client, retryCount + 1, tokenTracking);
+                return await this.runCritique(userMessage, assessment, tools, conversationHistory, client, retryCount + 1);
             }
 
-            // All attempts failed - escalate
             console.error('[Critique] All retry attempts exhausted, escalating');
             return {
                 decision: 'ESCALATE',
@@ -696,25 +716,63 @@ class AdaptiveReasoningService {
 
     /**
      * Act on critique decision
+     * @param {number} retryCount - Number of times we've retried (max 1 to prevent loops)
      */
-    async actOnCritiqueDecision(critiqueResult, assessment, visible_response, conversationId, clientId, client, conversation, tools, outputTokens = 0, formattedHistory = []) {
-        const { decision, message } = critiqueResult;
+    async actOnCritiqueDecision(critiqueResult, assessment, visible_response, conversationId, clientId, client, conversation, tools, outputTokens = 0, formattedHistory = [], retryCount = 0) {
+        const { decision } = critiqueResult;
 
         switch (decision) {
+            case 'RETRY': {
+                console.log('[Critique] Decision: RETRY - retryCount:', retryCount);
+
+                // Prevent infinite loops - max 1 retry then escalate
+                if (retryCount >= 1) {
+                    console.log('[Critique] Max retries reached, escalating');
+                    return await this.actOnCritiqueDecision(
+                        { ...critiqueResult, decision: 'ESCALATE', reasoning: 'AI could not correct its understanding after retry' },
+                        assessment,
+                        visible_response,
+                        conversationId,
+                        clientId,
+                        client,
+                        conversation,
+                        tools,
+                        outputTokens,
+                        formattedHistory,
+                        retryCount
+                    );
+                }
+
+                // Re-run reasoning with critique feedback
+                const retryResult = await this.retryReasoning(
+                    critiqueResult,
+                    assessment,
+                    client,
+                    formattedHistory,
+                    tools,
+                    conversationId,
+                    clientId,
+                    conversation,
+                    retryCount + 1
+                );
+
+                return retryResult;
+            }
+
             case 'PROCEED': {
-                // Execute tool
                 console.log('[Critique] Decision: PROCEED');
-                const toolResult = await this.executeTool(assessment, conversationId, clientId, tools, { client, formattedHistory });
+
+                const toolResult = await toolExecutionService.executeTool(
+                    assessment,
+                    conversationId,
+                    clientId,
+                    tools,
+                    { client, formattedHistory }
+                );
 
                 if (toolResult.executed) {
-                    // Store the formatted response as a visible message
                     const responseMessage = toolResult.final_response || visible_response;
-                    await Message.create(
-                        conversationId,
-                        'assistant',
-                        responseMessage,
-                        outputTokens
-                    );
+                    await Message.create(conversationId, 'assistant', responseMessage, outputTokens);
 
                     return {
                         response: responseMessage,
@@ -724,13 +782,7 @@ class AdaptiveReasoningService {
                     };
                 }
 
-                // Tool failed - return visible response
-                await Message.create(
-                    conversationId,
-                    'assistant',
-                    visible_response,
-                    outputTokens
-                );
+                await Message.create(conversationId, 'assistant', visible_response, outputTokens);
 
                 return {
                     response: visible_response,
@@ -739,62 +791,55 @@ class AdaptiveReasoningService {
                 };
             }
 
-            case 'ASK_USER':
-                console.log('[Critique] Decision: ASK_USER -', message);
+            case 'ASK_USER': {
+                const execution = critiqueResult.execution || {};
+                console.log('[Critique] Decision: ASK_USER - issues:', execution.issues);
 
-                // If this is a destructive action, store pending intent
                 if (assessment.is_destructive && assessment.tool_call) {
-                    const intentHash = generateIntentHash(assessment.tool_call, assessment.tool_params);
-                    await RedisCache.setPendingIntent(conversationId, {
-                        tool: assessment.tool_call,
-                        params: assessment.tool_params,
-                        hash: intentHash,
-                        timestamp: Date.now()
-                    });
-
-                    console.log('[PendingIntent] Stored for confirmation');
+                    await confirmationService.storePendingIntent(
+                        conversationId,
+                        assessment.tool_call,
+                        assessment.tool_params
+                    );
                 }
 
-                // Store message for user
-                await Message.create(
-                    conversationId,
-                    'assistant',
-                    message,
-                    outputTokens
+                // Re-run main LLM with critique feedback to generate appropriate response
+                const userMessage = await this.regenerateResponseWithCritiqueFeedback(
+                    critiqueResult,
+                    assessment,
+                    client,
+                    formattedHistory
                 );
 
+                await Message.create(conversationId, 'assistant', userMessage.content, userMessage.tokens || 0);
+
                 return {
-                    response: message,
+                    response: userMessage.content,
                     tool_executed: false,
                     reason_code: assessment.is_destructive ? REASON_CODES.AWAITING_CONFIRMATION : REASON_CODES.ASK_USER
                 };
+            }
 
             case 'ESCALATE': {
-                console.log('[Critique] Decision: ESCALATE -', message);
+                console.log('[Critique] Decision: ESCALATE - reason:', critiqueResult.reasoning);
 
-                // Trigger escalation
-                await escalationService.createEscalation({
-                    client_id: clientId,
-                    conversation_id: conversationId,
-                    reason: 'ai_stuck',
-                    context: {
-                        user_message: conversation.last_message,
-                        assessment,
-                        critique: critiqueResult
-                    }
-                });
-
-                const escalationMsg = 'I apologize, but I need to connect you with a team member who can better assist with this request. Someone will be with you shortly.';
-
-                await Message.create(
+                await escalationService.escalate(
                     conversationId,
-                    'assistant',
-                    escalationMsg,
-                    outputTokens
+                    'ai_stuck'
                 );
 
+                // Re-run main LLM with critique feedback to generate escalation message
+                const escalationMessage = await this.regenerateResponseWithCritiqueFeedback(
+                    critiqueResult,
+                    assessment,
+                    client,
+                    formattedHistory
+                );
+
+                await Message.create(conversationId, 'assistant', escalationMessage.content, escalationMessage.tokens || 0);
+
                 return {
-                    response: escalationMsg,
+                    response: escalationMessage.content,
                     tool_executed: false,
                     escalated: true,
                     reason_code: REASON_CODES.ESCALATED_TO_HUMAN
@@ -802,9 +847,8 @@ class AdaptiveReasoningService {
             }
 
             default:
-                // Unknown decision - escalate as safety measure
                 return await this.actOnCritiqueDecision(
-                    { decision: 'ESCALATE', reasoning: 'Unknown critique decision', message: 'Unable to process request' },
+                    { decision: 'ESCALATE', reasoning: 'Unknown critique decision', ask_reason: 'error', missing_info: [] },
                     assessment,
                     visible_response,
                     conversationId,
@@ -819,240 +863,164 @@ class AdaptiveReasoningService {
     }
 
     /**
-     * Execute a tool via n8n
-     * @param {Object} assessment - Assessment with tool_call and tool_params
-     * @param {number} conversationId - Conversation ID
-     * @param {number} clientId - Client ID
-     * @param {Array} tools - Available tools array
-     * @param {Object} options - Additional options (client, formattedHistory for response generation)
+     * Generate a friendly error message via LLM
+     * Delegates to shared utility in messageHelpers.js
      */
-    async executeTool(assessment, conversationId, clientId, tools, options = {}) {
-        const toolName = assessment.tool_call;
-        const toolParams = assessment.tool_params || {};
-        const { client, formattedHistory } = options;
-
-        try {
-            // Find the tool in the tools array
-            const tool = tools.find(t => t.tool_name === toolName);
-            if (!tool) {
-                console.error(`[Tool Execution] Tool not found: ${toolName}`);
-                return {
-                    executed: false,
-                    error: `Tool "${toolName}" not found`
-                };
-            }
-
-            // Check for duplicate tool calls
-            const isDuplicate = await ToolExecution.isDuplicateExecution(conversationId, toolName, toolParams);
-            if (isDuplicate) {
-                console.log(`[Tool Execution] Duplicate call blocked: ${toolName}`);
-                return {
-                    executed: true,
-                    result: { message: 'This action was already completed earlier in this conversation.' },
-                    final_response: 'This action was already completed earlier in this conversation.',
-                    duplicate: true
-                };
-            }
-
-            // Fetch integration credentials if needed
-            let integrations = {};
-            const requiredIntegrations = tool.required_integrations || [];
-            const integrationMapping = tool.integration_mapping || {};
-
-            if (requiredIntegrations.length > 0) {
-                try {
-                    integrations = await integrationService.getIntegrationsForTool(
-                        clientId,
-                        integrationMapping,
-                        requiredIntegrations
-                    );
-                    console.log(`[Tool Execution] Loaded ${Object.keys(integrations).length} integrations`);
-                } catch (error) {
-                    console.error('[Tool Execution] Failed to load integrations:', error.message);
-                    return {
-                        executed: false,
-                        error: `Integration error: ${error.message}`
-                    };
-                }
-            }
-
-            // Execute via n8n
-            console.log(`[Tool Execution] Calling n8n webhook for: ${toolName}`);
-            const result = await n8nService.executeTool(tool.n8n_webhook_url, toolParams, { integrations });
-
-            // Handle blocked tools (placeholder values detected)
-            if (result.blocked) {
-                console.warn(`[Tool Execution] Tool BLOCKED - placeholder values: ${toolName}`);
-                await ToolExecution.logBlocked(conversationId, toolName, toolParams, result.error);
-                return {
-                    executed: false,
-                    error: result.error,
-                    blocked: true
-                };
-            }
-
-            // Log execution
-            await ToolExecution.create(
-                conversationId,
-                toolName,
-                toolParams,
-                result.data,
-                result.success,
-                result.executionTimeMs
-            );
-
-            if (!result.success) {
-                return {
-                    executed: false,
-                    error: result.error
-                };
-            }
-
-            // Let the model generate a natural response based on the tool result
-            let final_response;
-            if (client && formattedHistory) {
-                final_response = await this.generateToolResultResponse(
-                    toolName,
-                    toolParams,
-                    result.data,
-                    client,
-                    formattedHistory
-                );
-            } else {
-                // Fallback: basic formatting if context not available
-                final_response = this.basicFormatToolResult(result.data);
-            }
-
-            return {
-                executed: true,
-                result: result.data,
-                final_response
-            };
-
-        } catch (error) {
-            console.error('[Tool Execution] Failed:', error);
-            return {
-                executed: false,
-                error: error.message
-            };
-        }
+    async generateErrorMessage(errorType, errorDetails, client, formattedHistory = []) {
+        return generateErrorMessageViaLLM(errorType, errorDetails, client, formattedHistory);
     }
 
     /**
-     * Generate a natural response for a tool result using the LLM
-     * @param {string} toolName - Name of the tool that was executed
-     * @param {Object} toolParams - Parameters used in the tool call
-     * @param {Object} toolResult - Raw result from the tool
-     * @param {Object} client - Client configuration
-     * @param {Array} formattedHistory - Conversation history
-     * @returns {Promise<string>} Natural response for the customer
+     * Re-run the main LLM with critique feedback to generate appropriate response
+     * Appends critique context to system prompt, LLM generates natural response
      */
-    async generateToolResultResponse(toolName, toolParams, toolResult, client, formattedHistory) {
-        try {
-            const resultJson = JSON.stringify(toolResult, null, 2);
-            const paramsJson = JSON.stringify(toolParams, null, 2);
+    async regenerateResponseWithCritiqueFeedback(critiqueResult, assessment, client, formattedHistory) {
+        // Get the original system prompt (first message if it's a system message)
+        const hasSystemPrompt = formattedHistory[0]?.role === 'system';
+        const originalSystemPrompt = hasSystemPrompt ? formattedHistory[0].content : '';
+        const conversationMessages = hasSystemPrompt ? formattedHistory.slice(1) : formattedHistory;
 
-            const systemPrompt = `You are a helpful customer service assistant. A tool was just executed and you need to communicate the result to the customer in a natural, friendly way in their language.
+        // Build context from new critique format
+        const execution = critiqueResult.execution || {};
+        const issues = execution.issues || [];
 
-Tool executed: ${toolName}
-Parameters used: ${paramsJson}
-
-Tool result:
-${resultJson}
-
-Instructions:
-1. Summarize the result naturally for the customer
-2. Do NOT expose raw data, JSON, or technical details
-3. Use the customer's language (match the language from the conversation)
-4. Be concise but complete
-5. If the result indicates success, confirm it clearly
-6. If the result indicates an error or issue, explain it helpfully`;
-
-            const messages = [
-                { role: 'system', content: systemPrompt },
-                ...formattedHistory.slice(-3) // Include last few messages for context
-            ];
-
-            const response = await llmService.chat(messages, {
-                maxTokens: ADAPTIVE_REASONING.REPROMPT_MAX_TOKENS,
-                temperature: ADAPTIVE_REASONING.DEFAULT_TEMPERATURE,
-                provider: client.llm_provider,
-                model: client.model_name
-            });
-
-            return response.content || this.basicFormatToolResult(toolResult);
-        } catch (error) {
-            console.error('[Tool Response] Failed to generate response:', error.message);
-            return this.basicFormatToolResult(toolResult);
+        // Append critique context to system prompt
+        let critiqueContext;
+        if (critiqueResult.decision === 'ASK_USER') {
+            critiqueContext = `\n\n---\nBEFORE RESPONDING: Ask user for ${issues.length > 0 ? issues.join(', ') : 'confirmation'}`;
+        } else {
+            critiqueContext = `\n\n---\nBEFORE RESPONDING: ${critiqueResult.reasoning || 'Unable to proceed with this request'}`;
         }
-    }
+        critiqueContext += `. Planned action was: ${assessment.tool_call} with ${JSON.stringify(assessment.tool_params)}`;
 
-    /**
-     * Basic formatting for tool results when LLM generation fails
-     * @param {Object} result - Tool result
-     * @returns {string} Basic formatted response
-     */
-    basicFormatToolResult(result) {
-        if (!result) return 'The operation completed.';
-        if (typeof result === 'string') return result;
-        if (result.message) return result.message;
-        if (result.error) return `There was an issue: ${result.error}`;
-        return 'The operation completed successfully.';
-    }
+        const modifiedSystemPrompt = originalSystemPrompt + critiqueContext;
 
-    /**
-     * Handle confirmation (matches with pending intent)
-     */
-    async handleConfirmation(conversationId, _userMessage, client, _conversation) {
-        const pending = await RedisCache.getPendingIntent(conversationId);
+        // Build messages array for chat
+        const messages = [
+            { role: 'system', content: modifiedSystemPrompt },
+            ...conversationMessages
+        ];
 
-        if (!pending) {
-            console.log('[Confirmation] No pending intent found');
-            return null; // No pending intent - not a confirmation
-        }
-
-        console.log('[Confirmation] Matched pending intent:', pending.tool);
-
-        // Load tools and conversation history for response generation
-        const tools = await toolManager.getClientTools(client.id);
-        const recentMessages = await Message.getRecent(conversationId, 5);
-        const formattedHistory = recentMessages.map(m => ({
-            role: m.role,
-            content: m.content
-        }));
-
-        // Execute the pending tool
-        const toolResult = await this.executeTool(
-            { tool_call: pending.tool, tool_params: pending.params },
-            conversationId,
-            client.id,
-            tools,
-            { client, formattedHistory }
-        );
-
-        // Clear pending intent
-        await RedisCache.clearPendingIntent(conversationId);
-
-        // Store confirmation message
-        const responseMessage = toolResult.executed
-            ? toolResult.final_response
-            : `I encountered an error: ${toolResult.error}`;
-
-        await Message.create(
-            conversationId,
-            'assistant',
-            responseMessage,
-            0
-        );
+        const response = await llmService.chat(messages, {
+            maxTokens: 200,
+            temperature: 0.7,
+            provider: client.llm_provider,
+            model: client.model_name
+        });
 
         return {
-            response: responseMessage,
-            tool_executed: toolResult.executed,
-            tool_result: toolResult.result,
-            reason_code: REASON_CODES.CONFIRMATION_RECEIVED
+            content: response.content,
+            tokens: response.tokens?.output || 0
         };
     }
 
+    /**
+     * Retry reasoning with critique feedback
+     * Called when critique says RETRY (AI misunderstood or picked wrong tool)
+     */
+    async retryReasoning(critiqueResult, originalAssessment, client, formattedHistory, tools, conversationId, clientId, conversation, retryCount) {
+        console.log('[Retry] Re-running reasoning with critique feedback');
+
+        const understanding = critiqueResult.understanding || {};
+        const toolChoice = critiqueResult.tool_choice || {};
+
+        // Build correction context
+        let correctionPrompt = '\n\n---\nCORRECTION NEEDED:\n';
+
+        if (understanding.ai_understood_correctly === false) {
+            correctionPrompt += `Your understanding was WRONG. ${understanding.misunderstanding}\n`;
+            correctionPrompt += `What the user actually wants: ${understanding.what_user_wants}\n`;
+        }
+
+        if (toolChoice.correct_tool === false) {
+            correctionPrompt += `Wrong tool choice. ${toolChoice.reason}\n`;
+            if (toolChoice.suggested_tool && toolChoice.suggested_tool !== 'none') {
+                correctionPrompt += `Use this tool instead: ${toolChoice.suggested_tool}\n`;
+            } else if (toolChoice.suggested_tool === 'none') {
+                correctionPrompt += 'Do NOT use any tool - just respond with text.\n';
+            }
+        }
+
+        correctionPrompt += '\nPlease re-analyze and provide a corrected response.';
+
+        // Get system prompt and append correction
+        const hasSystemPrompt = formattedHistory[0]?.role === 'system';
+        const originalSystemPrompt = hasSystemPrompt ? formattedHistory[0].content : '';
+        const conversationMessages = hasSystemPrompt ? formattedHistory.slice(1) : formattedHistory;
+
+        const modifiedSystemPrompt = originalSystemPrompt + correctionPrompt;
+
+        // Re-run LLM with correction context
+        const messages = [
+            { role: 'system', content: modifiedSystemPrompt },
+            ...conversationMessages
+        ];
+
+        const llmResponse = await llmService.chat(messages, {
+            maxTokens: ADAPTIVE_REASONING.DEFAULT_MAX_TOKENS,
+            temperature: ADAPTIVE_REASONING.DEFAULT_TEMPERATURE,
+            provider: client.llm_provider,
+            model: client.model_name
+        });
+
+        // Parse new assessment
+        const { visible_response, assessment, reasoning } = llmService.parseAssessment(llmResponse.content);
+
+        // Log retry reasoning
+        await Message.createDebug(
+            conversationId,
+            'assistant',
+            `RETRY: ${reasoning || 'Re-analyzed request'}`,
+            'assessment',
+            { metadata: assessment || {}, reasonCode: 'RETRY_REASONING' }
+        );
+
+        // If no tool call in new assessment, just respond
+        if (!assessment || !assessment.tool_call) {
+            await Message.create(conversationId, 'assistant', visible_response, llmResponse.tokens?.output || 0);
+            return {
+                response: visible_response,
+                tool_executed: false,
+                reason_code: REASON_CODES.RESPONDED_SUCCESSFULLY,
+                retried: true
+            };
+        }
+
+        // Run critique again on new assessment
+        const newCritiqueResult = await this.runCritique(
+            conversationMessages[conversationMessages.length - 1]?.content || '',
+            assessment,
+            tools,
+            conversationMessages,
+            client
+        );
+
+        // Format and log new critique using shared helper
+        const critiqueDisplay = formatCritiqueDisplay(assessment, newCritiqueResult);
+
+        await Message.createDebug(
+            conversationId,
+            'assistant',
+            critiqueDisplay,
+            'critique',
+            { metadata: newCritiqueResult, reasonCode: 'RETRY_CRITIQUE' }
+        );
+
+        // Act on new critique decision (with incremented retryCount)
+        return await this.actOnCritiqueDecision(
+            newCritiqueResult,
+            assessment,
+            visible_response,
+            conversationId,
+            clientId,
+            client,
+            conversation,
+            tools,
+            llmResponse.tokens?.output || 0,
+            formattedHistory,
+            retryCount
+        );
+    }
 }
 
 // Export singleton

@@ -117,17 +117,10 @@ export class RedisCache {
 
     /**
      * Check if client is within rate limit
+     * Uses atomic INCR-then-check pattern to prevent race conditions.
      * @param {string|number} clientId - Client identifier
      * @param {number} maxRequests - Maximum requests allowed per minute
      * @returns {Promise<{allowed: boolean, remaining: number, resetIn: number}>}
-     *
-     * TODO: Fix race condition - current implementation uses GET-then-INCR which allows
-     * parallel requests to all read count=0 before any increment occurs. Should use
-     * atomic INCR-then-check pattern instead:
-     *   1. INCR the key first (atomic)
-     *   2. If count === 1, set TTL with EXPIRE
-     *   3. If count > maxRequests, return not allowed
-     * This ensures accurate counting even under high concurrency.
      */
     static async checkRateLimit(clientId, maxRequests = 60) {
         try {
@@ -136,10 +129,17 @@ export class RedisCache {
             const currentMinute = Math.floor(now / 60);
             const key = `${this.RATE_LIMIT_PREFIX}${clientId}:${currentMinute}`;
 
-            const current = await redisClient.get(key);
-            const count = current ? parseInt(current, 10) : 0;
+            // Atomic INCR - this is the first operation, prevents race conditions
+            // INCR returns the new value after incrementing (creates key with value 1 if doesn't exist)
+            const newCount = await redisClient.incr(key);
 
-            if (count >= maxRequests) {
+            // If this is the first request in this minute (count === 1), set the TTL
+            if (newCount === 1) {
+                await redisClient.expire(key, this.RATE_LIMIT_TTL);
+            }
+
+            // Check if over limit AFTER incrementing
+            if (newCount > maxRequests) {
                 const ttl = await redisClient.ttl(key);
                 return {
                     allowed: false,
@@ -148,21 +148,11 @@ export class RedisCache {
                 };
             }
 
-            // Increment counter
-            let newCount;
-            if (count === 0) {
-                // First request in this minute, set with TTL
-                await redisClient.setex(key, this.RATE_LIMIT_TTL, '1');
-                newCount = 1;
-            } else {
-                // Increment existing counter (preserves TTL)
-                newCount = await redisClient.incr(key);
-            }
-
+            const ttl = await redisClient.ttl(key);
             return {
                 allowed: true,
                 remaining: maxRequests - newCount,
-                resetIn: await redisClient.ttl(key)
+                resetIn: ttl > 0 ? ttl : this.RATE_LIMIT_TTL
             };
         } catch (error) {
             // On Redis error, allow the request (fail open)

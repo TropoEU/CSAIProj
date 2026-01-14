@@ -288,11 +288,11 @@ class LLMService {
 
   /**
    * OpenAI Implementation
+   * Not currently used - Claude and Groq are the primary providers.
+   * To implement: Install openai SDK and follow the Groq pattern.
    */
   async openaiChat(_messages, _options) {
-    // TODO: Implement OpenAI API integration
-    // Will use official OpenAI SDK
-    throw new Error('OpenAI provider not yet implemented');
+    throw new Error('OpenAI provider not implemented. Use Claude or Groq instead.');
   }
 
   /**
@@ -561,19 +561,20 @@ class LLMService {
 
   /**
    * Calculate cost for Groq API
-   * Groq pricing (as of 2024):
+   * Groq pricing (as of 2025):
    * - Most models are FREE during beta
-   * - Future pricing TBD
+   * - Some models have metered pricing
+   * @see https://groq.com/pricing
    */
   calculateGroqCost(_usage) {
-    // Currently free during beta
-    // TODO: Update when Groq announces pricing
+    // Most Groq models are free or very low cost during beta
+    // Update pricing here when using paid models
     return 0;
   }
 
   /**
    * Calculate cost for OpenAI API
-   * TODO: Implement when OpenAI is added
+   * Available for future use if OpenAI provider is added.
    */
   calculateOpenAICost(usage) {
     // GPT-4o pricing (as of 2024):

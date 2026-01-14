@@ -708,11 +708,26 @@ class ConversationService {
    * Extract fallback response from tool results when LLM fails
    * @private
    */
-  _extractFallbackResponse(messages) {
+  async _extractFallbackResponse(messages, client = null) {
     const lastToolMessage = messages.filter((m) => m.role === 'tool').pop();
 
+    // Try to generate error message via LLM if client available
+    const generateErrorFallback = async () => {
+      if (!client) return null;
+      try {
+        const response = await llmService.generateResponse(
+          'Generate a brief, friendly error message. The system encountered an issue. One sentence, apologetic but helpful.',
+          [],
+          { maxTokens: 50, temperature: 0.7, provider: client.llm_provider, model: client.model_name }
+        );
+        return response.content;
+      } catch {
+        return null;
+      }
+    };
+
     if (!lastToolMessage || !lastToolMessage.content) {
-      return 'I apologize, but I encountered an issue processing your request. Please try again or rephrase your question.';
+      return await generateErrorFallback() || 'Something went wrong. Please try again.';
     }
 
     try {
@@ -728,7 +743,7 @@ class ConversationService {
 
       return toolContent.length < LIMITS.MAX_LOG_LENGTH ? toolContent : `Based on the results: ${toolContent.substring(0, LIMITS.MAX_LOG_EXCERPT)}...`;
     } catch {
-      return 'I apologize, but I encountered an issue processing your request. Please try again or rephrase your question.';
+      return await generateErrorFallback() || 'Something went wrong. Please try again.';
     }
   }
 
@@ -842,8 +857,6 @@ class ConversationService {
         // Record usage for billing/analytics
         try {
           const { ApiUsage } = await import('../models/ApiUsage.js');
-          // Note: Token tracking in adaptive mode needs enhancement
-          // For now, we track reasoning metrics but not precise token counts
           const toolCallsCount = result.tool_executed ? 1 : 0;
           const reasoningMetrics = result.reasoningMetrics || {
             isAdaptive: true,
@@ -851,11 +864,15 @@ class ConversationService {
             contextFetchCount: 0
           };
 
-          log.debug(`Recording adaptive mode usage: client=${client.id}, tools=${toolCallsCount}, metrics=`, reasoningMetrics);
+          // Extract token counts from reasoning metrics (aggregated from multiple LLM calls)
+          const tokensInput = reasoningMetrics.totalInputTokens || 0;
+          const tokensOutput = reasoningMetrics.totalOutputTokens || 0;
+
+          log.debug(`Recording adaptive mode usage: client=${client.id}, tools=${toolCallsCount}, tokens=${tokensInput}/${tokensOutput}, metrics=`, reasoningMetrics);
           await ApiUsage.recordUsage(
             client.id,
-            0, // tokensInput - TODO: aggregate from multiple LLM calls
-            0, // tokensOutput - TODO: aggregate from multiple LLM calls
+            tokensInput,
+            tokensOutput,
             toolCallsCount,
             false, // isNewConversation - conversation already exists
             reasoningMetrics
@@ -981,7 +998,7 @@ class ConversationService {
             finalResponse =
               llmResponse.content?.trim()?.length > 0
                 ? llmResponse.content
-                : 'I apologize, but I encountered an issue processing your request. Please try again.';
+                : await this._extractFallbackResponse(messages, client);
             break;
           }
         }
@@ -1022,7 +1039,7 @@ class ConversationService {
             break;
           } else if (lastExecutedToolKeys) {
             log.warn(`LLM returned empty content after tool execution (iteration ${iterationCount})`);
-            finalResponse = this._extractFallbackResponse(messages);
+            finalResponse = await this._extractFallbackResponse(messages, client);
             if (finalResponse) break;
           }
           continue;
@@ -1068,7 +1085,7 @@ class ConversationService {
 
       // If we hit max iterations without a final response
       if (!finalResponse) {
-        finalResponse = this._extractFallbackResponse(messages);
+        finalResponse = await this._extractFallbackResponse(messages, client);
       }
 
       // Record usage and finalize

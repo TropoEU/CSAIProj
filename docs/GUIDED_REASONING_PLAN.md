@@ -1492,10 +1492,10 @@ This section breaks down the implementation into granular, actionable steps that
 
 ### ⚠️ Known Limitations
 
-1. **Token Tracking in Adaptive Mode**:
-   - Adaptive mode currently records 0 tokens in api_usage
-   - LLM calls happen in adaptiveReasoningService but tokens aren't aggregated
-   - TODO: Track and aggregate token counts from multiple LLM calls
+1. **Token Tracking in Adaptive Mode**: ✅ FIXED (January 13, 2026)
+   - Adaptive mode now properly tracks and records tokens in api_usage
+   - `adaptiveReasoningService` aggregates tokens from all LLM calls (main, context fetches, critique)
+   - Token counts are passed via `reasoningMetrics.totalInputTokens/totalOutputTokens`
 
 2. **Context Fetching**:
    - Simplified implementation with 2-attempt limit

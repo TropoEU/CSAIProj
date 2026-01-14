@@ -140,6 +140,10 @@ export const ADAPTIVE_REASONING = {
   DEFAULT_TEMPERATURE: 0.3,     // Temperature for consistent responses
   CRITIQUE_TEMPERATURE: 0.2,    // Lower temperature for critique (more deterministic)
 
+  // Error message generation
+  ERROR_MESSAGE_MAX_TOKENS: 100, // Max tokens for friendly error messages
+  ERROR_MESSAGE_TEMPERATURE: 0.7, // Temperature for error messages (slightly creative)
+
   // Retry settings
   CRITIQUE_MAX_RETRIES: 1,      // Max retry attempts for critique step
   CRITIQUE_RETRY_DELAY: 1000,   // Delay between critique retries (ms)

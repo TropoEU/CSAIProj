@@ -45,7 +45,8 @@ export class ClientTool {
      */
     static async getEnabledTools(clientId) {
         const result = await db.query(
-            `SELECT ct.*, t.tool_name, t.description, t.parameters_schema, t.category, t.required_integrations, t.capabilities
+            `SELECT ct.*, t.tool_name, t.description, t.parameters_schema, t.category, t.required_integrations, t.capabilities,
+                    t.is_destructive, t.requires_confirmation, t.max_confidence
              FROM client_tools ct
              JOIN tools t ON ct.tool_id = t.id
              WHERE ct.client_id = $1 AND ct.enabled = true
@@ -60,7 +61,8 @@ export class ClientTool {
      */
     static async getAllTools(clientId) {
         const result = await db.query(
-            `SELECT ct.*, t.tool_name, t.description, t.parameters_schema, t.category, t.required_integrations, t.capabilities
+            `SELECT ct.*, t.tool_name, t.description, t.parameters_schema, t.category, t.required_integrations, t.capabilities,
+                    t.is_destructive, t.requires_confirmation, t.max_confidence
              FROM client_tools ct
              JOIN tools t ON ct.tool_id = t.id
              WHERE ct.client_id = $1
@@ -75,7 +77,8 @@ export class ClientTool {
      */
     static async find(clientId, toolId) {
         const result = await db.query(
-            `SELECT ct.*, t.tool_name, t.description, t.parameters_schema
+            `SELECT ct.*, t.tool_name, t.description, t.parameters_schema, t.category, t.required_integrations, t.capabilities,
+                    t.is_destructive, t.requires_confirmation, t.max_confidence
              FROM client_tools ct
              JOIN tools t ON ct.tool_id = t.id
              WHERE ct.client_id = $1 AND ct.tool_id = $2`,
