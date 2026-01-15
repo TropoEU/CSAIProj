@@ -20,7 +20,8 @@ export const translations = {
 
     // Actions
     endConversation: 'End Conversation',
-    endConversationConfirm: 'Are you sure you want to end this conversation? You can start a new one anytime.',
+    endConversationConfirm:
+      'Are you sure you want to end this conversation? You can start a new one anytime.',
     conversationEnded: 'Conversation ended. How can I help you today?',
 
     // Errors
@@ -37,12 +38,12 @@ export const translations = {
     // Accessibility
     closeButton: 'Close',
     openChat: 'Open chat',
-    typing: 'Typing...'
+    typing: 'Typing...',
   },
 
   he: {
     // Chat window
-    title: 'צ\'אט תמיכה',
+    title: "צ'אט תמיכה",
     subtitle: 'אנחנו בדרך כלל עונים מיד',
     greeting: 'שלום! איך אפשר לעזור לך היום?',
 
@@ -72,9 +73,9 @@ export const translations = {
 
     // Accessibility
     closeButton: 'סגור',
-    openChat: 'פתח צ\'אט',
-    typing: 'מקליד...'
-  }
+    openChat: "פתח צ'אט",
+    typing: 'מקליד...',
+  },
 };
 
 /**

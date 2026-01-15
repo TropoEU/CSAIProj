@@ -12,26 +12,29 @@ export default function Usage() {
   const [trendPeriod, setTrendPeriod] = useState('30d');
   const [usagePeriod, setUsagePeriod] = useState('month');
 
-  const fetchData = useCallback(async (trendPeriodParam = '30d', usagePeriodParam = 'month') => {
-    try {
-      setLoading(true);
-      const [current, trendsData, tools] = await Promise.all([
-        usage.getCurrent({ period: usagePeriodParam }),
-        usage.getTrends({ period: trendPeriodParam }),
-        usage.getTools(),
-      ]);
+  const fetchData = useCallback(
+    async (trendPeriodParam = '30d', usagePeriodParam = 'month') => {
+      try {
+        setLoading(true);
+        const [current, trendsData, tools] = await Promise.all([
+          usage.getCurrent({ period: usagePeriodParam }),
+          usage.getTrends({ period: trendPeriodParam }),
+          usage.getTools(),
+        ]);
 
-      setCurrentUsage(current.data);
-      setTrends(trendsData.data);
-      setToolUsage(tools.data);
-      setError(null);
-    } catch (err) {
-      console.error('Failed to fetch usage data:', err);
-      setError(err.response?.data?.message || t('common.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+        setCurrentUsage(current.data);
+        setTrends(trendsData.data);
+        setToolUsage(tools.data);
+        setError(null);
+      } catch (err) {
+        console.error('Failed to fetch usage data:', err);
+        setError(err.response?.data?.message || t('common.error'));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [t]
+  );
 
   useEffect(() => {
     fetchData();
@@ -57,18 +60,15 @@ export default function Usage() {
 
   if (error) {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-        {error}
-      </div>
+      <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{error}</div>
     );
   }
 
   const { usage: usageData, limits } = currentUsage || {};
 
   // Calculate max conversations for bar chart scaling (avoid division by zero)
-  const maxConversations = trends?.daily?.length > 0
-    ? Math.max(...trends.daily.map(d => d.conversations), 1)
-    : 1;
+  const maxConversations =
+    trends?.daily?.length > 0 ? Math.max(...trends.daily.map((d) => d.conversations), 1) : 1;
 
   return (
     <div className="space-y-6">
@@ -88,7 +88,7 @@ export default function Usage() {
               { value: 'week', label: 'This Week' },
               { value: 'month', label: 'This Month' },
               { value: 'year', label: 'This Year' },
-              { value: 'all', label: 'All Time' }
+              { value: 'all', label: 'All Time' },
             ].map((period) => (
               <button
                 key={period.value}
@@ -110,17 +110,25 @@ export default function Usage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="card p-6">
           <h3 className="text-sm text-gray-600 mb-2">{t('usage.conversations')}</h3>
-          <p className="text-3xl font-bold text-gray-900">{formatNumber(usageData?.conversations || 0)}</p>
+          <p className="text-3xl font-bold text-gray-900">
+            {formatNumber(usageData?.conversations || 0)}
+          </p>
           {limits?.conversations && (
             <div className="mt-2">
               <div className="flex justify-between text-xs text-gray-500 mb-1">
-                <span>{t('usage.of')} {formatNumber(limits.conversations)} {t('usage.limit')}</span>
-                <span>{Math.round((usageData?.conversations || 0) / limits.conversations * 100)}%</span>
+                <span>
+                  {t('usage.of')} {formatNumber(limits.conversations)} {t('usage.limit')}
+                </span>
+                <span>
+                  {Math.round(((usageData?.conversations || 0) / limits.conversations) * 100)}%
+                </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-primary-600 h-2 rounded-full"
-                  style={{ width: `${Math.min((usageData?.conversations || 0) / limits.conversations * 100, 100)}%` }}
+                  style={{
+                    width: `${Math.min(((usageData?.conversations || 0) / limits.conversations) * 100, 100)}%`,
+                  }}
                 ></div>
               </div>
             </div>
@@ -133,13 +141,17 @@ export default function Usage() {
           {limits?.tokens && (
             <div className="mt-2">
               <div className="flex justify-between text-xs text-gray-500 mb-1">
-                <span>{t('usage.of')} {formatNumber(limits.tokens)} {t('usage.limit')}</span>
-                <span>{Math.round((usageData?.tokens || 0) / limits.tokens * 100)}%</span>
+                <span>
+                  {t('usage.of')} {formatNumber(limits.tokens)} {t('usage.limit')}
+                </span>
+                <span>{Math.round(((usageData?.tokens || 0) / limits.tokens) * 100)}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-blue-600 h-2 rounded-full"
-                  style={{ width: `${Math.min((usageData?.tokens || 0) / limits.tokens * 100, 100)}%` }}
+                  style={{
+                    width: `${Math.min(((usageData?.tokens || 0) / limits.tokens) * 100, 100)}%`,
+                  }}
                 ></div>
               </div>
             </div>
@@ -148,17 +160,23 @@ export default function Usage() {
 
         <div className="card p-6">
           <h3 className="text-sm text-gray-600 mb-2">{t('usage.toolCalls')}</h3>
-          <p className="text-3xl font-bold text-gray-900">{formatNumber(usageData?.toolCalls || 0)}</p>
+          <p className="text-3xl font-bold text-gray-900">
+            {formatNumber(usageData?.toolCalls || 0)}
+          </p>
           {limits?.toolCalls && (
             <div className="mt-2">
               <div className="flex justify-between text-xs text-gray-500 mb-1">
-                <span>{t('usage.of')} {formatNumber(limits.toolCalls)} {t('usage.limit')}</span>
-                <span>{Math.round((usageData?.toolCalls || 0) / limits.toolCalls * 100)}%</span>
+                <span>
+                  {t('usage.of')} {formatNumber(limits.toolCalls)} {t('usage.limit')}
+                </span>
+                <span>{Math.round(((usageData?.toolCalls || 0) / limits.toolCalls) * 100)}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-green-600 h-2 rounded-full"
-                  style={{ width: `${Math.min((usageData?.toolCalls || 0) / limits.toolCalls * 100, 100)}%` }}
+                  style={{
+                    width: `${Math.min(((usageData?.toolCalls || 0) / limits.toolCalls) * 100, 100)}%`,
+                  }}
                 ></div>
               </div>
             </div>
@@ -167,34 +185,49 @@ export default function Usage() {
       </div>
 
       {/* Reasoning Metrics (Adaptive Mode) */}
-      {usageData?.reasoning && (usageData.reasoning.adaptiveMessages > 0 || usageData.reasoning.critiqueTriggers > 0 || usageData.reasoning.contextFetches > 0) && (
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold mb-4">{t('usage.aiReasoningMetrics')}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <h3 className="text-sm text-gray-600 mb-2">{t('usage.adaptiveMessages')}</h3>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(usageData.reasoning.adaptiveMessages)}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                {usageData?.conversations > 0 ? `${Math.round((usageData.reasoning.adaptiveMessages / (usageData.conversations || 1)) * 100)}% of messages` : '0%'}
-              </p>
-            </div>
-            <div>
-              <h3 className="text-sm text-gray-600 mb-2">{t('usage.critiqueTriggers')}</h3>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(usageData.reasoning.critiqueTriggers)}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                {usageData.reasoning.adaptiveMessages > 0 ? `${Math.round((usageData.reasoning.critiqueTriggers / usageData.reasoning.adaptiveMessages) * 100)}% of adaptive` : '0%'}
-              </p>
-            </div>
-            <div>
-              <h3 className="text-sm text-gray-600 mb-2">{t('usage.contextFetches')}</h3>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(usageData.reasoning.contextFetches)}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                {usageData.reasoning.adaptiveMessages > 0 ? `${(usageData.reasoning.contextFetches / usageData.reasoning.adaptiveMessages).toFixed(2)} avg per adaptive` : '0 avg'}
-              </p>
+      {usageData?.reasoning &&
+        (usageData.reasoning.adaptiveMessages > 0 ||
+          usageData.reasoning.critiqueTriggers > 0 ||
+          usageData.reasoning.contextFetches > 0) && (
+          <div className="card p-6">
+            <h2 className="text-lg font-semibold mb-4">{t('usage.aiReasoningMetrics')}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <h3 className="text-sm text-gray-600 mb-2">{t('usage.adaptiveMessages')}</h3>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatNumber(usageData.reasoning.adaptiveMessages)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {usageData?.conversations > 0
+                    ? `${Math.round((usageData.reasoning.adaptiveMessages / (usageData.conversations || 1)) * 100)}% of messages`
+                    : '0%'}
+                </p>
+              </div>
+              <div>
+                <h3 className="text-sm text-gray-600 mb-2">{t('usage.critiqueTriggers')}</h3>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatNumber(usageData.reasoning.critiqueTriggers)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {usageData.reasoning.adaptiveMessages > 0
+                    ? `${Math.round((usageData.reasoning.critiqueTriggers / usageData.reasoning.adaptiveMessages) * 100)}% of adaptive`
+                    : '0%'}
+                </p>
+              </div>
+              <div>
+                <h3 className="text-sm text-gray-600 mb-2">{t('usage.contextFetches')}</h3>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatNumber(usageData.reasoning.contextFetches)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {usageData.reasoning.adaptiveMessages > 0
+                    ? `${(usageData.reasoning.contextFetches / usageData.reasoning.adaptiveMessages).toFixed(2)} avg per adaptive`
+                    : '0 avg'}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Tool Usage Breakdown */}
       {toolUsage && toolUsage.tools && toolUsage.tools.length > 0 && (
@@ -204,16 +237,24 @@ export default function Usage() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
+                  <th
+                    className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}
+                  >
                     {t('usage.tool')}
                   </th>
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
+                  <th
+                    className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}
+                  >
                     {t('usage.calls')}
                   </th>
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
+                  <th
+                    className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}
+                  >
                     {t('usage.successRate')}
                   </th>
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
+                  <th
+                    className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}
+                  >
                     {t('usage.avgTime')}
                   </th>
                 </tr>
@@ -221,24 +262,34 @@ export default function Usage() {
               <tbody className="divide-y divide-gray-200">
                 {toolUsage.tools.map((tool) => (
                   <tr key={tool.name} className="hover:bg-gray-50">
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
+                    <td
+                      className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}
+                    >
                       {tool.name}
                     </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-600 ${isRTL ? 'text-right' : 'text-left'}`}>
+                    <td
+                      className={`px-6 py-4 whitespace-nowrap text-sm text-gray-600 ${isRTL ? 'text-right' : 'text-left'}`}
+                    >
                       {formatNumber(tool.callCount)}
                     </td>
-                    <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        tool.successRate >= 90
-                          ? 'bg-green-100 text-green-700'
-                          : tool.successRate >= 70
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-red-100 text-red-700'
-                      }`}>
+                    <td
+                      className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}
+                    >
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full ${
+                          tool.successRate >= 90
+                            ? 'bg-green-100 text-green-700'
+                            : tool.successRate >= 70
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-red-100 text-red-700'
+                        }`}
+                      >
                         {tool.successRate}%
                       </span>
                     </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-600 ${isRTL ? 'text-right' : 'text-left'}`}>
+                    <td
+                      className={`px-6 py-4 whitespace-nowrap text-sm text-gray-600 ${isRTL ? 'text-right' : 'text-left'}`}
+                    >
                       {formatNumber(tool.avgExecutionTime)}ms
                     </td>
                   </tr>
@@ -276,19 +327,15 @@ export default function Usage() {
               {/* Chart container with fixed height */}
               <div className="h-56 flex items-end gap-1">
                 {trends.daily.map((day) => {
-                  const barHeight = maxConversations > 0
-                    ? (day.conversations / maxConversations) * 100
-                    : 0;
+                  const barHeight =
+                    maxConversations > 0 ? (day.conversations / maxConversations) * 100 : 0;
                   return (
-                    <div
-                      key={day.date}
-                      className="flex-1 h-full flex items-end min-w-[8px]"
-                    >
+                    <div key={day.date} className="flex-1 h-full flex items-end min-w-[8px]">
                       <div
                         className="w-full rounded-t transition-all duration-200 relative group cursor-pointer"
                         style={{
                           height: `${Math.max(barHeight, 4)}%`,
-                          backgroundColor: '#a78bfa'
+                          backgroundColor: '#a78bfa',
                         }}
                         title={`${formatDate(day.date, { month: 'short', day: 'numeric' })}: ${day.conversations} conversations`}
                       >
@@ -303,14 +350,16 @@ export default function Usage() {
               </div>
               {/* Date labels - show every nth day to avoid overcrowding */}
               <div className="flex justify-between text-xs text-gray-500 mt-3 px-1">
-                {trends.daily.filter((_, idx, arr) => {
-                  const step = Math.max(1, Math.floor(arr.length / 7));
-                  return idx % step === 0 || idx === arr.length - 1;
-                }).map((day) => (
-                  <span key={`label-${day.date}`} className="whitespace-nowrap">
-                    {formatDate(day.date, { month: 'short', day: 'numeric' })}
-                  </span>
-                ))}
+                {trends.daily
+                  .filter((_, idx, arr) => {
+                    const step = Math.max(1, Math.floor(arr.length / 7));
+                    return idx % step === 0 || idx === arr.length - 1;
+                  })
+                  .map((day) => (
+                    <span key={`label-${day.date}`} className="whitespace-nowrap">
+                      {formatDate(day.date, { month: 'short', day: 'numeric' })}
+                    </span>
+                  ))}
               </div>
             </div>
           </div>

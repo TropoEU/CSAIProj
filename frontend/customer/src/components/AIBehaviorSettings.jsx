@@ -41,7 +41,10 @@ export default function AIBehaviorSettings({ onMessage }) {
       await loadConfig();
       onMessage?.({ type: 'success', text: t('aiBehavior.saveSuccess') });
     } catch (error) {
-      onMessage?.({ type: 'error', text: error.response?.data?.error || t('aiBehavior.saveError') });
+      onMessage?.({
+        type: 'error',
+        text: error.response?.data?.error || t('aiBehavior.saveError'),
+      });
     } finally {
       setSaving(false);
     }
@@ -88,14 +91,14 @@ export default function AIBehaviorSettings({ onMessage }) {
   const addReasoningStep = () => {
     setConfig({
       ...config,
-      reasoning_steps: [...(config.reasoning_steps || []), { title: '', instruction: '' }]
+      reasoning_steps: [...(config.reasoning_steps || []), { title: '', instruction: '' }],
     });
   };
 
   const removeReasoningStep = (index) => {
     setConfig({
       ...config,
-      reasoning_steps: config.reasoning_steps.filter((_, i) => i !== index)
+      reasoning_steps: config.reasoning_steps.filter((_, i) => i !== index),
     });
   };
 
@@ -116,7 +119,7 @@ export default function AIBehaviorSettings({ onMessage }) {
   const updateResponseStyle = (field, value) => {
     setConfig({
       ...config,
-      response_style: { ...config.response_style, [field]: value }
+      response_style: { ...config.response_style, [field]: value },
     });
   };
 
@@ -135,12 +138,14 @@ export default function AIBehaviorSettings({ onMessage }) {
   return (
     <div className="space-y-6">
       {/* Status Badge */}
-      <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
-        hasCustomConfig
-          ? 'bg-primary-100 text-primary-700'
-          : 'bg-green-100 text-green-700'
-      }`}>
-        <div className={`w-2 h-2 rounded-full ${hasCustomConfig ? 'bg-primary-500' : 'bg-green-500'}`}></div>
+      <div
+        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
+          hasCustomConfig ? 'bg-primary-100 text-primary-700' : 'bg-green-100 text-green-700'
+        }`}
+      >
+        <div
+          className={`w-2 h-2 rounded-full ${hasCustomConfig ? 'bg-primary-500' : 'bg-green-500'}`}
+        ></div>
         {hasCustomConfig ? t('aiBehavior.hasCustomizations') : t('aiBehavior.usingDefaults')}
       </div>
 
@@ -160,9 +165,17 @@ export default function AIBehaviorSettings({ onMessage }) {
               config.reasoning_enabled ? 'bg-primary-600' : 'bg-gray-200'
             }`}
           >
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              config.reasoning_enabled ? (isRTL ? '-translate-x-6' : 'translate-x-6') : (isRTL ? '-translate-x-1' : 'translate-x-1')
-            }`} />
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                config.reasoning_enabled
+                  ? isRTL
+                    ? '-translate-x-6'
+                    : 'translate-x-6'
+                  : isRTL
+                    ? '-translate-x-1'
+                    : 'translate-x-1'
+              }`}
+            />
           </button>
         </div>
       </div>
@@ -187,7 +200,10 @@ export default function AIBehaviorSettings({ onMessage }) {
           </div>
           <div className="space-y-4">
             {(config.reasoning_steps || []).map((step, index) => (
-              <div key={index} className={`flex gap-4 items-start p-4 bg-gray-50 rounded-lg ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <div
+                key={index}
+                className={`flex gap-4 items-start p-4 bg-gray-50 rounded-lg ${isRTL ? 'flex-row-reverse' : ''}`}
+              >
                 <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-primary-100 text-primary-700 rounded-full font-medium">
                   {index + 1}
                 </div>
@@ -209,7 +225,10 @@ export default function AIBehaviorSettings({ onMessage }) {
                     dir={isRTL ? 'rtl' : 'ltr'}
                   />
                 </div>
-                <button onClick={() => removeReasoningStep(index)} className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500">
+                <button
+                  onClick={() => removeReasoningStep(index)}
+                  className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500"
+                >
                   <TrashIcon />
                 </button>
               </div>
@@ -226,7 +245,9 @@ export default function AIBehaviorSettings({ onMessage }) {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t('aiBehavior.tone')}</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('aiBehavior.tone')}
+            </label>
             <select
               value={config.response_style?.tone || 'friendly'}
               onChange={(e) => updateResponseStyle('tone', e.target.value)}
@@ -239,7 +260,9 @@ export default function AIBehaviorSettings({ onMessage }) {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t('aiBehavior.maxSentences')}</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('aiBehavior.maxSentences')}
+            </label>
             <input
               type="number"
               min={1}
@@ -250,7 +273,9 @@ export default function AIBehaviorSettings({ onMessage }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t('aiBehavior.formality')}</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('aiBehavior.formality')}
+            </label>
             <select
               value={config.response_style?.formality || 'casual'}
               onChange={(e) => updateResponseStyle('formality', e.target.value)}
@@ -284,8 +309,13 @@ export default function AIBehaviorSettings({ onMessage }) {
         </div>
         <div className="space-y-2">
           {(config.tool_rules || []).map((rule, index) => (
-            <div key={index} className={`flex gap-2 items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <span className={`flex-shrink-0 text-gray-400 w-6 ${isRTL ? 'text-right' : ''}`}>{index + 1}.</span>
+            <div
+              key={index}
+              className={`flex gap-2 items-center ${isRTL ? 'flex-row-reverse' : ''}`}
+            >
+              <span className={`flex-shrink-0 text-gray-400 w-6 ${isRTL ? 'text-right' : ''}`}>
+                {index + 1}.
+              </span>
               <input
                 type="text"
                 value={rule}
@@ -294,7 +324,10 @@ export default function AIBehaviorSettings({ onMessage }) {
                 className="flex-grow px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
                 dir={isRTL ? 'rtl' : 'ltr'}
               />
-              <button onClick={() => removeToolRule(index)} className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500">
+              <button
+                onClick={() => removeToolRule(index)}
+                className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500"
+              >
                 <CloseIcon />
               </button>
             </div>
@@ -353,14 +386,22 @@ export default function AIBehaviorSettings({ onMessage }) {
       {showPreview && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[80vh] overflow-hidden">
-            <div className={`flex items-center justify-between p-4 border-b ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <div
+              className={`flex items-center justify-between p-4 border-b ${isRTL ? 'flex-row-reverse' : ''}`}
+            >
               <h3 className="text-lg font-medium">{t('aiBehavior.previewPrompt')}</h3>
-              <button onClick={() => setShowPreview(false)} className="text-gray-400 hover:text-gray-600">
+              <button
+                onClick={() => setShowPreview(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
                 <CloseIcon className="w-6 h-6" />
               </button>
             </div>
             <div className="p-4 overflow-y-auto max-h-[60vh]">
-              <pre className="whitespace-pre-wrap text-sm text-gray-700 font-mono bg-gray-50 p-4 rounded-lg" dir="ltr">
+              <pre
+                className="whitespace-pre-wrap text-sm text-gray-700 font-mono bg-gray-50 p-4 rounded-lg"
+                dir="ltr"
+              >
                 {preview}
               </pre>
             </div>
@@ -382,7 +423,10 @@ export default function AIBehaviorSettings({ onMessage }) {
 // Customized indicator badge
 function CustomizedBadge() {
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800" title="This setting differs from platform defaults">
+    <span
+      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800"
+      title="This setting differs from platform defaults"
+    >
       Modified
     </span>
   );
@@ -400,12 +444,17 @@ function PlusIcon() {
 function TrashIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+      />
     </svg>
   );
 }
 
-function CloseIcon({ className = "w-5 h-5" }) {
+function CloseIcon({ className = 'w-5 h-5' }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

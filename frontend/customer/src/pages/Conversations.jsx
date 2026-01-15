@@ -17,30 +17,33 @@ export default function Conversations() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
 
-  const fetchConversations = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
+  const fetchConversations = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) setRefreshing(true);
 
-    try {
-      const response = await conversations.getAll({
-        page,
-        limit: 20,
-        days,
-        search,
-        status,
-      });
-      setData(response.data);
-      setLastUpdate(new Date());
-      setError(null);
-    } catch (err) {
-      console.error('Failed to fetch conversations:', err);
-      setError(err.response?.data?.message || t('common.error'));
-    } finally {
-      setLoading(false);
-      if (isRefresh) {
-        setTimeout(() => setRefreshing(false), 500);
+      try {
+        const response = await conversations.getAll({
+          page,
+          limit: 20,
+          days,
+          search,
+          status,
+        });
+        setData(response.data);
+        setLastUpdate(new Date());
+        setError(null);
+      } catch (err) {
+        console.error('Failed to fetch conversations:', err);
+        setError(err.response?.data?.message || t('common.error'));
+      } finally {
+        setLoading(false);
+        if (isRefresh) {
+          setTimeout(() => setRefreshing(false), 500);
+        }
       }
-    }
-  }, [page, days, search, status, t]);
+    },
+    [page, days, search, status, t]
+  );
 
   useEffect(() => {
     fetchConversations();
@@ -69,9 +72,7 @@ export default function Conversations() {
 
   if (error) {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-        {error}
-      </div>
+      <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{error}</div>
     );
   }
 
@@ -83,17 +84,31 @@ export default function Conversations() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">{t('conversations.title')}</h1>
-          <p className="text-gray-600 mt-1">
-            {t('conversations.subtitle')}
-          </p>
+          <p className="text-gray-600 mt-1">{t('conversations.subtitle')}</p>
         </div>
         <div className={isRTL ? 'text-left' : 'text-right'}>
           <div className="flex items-center gap-2 justify-end">
             {refreshing && (
               <span className="flex items-center gap-1 text-xs text-primary-600">
-                <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <svg
+                  className="animate-spin h-3 w-3"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
                 </svg>
                 {t('conversations.updating')}
               </span>
@@ -170,11 +185,13 @@ export default function Conversations() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          conv.endedAt
-                            ? 'bg-gray-200 text-gray-700'
-                            : 'bg-green-100 text-green-700'
-                        }`}>
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full ${
+                            conv.endedAt
+                              ? 'bg-gray-200 text-gray-700'
+                              : 'bg-green-100 text-green-700'
+                          }`}
+                        >
                           {conv.endedAt ? t('conversations.ended') : t('conversations.active')}
                         </span>
                         <span className="text-xs text-gray-500">
@@ -183,21 +200,28 @@ export default function Conversations() {
                       </div>
 
                       <p className="text-sm text-gray-600 mb-3">
-                        {t('conversations.session')}: <span className="font-mono text-xs">{conv.sessionId}</span>
+                        {t('conversations.session')}:{' '}
+                        <span className="font-mono text-xs">{conv.sessionId}</span>
                       </p>
 
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
                           <p className="text-gray-500">{t('conversations.messages')}</p>
-                          <p className="font-medium text-gray-900">{formatNumber(conv.messageCount)}</p>
+                          <p className="font-medium text-gray-900">
+                            {formatNumber(conv.messageCount)}
+                          </p>
                         </div>
                         <div>
                           <p className="text-gray-500">{t('conversations.tokens')}</p>
-                          <p className="font-medium text-gray-900">{formatNumber(conv.tokensTotal)}</p>
+                          <p className="font-medium text-gray-900">
+                            {formatNumber(conv.tokensTotal)}
+                          </p>
                         </div>
                         <div>
                           <p className="text-gray-500">{t('conversations.toolCalls')}</p>
-                          <p className="font-medium text-gray-900">{formatNumber(conv.toolCallCount || 0)}</p>
+                          <p className="font-medium text-gray-900">
+                            {formatNumber(conv.toolCallCount || 0)}
+                          </p>
                         </div>
                         <div>
                           <p className="text-gray-500">{t('conversations.provider')}</p>
@@ -208,8 +232,18 @@ export default function Conversations() {
                       </div>
                     </div>
 
-                    <svg className={`w-5 h-5 text-gray-400 ${isRTL ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    <svg
+                      className={`w-5 h-5 text-gray-400 ${isRTL ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
                     </svg>
                   </div>
                 </Link>
@@ -221,7 +255,9 @@ export default function Conversations() {
               <div className="p-6 border-t border-gray-200">
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-gray-600">
-                    {t('conversations.page')} {formatNumber(pagination.page)} {t('conversations.of')} {formatNumber(pagination.totalPages)} ({formatNumber(pagination.totalConversations)} {t('conversations.total')})
+                    {t('conversations.page')} {formatNumber(pagination.page)}{' '}
+                    {t('conversations.of')} {formatNumber(pagination.totalPages)} (
+                    {formatNumber(pagination.totalConversations)} {t('conversations.total')})
                   </p>
                   <div className="flex gap-2">
                     <button
@@ -245,8 +281,18 @@ export default function Conversations() {
           </>
         ) : (
           <div className="text-center py-12 text-gray-500">
-            <svg className="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            <svg
+              className="w-16 h-16 mx-auto mb-4 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+              />
             </svg>
             <p className="text-lg font-medium">{t('conversations.noResults')}</p>
             <p className="text-sm mt-1">{t('conversations.noResultsDesc')}</p>

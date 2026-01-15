@@ -141,11 +141,11 @@ async function generateHistoricalUsage(clients, months = 6) {
         const baseUsage = generateUsageForPlan(client.plan_type);
 
         const usage = {
-          conversations: Math.floor(baseUsage.conversations * dailyMultiplier / 30),
-          messages: Math.floor(baseUsage.messages * dailyMultiplier / 30),
-          tokens_input: Math.floor(baseUsage.tokens_input * dailyMultiplier / 30),
-          tokens_output: Math.floor(baseUsage.tokens_output * dailyMultiplier / 30),
-          tool_calls: Math.floor(baseUsage.tool_calls * dailyMultiplier / 30),
+          conversations: Math.floor((baseUsage.conversations * dailyMultiplier) / 30),
+          messages: Math.floor((baseUsage.messages * dailyMultiplier) / 30),
+          tokens_input: Math.floor((baseUsage.tokens_input * dailyMultiplier) / 30),
+          tokens_output: Math.floor((baseUsage.tokens_output * dailyMultiplier) / 30),
+          tool_calls: Math.floor((baseUsage.tool_calls * dailyMultiplier) / 30),
         };
 
         const costEstimate = calculateCostEstimate(usage, client.plan_type);
@@ -217,9 +217,13 @@ async function generateInvoices(clients, months = 6) {
             payment_method: 'credit_card',
             notes: 'Automatically paid (mock data)',
           });
-          console.log(`    ✅ Generated and paid invoice for ${billingPeriod}: $${result.invoice.total_cost}`);
+          console.log(
+            `    ✅ Generated and paid invoice for ${billingPeriod}: $${result.invoice.total_cost}`
+          );
         } else {
-          console.log(`    ✅ Generated pending invoice for ${billingPeriod}: $${result.invoice.total_cost}`);
+          console.log(
+            `    ✅ Generated pending invoice for ${billingPeriod}: $${result.invoice.total_cost}`
+          );
         }
       } catch (error) {
         console.error(`    ❌ Failed to generate invoice for ${billingPeriod}:`, error.message);
@@ -243,7 +247,7 @@ async function createLimitTestClients() {
 
   await ApiUsage.recordUsage(
     nearLimitClient.id,
-    45,  // 45/50 conversations
+    45, // 45/50 conversations
     475, // 475/500 messages (95%)
     45000, // 45K/50K tokens (90%)
     3000,
@@ -276,7 +280,7 @@ async function displaySummary() {
   `);
 
   console.log('\n  Clients by Plan:');
-  clientStats.rows.forEach(row => {
+  clientStats.rows.forEach((row) => {
     console.log(`    ${row.plan_type}: ${row.count} clients`);
   });
 
@@ -308,8 +312,12 @@ async function displaySummary() {
   console.log('\n  Invoices:');
   console.log(`    Total invoices: ${invoiceStats.rows[0].total_invoices}`);
   console.log(`    Paid invoices: ${invoiceStats.rows[0].paid_count}`);
-  console.log(`    Total revenue: $${parseFloat(invoiceStats.rows[0].total_revenue || 0).toFixed(2)}`);
-  console.log(`    Paid revenue: $${parseFloat(invoiceStats.rows[0].paid_revenue || 0).toFixed(2)}`);
+  console.log(
+    `    Total revenue: $${parseFloat(invoiceStats.rows[0].total_revenue || 0).toFixed(2)}`
+  );
+  console.log(
+    `    Paid revenue: $${parseFloat(invoiceStats.rows[0].paid_revenue || 0).toFixed(2)}`
+  );
 }
 
 /**

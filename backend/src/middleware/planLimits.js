@@ -170,7 +170,9 @@ export function requireFeature(featureName) {
     } catch (error) {
       console.error('[Plan Features] Error checking feature:', error);
       // Fail closed for features (deny access on error)
-      return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to check feature access' });
+      return res
+        .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+        .json({ error: 'Failed to check feature access' });
     }
   };
 }
@@ -268,11 +270,7 @@ export function logPlanViolations() {
  * @returns {Array<Function>} Array of middleware functions
  */
 export function enforcePlanLimits(options = {}) {
-  return [
-    checkPlanLimits(options),
-    addUsageHeaders(),
-    logPlanViolations(),
-  ];
+  return [checkPlanLimits(options), addUsageHeaders(), logPlanViolations()];
 }
 
 /**

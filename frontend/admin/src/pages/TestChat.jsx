@@ -180,17 +180,11 @@ export default function TestChat() {
                   className="w-48"
                   disabled={!!sessionId}
                 />
-                {sessionId && (
-                  <Badge variant="success">Active: {getClientName()}</Badge>
-                )}
+                {sessionId && <Badge variant="success">Active: {getClientName()}</Badge>}
               </div>
               <div className="flex gap-2">
                 {!sessionId ? (
-                  <Button
-                    size="sm"
-                    onClick={handleStartChat}
-                    disabled={!selectedClient}
-                  >
+                  <Button size="sm" onClick={handleStartChat} disabled={!selectedClient}>
                     Start Chat
                   </Button>
                 ) : (
@@ -223,8 +217,8 @@ export default function TestChat() {
                           msg.role === 'user'
                             ? 'bg-primary-600 text-white'
                             : msg.role === 'system'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-white border border-gray-200'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-white border border-gray-200'
                         }`}
                       >
                         <p className="whitespace-pre-wrap">{msg.content}</p>

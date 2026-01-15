@@ -14,11 +14,11 @@ import { ADAPTIVE_REASONING } from '../config/constants.js';
  * @returns {Array} Formatted messages with role and content
  */
 export function formatConversationHistory(messages) {
-    if (!messages || !Array.isArray(messages)) return [];
-    return messages.map(m => ({
-        role: m.role,
-        content: m.content
-    }));
+  if (!messages || !Array.isArray(messages)) return [];
+  return messages.map((m) => ({
+    role: m.role,
+    content: m.content,
+  }));
 }
 
 /**
@@ -28,12 +28,12 @@ export function formatConversationHistory(messages) {
  * @returns {Array} Messages array ready for LLM
  */
 export function buildMessageArray(systemPrompt, conversationHistory = []) {
-    const messages = [];
-    if (systemPrompt) {
-        messages.push({ role: 'system', content: systemPrompt });
-    }
-    messages.push(...conversationHistory);
-    return messages;
+  const messages = [];
+  if (systemPrompt) {
+    messages.push({ role: 'system', content: systemPrompt });
+  }
+  messages.push(...conversationHistory);
+  return messages;
 }
 
 /**
@@ -43,9 +43,9 @@ export function buildMessageArray(systemPrompt, conversationHistory = []) {
  * @returns {Object} Updated token counts
  */
 export function accumulateTokens(existing, response) {
-    const input = (existing?.input || 0) + (response?.tokens?.input || 0);
-    const output = (existing?.output || 0) + (response?.tokens?.output || 0);
-    return { input, output };
+  const input = (existing?.input || 0) + (response?.tokens?.input || 0);
+  const output = (existing?.output || 0) + (response?.tokens?.output || 0);
+  return { input, output };
 }
 
 /**
@@ -54,10 +54,10 @@ export function accumulateTokens(existing, response) {
  * @returns {string} Formatted params string
  */
 export function formatParamsInline(params) {
-    if (!params || typeof params !== 'object') return 'none';
-    const entries = Object.entries(params);
-    if (entries.length === 0) return 'none';
-    return entries.map(([key, value]) => `${key}="${value}"`).join(', ');
+  if (!params || typeof params !== 'object') return 'none';
+  const entries = Object.entries(params);
+  if (entries.length === 0) return 'none';
+  return entries.map(([key, value]) => `${key}="${value}"`).join(', ');
 }
 
 /**
@@ -68,30 +68,35 @@ export function formatParamsInline(params) {
  * @param {Array} formattedHistory - Conversation history
  * @returns {Promise<string>} Generated error message
  */
-export async function generateErrorMessageViaLLM(errorType, errorDetails, client, formattedHistory = []) {
-    const errorPrompt = `Generate a brief, friendly error message for the customer.
+export async function generateErrorMessageViaLLM(
+  errorType,
+  errorDetails,
+  client,
+  formattedHistory = []
+) {
+  const errorPrompt = `Generate a brief, friendly error message for the customer.
 Error type: ${errorType}
 Details: ${errorDetails}
 Keep it apologetic but helpful. One sentence max.`;
 
-    try {
-        const messages = [
-            { role: 'system', content: errorPrompt },
-            ...formattedHistory.filter(m => m.role !== 'system').slice(-3)
-        ];
+  try {
+    const messages = [
+      { role: 'system', content: errorPrompt },
+      ...formattedHistory.filter((m) => m.role !== 'system').slice(-3),
+    ];
 
-        const response = await llmService.chat(messages, {
-            maxTokens: ADAPTIVE_REASONING.ERROR_MESSAGE_MAX_TOKENS || 100,
-            temperature: ADAPTIVE_REASONING.ERROR_MESSAGE_TEMPERATURE || 0.7,
-            provider: client?.llm_provider,
-            model: client?.model_name
-        });
+    const response = await llmService.chat(messages, {
+      maxTokens: ADAPTIVE_REASONING.ERROR_MESSAGE_MAX_TOKENS || 100,
+      temperature: ADAPTIVE_REASONING.ERROR_MESSAGE_TEMPERATURE || 0.7,
+      provider: client?.llm_provider,
+      model: client?.model_name,
+    });
 
-        return response.content;
-    } catch (e) {
-        console.error('[MessageHelpers] Error message generation failed:', e.message);
-        return errorDetails || 'Something went wrong. Please try again.';
-    }
+    return response.content;
+  } catch (e) {
+    console.error('[MessageHelpers] Error message generation failed:', e.message);
+    return errorDetails || 'Something went wrong. Please try again.';
+  }
 }
 
 /**
@@ -101,32 +106,32 @@ Keep it apologetic but helpful. One sentence max.`;
  * @returns {string} Formatted critique display
  */
 export function formatCritiqueDisplay(assessment, critiqueResult) {
-    const params = assessment?.tool_params || {};
-    const understanding = critiqueResult?.understanding || {};
-    const toolChoice = critiqueResult?.tool_choice || {};
-    const execution = critiqueResult?.execution || {};
+  const params = assessment?.tool_params || {};
+  const understanding = critiqueResult?.understanding || {};
+  const toolChoice = critiqueResult?.tool_choice || {};
+  const execution = critiqueResult?.execution || {};
 
-    const paramsInline = formatParamsInline(params);
+  const paramsInline = formatParamsInline(params);
 
-    // Build understanding line
-    let understandLine = understanding.what_user_wants || 'unknown';
-    if (understanding.ai_understood_correctly === false && understanding.misunderstanding) {
-        understandLine += ` (WRONG: ${understanding.misunderstanding})`;
-    }
+  // Build understanding line
+  let understandLine = understanding.what_user_wants || 'unknown';
+  if (understanding.ai_understood_correctly === false && understanding.misunderstanding) {
+    understandLine += ` (WRONG: ${understanding.misunderstanding})`;
+  }
 
-    // Build tool line
-    let toolLine = `${assessment?.tool_call || 'none'} (${paramsInline})`;
-    if (toolChoice.correct_tool === false && toolChoice.suggested_tool) {
-        toolLine += ` → should be: ${toolChoice.suggested_tool}`;
-    }
+  // Build tool line
+  let toolLine = `${assessment?.tool_call || 'none'} (${paramsInline})`;
+  if (toolChoice.correct_tool === false && toolChoice.suggested_tool) {
+    toolLine += ` → should be: ${toolChoice.suggested_tool}`;
+  }
 
-    // Build decision line
-    let decisionLine = critiqueResult?.decision || 'UNKNOWN';
-    if (execution.issues?.length) {
-        decisionLine += ` (issues: ${execution.issues.join(', ')})`;
-    }
+  // Build decision line
+  let decisionLine = critiqueResult?.decision || 'UNKNOWN';
+  if (execution.issues?.length) {
+    decisionLine += ` (issues: ${execution.issues.join(', ')})`;
+  }
 
-    return `UNDERSTAND: ${understandLine}
+  return `UNDERSTAND: ${understandLine}
 TOOL: ${toolLine}
 DECISION: ${decisionLine}`;
 }

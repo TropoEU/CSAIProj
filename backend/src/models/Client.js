@@ -2,282 +2,312 @@ import { db } from '../db.js';
 import crypto from 'crypto';
 
 export class Client {
-    /**
-     * Generate a unique API key for a client with csai_ prefix
-     */
-    static generateApiKey() {
-        const randomHex = crypto.randomBytes(32).toString('hex');
-        return `csai_${randomHex}`;
-    }
+  /**
+   * Generate a unique API key for a client with csai_ prefix
+   */
+  static generateApiKey() {
+    const randomHex = crypto.randomBytes(32).toString('hex');
+    return `csai_${randomHex}`;
+  }
 
-    /**
-     * Create a new client
-     * @param {string} name - Client business name
-     * @param {string} domain - Client website domain
-     * @param {string} planType - Plan type (free, starter, pro)
-     * @param {string} email - Client email
-     * @param {string} llmProvider - LLM provider (ollama, claude, openai)
-     * @param {string} modelName - Model name
-     * @param {string} systemPrompt - Custom system prompt
-     * @param {string} status - Client status (active, inactive)
-     * @param {object} widgetConfig - Widget customization settings
-     */
-    static async create(name, domain, planType = 'free', email = null, llmProvider = 'ollama', modelName = null, systemPrompt = null, status = 'active', widgetConfig = null) {
-        const apiKey = this.generateApiKey();
-        const query = widgetConfig
-            ? `INSERT INTO clients (name, domain, api_key, plan_type, email, llm_provider, model_name, system_prompt, status, widget_config)
+  /**
+   * Create a new client
+   * @param {string} name - Client business name
+   * @param {string} domain - Client website domain
+   * @param {string} planType - Plan type (free, starter, pro)
+   * @param {string} email - Client email
+   * @param {string} llmProvider - LLM provider (ollama, claude, openai)
+   * @param {string} modelName - Model name
+   * @param {string} systemPrompt - Custom system prompt
+   * @param {string} status - Client status (active, inactive)
+   * @param {object} widgetConfig - Widget customization settings
+   */
+  static async create(
+    name,
+    domain,
+    planType = 'free',
+    email = null,
+    llmProvider = 'ollama',
+    modelName = null,
+    systemPrompt = null,
+    status = 'active',
+    widgetConfig = null
+  ) {
+    const apiKey = this.generateApiKey();
+    const query = widgetConfig
+      ? `INSERT INTO clients (name, domain, api_key, plan_type, email, llm_provider, model_name, system_prompt, status, widget_config)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                RETURNING *`
-            : `INSERT INTO clients (name, domain, api_key, plan_type, email, llm_provider, model_name, system_prompt, status)
+      : `INSERT INTO clients (name, domain, api_key, plan_type, email, llm_provider, model_name, system_prompt, status)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                RETURNING *`;
-        const params = widgetConfig
-            ? [name, domain, apiKey, planType, email, llmProvider, modelName, systemPrompt, status, JSON.stringify(widgetConfig)]
-            : [name, domain, apiKey, planType, email, llmProvider, modelName, systemPrompt, status];
+    const params = widgetConfig
+      ? [
+          name,
+          domain,
+          apiKey,
+          planType,
+          email,
+          llmProvider,
+          modelName,
+          systemPrompt,
+          status,
+          JSON.stringify(widgetConfig),
+        ]
+      : [name, domain, apiKey, planType, email, llmProvider, modelName, systemPrompt, status];
 
-        const result = await db.query(query, params);
-        return result.rows[0];
-    }
+    const result = await db.query(query, params);
+    return result.rows[0];
+  }
 
-    /**
-     * Find client by ID
-     */
-    static async findById(id) {
-        const result = await db.query(
-            'SELECT * FROM clients WHERE id = $1',
-            [id]
-        );
-        return result.rows[0] || null;
-    }
+  /**
+   * Find client by ID
+   */
+  static async findById(id) {
+    const result = await db.query('SELECT * FROM clients WHERE id = $1', [id]);
+    return result.rows[0] || null;
+  }
 
-    /**
-     * Find client by API key (for authentication)
-     */
-    static async findByApiKey(apiKey) {
-        const result = await db.query(
-            'SELECT * FROM clients WHERE api_key = $1 AND status = $2',
-            [apiKey, 'active']
-        );
-        return result.rows[0] || null;
-    }
+  /**
+   * Find client by API key (for authentication)
+   */
+  static async findByApiKey(apiKey) {
+    const result = await db.query('SELECT * FROM clients WHERE api_key = $1 AND status = $2', [
+      apiKey,
+      'active',
+    ]);
+    return result.rows[0] || null;
+  }
 
-    /**
-     * Get all clients
-     */
-    static async findAll(limit = 100, offset = 0) {
-        const result = await db.query(
-            'SELECT * FROM clients ORDER BY created_at DESC LIMIT $1 OFFSET $2',
-            [limit, offset]
-        );
-        return result.rows;
-    }
+  /**
+   * Get all clients
+   */
+  static async findAll(limit = 100, offset = 0) {
+    const result = await db.query(
+      'SELECT * FROM clients ORDER BY created_at DESC LIMIT $1 OFFSET $2',
+      [limit, offset]
+    );
+    return result.rows;
+  }
 
-    /**
-     * Update client
-     */
-    static async update(id, updates) {
-        const allowedFields = ['name', 'domain', 'plan_type', 'status', 'email', 'llm_provider', 'model_name', 'system_prompt', 'widget_config', 'language', 'business_info', 'escalation_config', 'prompt_config'];
-        const jsonbFields = ['widget_config', 'business_info', 'escalation_config', 'prompt_config'];
-        const fields = [];
-        const values = [];
-        let paramIndex = 1;
+  /**
+   * Update client
+   */
+  static async update(id, updates) {
+    const allowedFields = [
+      'name',
+      'domain',
+      'plan_type',
+      'status',
+      'email',
+      'llm_provider',
+      'model_name',
+      'system_prompt',
+      'widget_config',
+      'language',
+      'business_info',
+      'escalation_config',
+      'prompt_config',
+    ];
+    const jsonbFields = ['widget_config', 'business_info', 'escalation_config', 'prompt_config'];
+    const fields = [];
+    const values = [];
+    let paramIndex = 1;
 
-        // JSONB validation constants
-        const MAX_JSONB_SIZE = 1024 * 1024; // 1MB max size for JSONB fields
-        const MAX_JSONB_DEPTH = 10; // Maximum nesting depth
+    // JSONB validation constants
+    const MAX_JSONB_SIZE = 1024 * 1024; // 1MB max size for JSONB fields
+    const MAX_JSONB_DEPTH = 10; // Maximum nesting depth
 
-        // Helper function to calculate object depth
-        const getObjectDepth = (obj, currentDepth = 0) => {
-            if (currentDepth > MAX_JSONB_DEPTH) return currentDepth;
-            if (obj === null || typeof obj !== 'object') return currentDepth;
+    // Helper function to calculate object depth
+    const getObjectDepth = (obj, currentDepth = 0) => {
+      if (currentDepth > MAX_JSONB_DEPTH) return currentDepth;
+      if (obj === null || typeof obj !== 'object') return currentDepth;
 
-            const depths = Object.values(obj).map(value =>
-                getObjectDepth(value, currentDepth + 1)
+      const depths = Object.values(obj).map((value) => getObjectDepth(value, currentDepth + 1));
+      return depths.length > 0 ? Math.max(...depths) : currentDepth;
+    };
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (allowedFields.includes(key)) {
+        // Handle JSONB fields with validation
+        if (jsonbFields.includes(key) && value !== null && typeof value === 'object') {
+          // Validate JSONB size
+          const jsonString = JSON.stringify(value);
+          if (jsonString.length > MAX_JSONB_SIZE) {
+            throw new Error(`JSONB field '${key}' exceeds maximum size of ${MAX_JSONB_SIZE} bytes`);
+          }
+
+          // Validate JSONB depth to prevent deeply nested objects (DoS risk)
+          const depth = getObjectDepth(value);
+          if (depth > MAX_JSONB_DEPTH) {
+            throw new Error(
+              `JSONB field '${key}' exceeds maximum nesting depth of ${MAX_JSONB_DEPTH}`
             );
-            return depths.length > 0 ? Math.max(...depths) : currentDepth;
-        };
+          }
 
-        for (const [key, value] of Object.entries(updates)) {
-            if (allowedFields.includes(key)) {
-                // Handle JSONB fields with validation
-                if (jsonbFields.includes(key) && value !== null && typeof value === 'object') {
-                    // Validate JSONB size
-                    const jsonString = JSON.stringify(value);
-                    if (jsonString.length > MAX_JSONB_SIZE) {
-                        throw new Error(`JSONB field '${key}' exceeds maximum size of ${MAX_JSONB_SIZE} bytes`);
-                    }
-
-                    // Validate JSONB depth to prevent deeply nested objects (DoS risk)
-                    const depth = getObjectDepth(value);
-                    if (depth > MAX_JSONB_DEPTH) {
-                        throw new Error(`JSONB field '${key}' exceeds maximum nesting depth of ${MAX_JSONB_DEPTH}`);
-                    }
-
-                    fields.push(`${key} = $${paramIndex}::jsonb`);
-                    values.push(jsonString);
-                } else {
-                    fields.push(`${key} = $${paramIndex}`);
-                    values.push(value);
-                }
-                paramIndex++;
-            }
+          fields.push(`${key} = $${paramIndex}::jsonb`);
+          values.push(jsonString);
+        } else {
+          fields.push(`${key} = $${paramIndex}`);
+          values.push(value);
         }
+        paramIndex++;
+      }
+    }
 
-        if (fields.length === 0) {
-            throw new Error('No valid fields to update');
-        }
+    if (fields.length === 0) {
+      throw new Error('No valid fields to update');
+    }
 
-        fields.push('updated_at = NOW()');
-        values.push(id);
+    fields.push('updated_at = NOW()');
+    values.push(id);
 
-        const query = `
+    const query = `
             UPDATE clients
             SET ${fields.join(', ')}
             WHERE id = $${paramIndex}
             RETURNING *
         `;
 
-        const result = await db.query(query, values);
-        return result.rows[0];
-    }
+    const result = await db.query(query, values);
+    return result.rows[0];
+  }
 
-    /**
-     * Delete client (soft delete by setting status to inactive)
-     */
-    static async deactivate(id) {
-        const result = await db.query(
-            `UPDATE clients SET status = 'inactive', updated_at = NOW()
+  /**
+   * Delete client (soft delete by setting status to inactive)
+   */
+  static async deactivate(id) {
+    const result = await db.query(
+      `UPDATE clients SET status = 'inactive', updated_at = NOW()
              WHERE id = $1
              RETURNING *`,
-            [id]
-        );
-        return result.rows[0];
-    }
+      [id]
+    );
+    return result.rows[0];
+  }
 
-    /**
-     * Hard delete client (cascades to all related data)
-     */
-    static async delete(id) {
-        const result = await db.query(
-            'DELETE FROM clients WHERE id = $1 RETURNING *',
-            [id]
-        );
-        return result.rows[0];
-    }
+  /**
+   * Hard delete client (cascades to all related data)
+   */
+  static async delete(id) {
+    const result = await db.query('DELETE FROM clients WHERE id = $1 RETURNING *', [id]);
+    return result.rows[0];
+  }
 
-    /**
-     * Regenerate API key for a client
-     */
-    static async regenerateApiKey(id) {
-        const newApiKey = this.generateApiKey();
-        const result = await db.query(
-            `UPDATE clients SET api_key = $1, updated_at = NOW()
+  /**
+   * Regenerate API key for a client
+   */
+  static async regenerateApiKey(id) {
+    const newApiKey = this.generateApiKey();
+    const result = await db.query(
+      `UPDATE clients SET api_key = $1, updated_at = NOW()
              WHERE id = $2
              RETURNING *`,
-            [newApiKey, id]
-        );
-        return result.rows[0];
-    }
+      [newApiKey, id]
+    );
+    return result.rows[0];
+  }
 
-    /**
-     * Update API key for a client (manual set)
-     */
-    static async updateApiKey(id, apiKey) {
-        const result = await db.query(
-            `UPDATE clients SET api_key = $1, updated_at = NOW()
+  /**
+   * Update API key for a client (manual set)
+   */
+  static async updateApiKey(id, apiKey) {
+    const result = await db.query(
+      `UPDATE clients SET api_key = $1, updated_at = NOW()
              WHERE id = $2
              RETURNING *`,
-            [apiKey, id]
-        );
-        return result.rows[0];
-    }
+      [apiKey, id]
+    );
+    return result.rows[0];
+  }
 
-    /**
-     * Update prompt configuration for a client
-     * @param {number} id - Client ID
-     * @param {object} promptConfig - Prompt configuration object
-     */
-    static async updatePromptConfig(id, promptConfig) {
-        const result = await db.query(
-            `UPDATE clients SET prompt_config = $1::jsonb, updated_at = NOW()
+  /**
+   * Update prompt configuration for a client
+   * @param {number} id - Client ID
+   * @param {object} promptConfig - Prompt configuration object
+   */
+  static async updatePromptConfig(id, promptConfig) {
+    const result = await db.query(
+      `UPDATE clients SET prompt_config = $1::jsonb, updated_at = NOW()
              WHERE id = $2
              RETURNING *`,
-            [JSON.stringify(promptConfig), id]
-        );
-        return result.rows[0];
-    }
+      [JSON.stringify(promptConfig), id]
+    );
+    return result.rows[0];
+  }
 
-    /**
-     * Get client count by plan type
-     */
-    static async getCountByPlan() {
-        const result = await db.query(
-            `SELECT plan_type, COUNT(*) as count
+  /**
+   * Get client count by plan type
+   */
+  static async getCountByPlan() {
+    const result = await db.query(
+      `SELECT plan_type, COUNT(*) as count
              FROM clients
              WHERE status = 'active'
              GROUP BY plan_type`
-        );
-        return result.rows;
+    );
+    return result.rows;
+  }
+
+  /**
+   * Generate a unique access code for customer dashboard (format: ABC123)
+   */
+  static generateAccessCode() {
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const digits = '0123456789';
+
+    let code = '';
+    // 3 random uppercase letters
+    for (let i = 0; i < 3; i++) {
+      code += letters.charAt(Math.floor(Math.random() * letters.length));
+    }
+    // 3 random digits
+    for (let i = 0; i < 3; i++) {
+      code += digits.charAt(Math.floor(Math.random() * digits.length));
     }
 
-    /**
-     * Generate a unique access code for customer dashboard (format: ABC123)
-     */
-    static generateAccessCode() {
-        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        const digits = '0123456789';
+    return code;
+  }
 
-        let code = '';
-        // 3 random uppercase letters
-        for (let i = 0; i < 3; i++) {
-            code += letters.charAt(Math.floor(Math.random() * letters.length));
-        }
-        // 3 random digits
-        for (let i = 0; i < 3; i++) {
-            code += digits.charAt(Math.floor(Math.random() * digits.length));
-        }
+  /**
+   * Regenerate access code for a client
+   */
+  static async regenerateAccessCode(id) {
+    let attempts = 0;
+    const maxAttempts = 10;
 
-        return code;
-    }
-
-    /**
-     * Regenerate access code for a client
-     */
-    static async regenerateAccessCode(id) {
-        let attempts = 0;
-        const maxAttempts = 10;
-
-        while (attempts < maxAttempts) {
-            try {
-                const newAccessCode = this.generateAccessCode();
-                const result = await db.query(
-                    `UPDATE clients SET access_code = $1, updated_at = NOW()
+    while (attempts < maxAttempts) {
+      try {
+        const newAccessCode = this.generateAccessCode();
+        const result = await db.query(
+          `UPDATE clients SET access_code = $1, updated_at = NOW()
                      WHERE id = $2
                      RETURNING *`,
-                    [newAccessCode, id]
-                );
-                return result.rows[0];
-            } catch (error) {
-                // If unique constraint violation, try again with new code
-                if (error.code === '23505') { // Unique violation
-                    attempts++;
-                    continue;
-                }
-                throw error;
-            }
-        }
-
-        throw new Error('Failed to generate unique access code after multiple attempts');
-    }
-
-    /**
-     * Find client by access code (for customer dashboard login)
-     */
-    static async findByAccessCode(accessCode) {
-        const result = await db.query(
-            'SELECT * FROM clients WHERE access_code = $1 AND status = $2',
-            [accessCode, 'active']
+          [newAccessCode, id]
         );
-        return result.rows[0] || null;
+        return result.rows[0];
+      } catch (error) {
+        // If unique constraint violation, try again with new code
+        if (error.code === '23505') {
+          // Unique violation
+          attempts++;
+          continue;
+        }
+        throw error;
+      }
     }
+
+    throw new Error('Failed to generate unique access code after multiple attempts');
+  }
+
+  /**
+   * Find client by access code (for customer dashboard login)
+   */
+  static async findByAccessCode(accessCode) {
+    const result = await db.query('SELECT * FROM clients WHERE access_code = $1 AND status = $2', [
+      accessCode,
+      'active',
+    ]);
+    return result.rows[0] || null;
+  }
 }

@@ -34,10 +34,7 @@ export class Plan {
    * @returns {Promise<Object|null>} Plan or null
    */
   static async findByName(name) {
-    const result = await db.query(
-      'SELECT * FROM plans WHERE LOWER(name) = LOWER($1)',
-      [name]
-    );
+    const result = await db.query('SELECT * FROM plans WHERE LOWER(name) = LOWER($1)', [name]);
     return result.rows[0] || null;
   }
 
@@ -46,9 +43,7 @@ export class Plan {
    * @returns {Promise<Object|null>} Default plan or null
    */
   static async getDefault() {
-    const result = await db.query(
-      'SELECT * FROM plans WHERE is_default = true LIMIT 1'
-    );
+    const result = await db.query('SELECT * FROM plans WHERE is_default = true LIMIT 1');
     return result.rows[0] || null;
   }
 
@@ -120,11 +115,22 @@ export class Plan {
    */
   static async update(id, updates) {
     const allowedFields = [
-      'name', 'display_name', 'description',
-      'conversations_per_month', 'messages_per_month', 'tokens_per_month',
-      'tool_calls_per_month', 'integrations_enabled', 'cost_limit_usd',
-      'features', 'base_cost', 'usage_multiplier',
-      'is_default', 'is_active', 'sort_order', 'ai_mode'
+      'name',
+      'display_name',
+      'description',
+      'conversations_per_month',
+      'messages_per_month',
+      'tokens_per_month',
+      'tool_calls_per_month',
+      'integrations_enabled',
+      'cost_limit_usd',
+      'features',
+      'base_cost',
+      'usage_multiplier',
+      'is_default',
+      'is_active',
+      'sort_order',
+      'ai_mode',
     ];
 
     // Map camelCase to snake_case
@@ -155,7 +161,9 @@ export class Plan {
 
     // If setting as default, unset other defaults first
     if (normalizedUpdates.is_default === true) {
-      await db.query('UPDATE plans SET is_default = false WHERE is_default = true AND id != $1', [id]);
+      await db.query('UPDATE plans SET is_default = false WHERE is_default = true AND id != $1', [
+        id,
+      ]);
     }
 
     const setClauses = [];
@@ -279,4 +287,3 @@ export class Plan {
 }
 
 export default Plan;
-

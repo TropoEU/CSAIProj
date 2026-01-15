@@ -1,15 +1,6 @@
 import { useState, useEffect } from 'react';
 import { email } from '../services/api';
-import {
-  Card,
-  CardBody,
-  CardHeader,
-  Button,
-  Badge,
-  Modal,
-  Input,
-  LoadingSpinner,
-} from './common';
+import { Card, CardBody, CardHeader, Button, Badge, Modal, Input, LoadingSpinner } from './common';
 
 export default function EmailChannels({ clientId }) {
   const [channels, setChannels] = useState([]);
@@ -80,7 +71,11 @@ export default function EmailChannels({ clientId }) {
   };
 
   const handleDisconnect = async (channelId) => {
-    if (!confirm('Are you sure you want to disconnect this email channel? The AI will no longer monitor this inbox.')) {
+    if (
+      !confirm(
+        'Are you sure you want to disconnect this email channel? The AI will no longer monitor this inbox.'
+      )
+    ) {
       return;
     }
 
@@ -97,7 +92,9 @@ export default function EmailChannels({ clientId }) {
       setIsTesting(channelId);
       const response = await email.testConnection(channelId);
       if (response.data.success) {
-        alert(`Connection successful!\nEmail: ${response.data.email}\nTotal Messages: ${response.data.messagesTotal}`);
+        alert(
+          `Connection successful!\nEmail: ${response.data.email}\nTotal Messages: ${response.data.messagesTotal}`
+        );
       } else {
         alert(`Connection failed: ${response.data.error}`);
       }
@@ -127,7 +124,10 @@ export default function EmailChannels({ clientId }) {
       await email.sendTestEmail(selectedChannel.id, testEmail);
       setTestResult({ success: true, message: 'Test email sent successfully!' });
     } catch (err) {
-      setTestResult({ success: false, message: err.response?.data?.error || 'Failed to send test email' });
+      setTestResult({
+        success: false,
+        message: err.response?.data?.error || 'Failed to send test email',
+      });
     } finally {
       setIsSendingTest(false);
     }
@@ -188,7 +188,7 @@ export default function EmailChannels({ clientId }) {
         </div>
         <Button onClick={handleConnectGmail} loading={isConnecting}>
           <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+            <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
           </svg>
           Connect Gmail
         </Button>
@@ -197,14 +197,26 @@ export default function EmailChannels({ clientId }) {
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
             {error}
-            <button onClick={() => setError(null)} className="ml-2 font-bold">&times;</button>
+            <button onClick={() => setError(null)} className="ml-2 font-bold">
+              &times;
+            </button>
           </div>
         )}
 
         {channels.length === 0 ? (
           <div className="text-center py-8">
-            <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            <svg
+              className="w-12 h-12 text-gray-400 mx-auto mb-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              />
             </svg>
             <p className="text-gray-500 mb-4">No email channels connected</p>
             <p className="text-sm text-gray-400">
@@ -222,7 +234,7 @@ export default function EmailChannels({ clientId }) {
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
                       <svg className="w-5 h-5 text-red-600" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+                        <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
                       </svg>
                     </div>
                     <div>
@@ -234,19 +246,16 @@ export default function EmailChannels({ clientId }) {
                         {channel.channel_type === 'gmail' ? 'Gmail' : channel.channel_type}
                         {channel.last_checked_at && (
                           <span className="ml-2">
-                            &bull; Last checked: {new Date(channel.last_checked_at).toLocaleString()}
+                            &bull; Last checked:{' '}
+                            {new Date(channel.last_checked_at).toLocaleString()}
                           </span>
                         )}
                       </div>
                       {channel.last_error && (
-                        <div className="text-sm text-red-600 mt-1">
-                          Error: {channel.last_error}
-                        </div>
+                        <div className="text-sm text-red-600 mt-1">Error: {channel.last_error}</div>
                       )}
                       {channel.settings?.monitoring_enabled === false && (
-                        <div className="text-sm text-yellow-600 mt-1">
-                          Monitoring disabled
-                        </div>
+                        <div className="text-sm text-yellow-600 mt-1">Monitoring disabled</div>
                       )}
                     </div>
                   </div>
@@ -259,11 +268,7 @@ export default function EmailChannels({ clientId }) {
                     >
                       Test
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleOpenTestModal(channel)}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => handleOpenTestModal(channel)}>
                       Send Test
                     </Button>
                     <Button
@@ -335,9 +340,7 @@ export default function EmailChannels({ clientId }) {
           />
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Body
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Body</label>
             <textarea
               value={testEmail.body}
               onChange={(e) => setTestEmail({ ...testEmail, body: e.target.value })}
@@ -366,12 +369,12 @@ export default function EmailChannels({ clientId }) {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email Signature
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email Signature</label>
             <textarea
               value={channelSettings.signature}
-              onChange={(e) => setChannelSettings({ ...channelSettings, signature: e.target.value })}
+              onChange={(e) =>
+                setChannelSettings({ ...channelSettings, signature: e.target.value })
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               rows="3"
               placeholder="Your email signature..."
@@ -386,7 +389,9 @@ export default function EmailChannels({ clientId }) {
               type="checkbox"
               id="auto_reply"
               checked={channelSettings.auto_reply}
-              onChange={(e) => setChannelSettings({ ...channelSettings, auto_reply: e.target.checked })}
+              onChange={(e) =>
+                setChannelSettings({ ...channelSettings, auto_reply: e.target.checked })
+              }
               className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
             />
             <label htmlFor="auto_reply" className="text-sm text-gray-700">
@@ -399,7 +404,9 @@ export default function EmailChannels({ clientId }) {
               type="checkbox"
               id="monitoring_enabled"
               checked={channelSettings.monitoring_enabled}
-              onChange={(e) => setChannelSettings({ ...channelSettings, monitoring_enabled: e.target.checked })}
+              onChange={(e) =>
+                setChannelSettings({ ...channelSettings, monitoring_enabled: e.target.checked })
+              }
               className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
             />
             <label htmlFor="monitoring_enabled" className="text-sm text-gray-700">

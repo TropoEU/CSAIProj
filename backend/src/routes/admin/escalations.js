@@ -111,7 +111,9 @@ router.put('/:id/status', async (req, res) => {
     res.json(escalation);
   } catch (error) {
     console.error('[Admin] Update escalation status error:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to update escalation status' });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to update escalation status' });
   }
 });
 
@@ -164,7 +166,9 @@ router.get('/clients/:clientId/escalations/stats', async (req, res) => {
     res.json(stats);
   } catch (error) {
     console.error('[Admin] Get client escalation stats error:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get client escalation stats' });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to get client escalation stats' });
   }
 });
 

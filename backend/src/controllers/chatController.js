@@ -16,21 +16,17 @@ import { RedisCache } from '../services/redisCache.js';
  */
 export async function sendMessage(req, res) {
   try {
-    const {
-      message,
-      sessionId,
-      userIdentifier
-    } = req.body;
+    const { message, sessionId, userIdentifier } = req.body;
 
     // Get client from API key (set by auth middleware)
     const client = req.client;
-    
-    logger.log('[ChatController] Received message request', { 
-      message: message?.substring(0, 50), 
+
+    logger.log('[ChatController] Received message request', {
+      message: message?.substring(0, 50),
       sessionId,
       clientId: client?.id,
       llmProvider: client?.llm_provider || 'ollama',
-      modelName: client?.model_name || null
+      modelName: client?.model_name || null,
     });
 
     // Input length limits (prevent DoS)
@@ -41,47 +37,50 @@ export async function sendMessage(req, res) {
     // Validation
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        error: 'Message is required and must be a non-empty string'
+        error: 'Message is required and must be a non-empty string',
       });
     }
 
     if (message.length > MAX_MESSAGE_LENGTH) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        error: `Message too long. Maximum ${MAX_MESSAGE_LENGTH} characters allowed.`
+        error: `Message too long. Maximum ${MAX_MESSAGE_LENGTH} characters allowed.`,
       });
     }
 
     if (!sessionId || typeof sessionId !== 'string') {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        error: 'Session ID is required'
+        error: 'Session ID is required',
       });
     }
 
     if (sessionId.length > MAX_SESSION_ID_LENGTH) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        error: `Session ID too long. Maximum ${MAX_SESSION_ID_LENGTH} characters allowed.`
+        error: `Session ID too long. Maximum ${MAX_SESSION_ID_LENGTH} characters allowed.`,
       });
     }
 
     // Validate userIdentifier if provided
     if (userIdentifier !== undefined && userIdentifier !== null) {
-      if (typeof userIdentifier !== 'string' || userIdentifier.length > MAX_USER_IDENTIFIER_LENGTH) {
+      if (
+        typeof userIdentifier !== 'string' ||
+        userIdentifier.length > MAX_USER_IDENTIFIER_LENGTH
+      ) {
         return res.status(HTTP_STATUS.BAD_REQUEST).json({
-          error: `User identifier must be a string with maximum ${MAX_USER_IDENTIFIER_LENGTH} characters.`
+          error: `User identifier must be a string with maximum ${MAX_USER_IDENTIFIER_LENGTH} characters.`,
         });
       }
     }
 
-    logger.log('[ChatController] Processing message for client', { 
-      clientId: client?.id, 
+    logger.log('[ChatController] Processing message for client', {
+      clientId: client?.id,
       clientName: client?.name,
       llmProvider: client?.llm_provider || 'ollama',
-      modelName: client?.model_name || null
+      modelName: client?.model_name || null,
     });
 
     if (!client) {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({
-        error: 'Invalid API key'
+        error: 'Invalid API key',
       });
     }
 
@@ -90,17 +89,14 @@ export async function sendMessage(req, res) {
     if (!rateLimit.allowed) {
       return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
         error: 'Rate limit exceeded',
-        retryAfter: rateLimit.resetIn
+        retryAfter: rateLimit.resetIn,
       });
     }
 
     // Process message
-    const result = await conversationService.processMessage(
-      client,
-      sessionId,
-      message.trim(),
-      { userIdentifier }
-    );
+    const result = await conversationService.processMessage(client, sessionId, message.trim(), {
+      userIdentifier,
+    });
 
     return res.json({
       response: result.response,
@@ -109,15 +105,14 @@ export async function sendMessage(req, res) {
       metadata: {
         toolsUsed: result.toolsUsed,
         tokensUsed: result.tokensUsed,
-        iterations: result.iterations
-      }
+        iterations: result.iterations,
+      },
     });
-
   } catch (error) {
     console.error('[ChatController] Error processing message:', error);
     return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       error: 'Failed to process message',
-      message: error.message
+      message: error.message,
     });
   }
 }
@@ -143,7 +138,7 @@ export async function getHistory(req, res) {
       return res.json({
         sessionId,
         messages: [],
-        conversationEnded: false
+        conversationEnded: false,
       });
     }
 
@@ -153,33 +148,32 @@ export async function getHistory(req, res) {
     // Get messages directly from database (not from getConversationContext)
     // This excludes system messages which are only for LLM context
     const messages = await conversationService.getConversationHistory(conversation.id);
-    
+
     // Filter out system and tool messages for display
     const displayMessages = messages
-      .filter(msg => {
+      .filter((msg) => {
         const isAllowed = msg.role === 'user' || msg.role === 'assistant';
         if (!isAllowed) {
           console.log('[getHistory] Filtered out message:', { role: msg.role, id: msg.id });
         }
         return isAllowed;
       })
-      .map(msg => ({
+      .map((msg) => ({
         role: msg.role,
         content: msg.content,
-        created_at: msg.timestamp || msg.created_at
+        created_at: msg.timestamp || msg.created_at,
       }));
 
     return res.json({
       sessionId,
       messages: displayMessages,
-      conversationEnded
+      conversationEnded,
     });
-
   } catch (error) {
     console.error('[ChatController] Error getting history:', error);
     return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       error: 'Failed to get conversation history',
-      message: error.message
+      message: error.message,
     });
   }
 }
@@ -201,14 +195,13 @@ export async function getWidgetConfig(req, res) {
     return res.json({
       language: client.language || 'en',
       widgetConfig: client.widget_config || {},
-      clientName: client.name
+      clientName: client.name,
     });
-
   } catch (error) {
     console.error('[ChatController] Error getting widget config:', error);
     return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       error: 'Failed to get widget configuration',
-      message: error.message
+      message: error.message,
     });
   }
 }
@@ -234,14 +227,13 @@ export async function endSession(req, res) {
 
     return res.json({
       success: true,
-      message: 'Conversation ended'
+      message: 'Conversation ended',
     });
-
   } catch (error) {
     console.error('[ChatController] Error ending session:', error);
     return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       error: 'Failed to end conversation',
-      message: error.message
+      message: error.message,
     });
   }
 }

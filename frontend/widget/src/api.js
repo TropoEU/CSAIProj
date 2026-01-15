@@ -17,7 +17,7 @@ export class ChatAPI {
       const response = await fetch(`${this.baseUrl}/chat/config`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
+          Authorization: `Bearer ${this.apiKey}`,
         },
       });
 
@@ -45,7 +45,7 @@ export class ChatAPI {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
+          Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
           sessionId,
@@ -75,7 +75,7 @@ export class ChatAPI {
       const response = await fetch(`${this.baseUrl}/chat/history/${sessionId}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
+          Authorization: `Bearer ${this.apiKey}`,
         },
       });
 
@@ -87,7 +87,7 @@ export class ChatAPI {
       const data = await response.json();
       return {
         messages: data.messages || [],
-        conversationEnded: data.conversationEnded || false
+        conversationEnded: data.conversationEnded || false,
       };
     } catch (error) {
       console.error('ChatAPI: Failed to get history', error);
@@ -106,7 +106,7 @@ export class ChatAPI {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
+          Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
           sessionId,

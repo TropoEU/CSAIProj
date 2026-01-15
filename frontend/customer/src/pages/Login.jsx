@@ -19,7 +19,11 @@ export default function Login() {
       await login(accessCode, rememberMe);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.message || err.response?.data?.error || 'Login failed. Please check your access code.');
+      setError(
+        err.response?.data?.message ||
+          err.response?.data?.error ||
+          'Login failed. Please check your access code.'
+      );
     } finally {
       setLoading(false);
     }
@@ -30,8 +34,18 @@ export default function Login() {
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-xl mb-4">
-            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            <svg
+              className="w-10 h-10 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
             </svg>
           </div>
           <h1 className="text-3xl font-bold text-gray-900">Welcome Back</h1>
@@ -87,9 +101,25 @@ export default function Login() {
             >
               {loading ? (
                 <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <svg
+                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
                   </svg>
                   Signing in...
                 </span>
@@ -102,7 +132,10 @@ export default function Login() {
 
         <p className="text-center text-sm text-gray-600 mt-6">
           Don't have an access code?{' '}
-          <a href="mailto:support@csai.com" className="text-primary-600 hover:text-primary-700 font-medium">
+          <a
+            href="mailto:support@csai.com"
+            className="text-primary-600 hover:text-primary-700 font-medium"
+          >
             Contact Support
           </a>
         </p>

@@ -9,17 +9,14 @@ import crypto from 'crypto';
  * @returns {string} SHA-256 hash of the intent
  */
 export function generateIntentHash(tool, params) {
-    // Sort params keys for deterministic stringification
-    const sortedParams = sortObjectKeys(params);
+  // Sort params keys for deterministic stringification
+  const sortedParams = sortObjectKeys(params);
 
-    // Create string representation
-    const intentString = JSON.stringify({ tool, params: sortedParams });
+  // Create string representation
+  const intentString = JSON.stringify({ tool, params: sortedParams });
 
-    // Generate SHA-256 hash
-    return crypto
-        .createHash('sha256')
-        .update(intentString)
-        .digest('hex');
+  // Generate SHA-256 hash
+  return crypto.createHash('sha256').update(intentString).digest('hex');
 }
 
 /**
@@ -28,20 +25,20 @@ export function generateIntentHash(tool, params) {
  * @returns {any} Object with sorted keys
  */
 function sortObjectKeys(obj) {
-    if (obj === null || typeof obj !== 'object') {
-        return obj;
-    }
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
 
-    if (Array.isArray(obj)) {
-        return obj.map(sortObjectKeys);
-    }
+  if (Array.isArray(obj)) {
+    return obj.map(sortObjectKeys);
+  }
 
-    return Object.keys(obj)
-        .sort()
-        .reduce((result, key) => {
-            result[key] = sortObjectKeys(obj[key]);
-            return result;
-        }, {});
+  return Object.keys(obj)
+    .sort()
+    .reduce((result, key) => {
+      result[key] = sortObjectKeys(obj[key]);
+      return result;
+    }, {});
 }
 
 /**
@@ -53,7 +50,7 @@ function sortObjectKeys(obj) {
  * @returns {boolean} True if intents match
  */
 export function verifyIntentMatch(tool1, params1, tool2, params2) {
-    const hash1 = generateIntentHash(tool1, params1);
-    const hash2 = generateIntentHash(tool2, params2);
-    return hash1 === hash2;
+  const hash1 = generateIntentHash(tool1, params1);
+  const hash2 = generateIntentHash(tool2, params2);
+  return hash1 === hash2;
 }

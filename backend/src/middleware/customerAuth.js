@@ -18,7 +18,7 @@ async function customerAuth(req, res, next) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({
         error: 'Access token required',
-        message: 'Please log in with your access code'
+        message: 'Please log in with your access code',
       });
     }
 
@@ -32,12 +32,12 @@ async function customerAuth(req, res, next) {
       if (err.name === 'TokenExpiredError') {
         return res.status(HTTP_STATUS.UNAUTHORIZED).json({
           error: 'Token expired',
-          message: 'Your session has expired. Please log in again.'
+          message: 'Your session has expired. Please log in again.',
         });
       }
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({
         error: 'Invalid token',
-        message: 'Invalid authentication token'
+        message: 'Invalid authentication token',
       });
     }
 
@@ -47,7 +47,7 @@ async function customerAuth(req, res, next) {
     if (!client) {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({
         error: 'Client not found',
-        message: 'Your account could not be found'
+        message: 'Your account could not be found',
       });
     }
 
@@ -55,7 +55,7 @@ async function customerAuth(req, res, next) {
     if (client.status !== 'active') {
       return res.status(HTTP_STATUS.FORBIDDEN).json({
         error: 'Account inactive',
-        message: 'Your account is currently inactive. Please contact support.'
+        message: 'Your account is currently inactive. Please contact support.',
       });
     }
 
@@ -68,7 +68,7 @@ async function customerAuth(req, res, next) {
     console.error('[CustomerAuth] Authentication error:', error);
     return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       error: 'Authentication failed',
-      message: 'An error occurred during authentication'
+      message: 'An error occurred during authentication',
     });
   }
 }

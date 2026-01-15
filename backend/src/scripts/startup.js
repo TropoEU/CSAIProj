@@ -18,7 +18,7 @@ function runCommand(command, args) {
     const proc = spawn(command, args, {
       cwd: backendDir,
       stdio: 'inherit',
-      shell: true
+      shell: true,
     });
 
     proc.on('close', (code) => {

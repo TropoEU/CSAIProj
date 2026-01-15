@@ -23,13 +23,15 @@ async function checkAdaptiveMode() {
     if (plansResult.rows.length === 0) {
       console.log('❌ No plans found in database!');
     } else {
-      console.table(plansResult.rows.map(p => ({
-        ID: p.id,
-        Name: p.name,
-        'Display Name': p.display_name,
-        'AI Mode': p.ai_mode || 'standard (default)',
-        'Clients': p.clients_count
-      })));
+      console.table(
+        plansResult.rows.map((p) => ({
+          ID: p.id,
+          Name: p.name,
+          'Display Name': p.display_name,
+          'AI Mode': p.ai_mode || 'standard (default)',
+          Clients: p.clients_count,
+        }))
+      );
     }
 
     // Check clients and their plan assignments
@@ -50,13 +52,15 @@ async function checkAdaptiveMode() {
     if (clientsResult.rows.length === 0) {
       console.log('❌ No active clients found!');
     } else {
-      console.table(clientsResult.rows.map(c => ({
-        'Client ID': c.id,
-        'Client Name': c.name,
-        'Plan Type': c.plan_type,
-        'Plan Display Name': c.plan_display_name || '(plan not found)',
-        'AI Mode': c.ai_mode || 'standard (default)'
-      })));
+      console.table(
+        clientsResult.rows.map((c) => ({
+          'Client ID': c.id,
+          'Client Name': c.name,
+          'Plan Type': c.plan_type,
+          'Plan Display Name': c.plan_display_name || '(plan not found)',
+          'AI Mode': c.ai_mode || 'standard (default)',
+        }))
+      );
     }
 
     // Check recent conversations
@@ -80,14 +84,16 @@ async function checkAdaptiveMode() {
     if (conversationsResult.rows.length === 0) {
       console.log('❌ No conversations found!');
     } else {
-      console.table(conversationsResult.rows.map(conv => ({
-        'Conv ID': conv.id,
-        'Client': conv.client_name,
-        'Plan': conv.plan_type,
-        'AI Mode': conv.ai_mode || 'standard',
-        'Messages': conv.message_count,
-        'Created': new Date(conv.created_at).toLocaleString()
-      })));
+      console.table(
+        conversationsResult.rows.map((conv) => ({
+          'Conv ID': conv.id,
+          Client: conv.client_name,
+          Plan: conv.plan_type,
+          'AI Mode': conv.ai_mode || 'standard',
+          Messages: conv.message_count,
+          Created: new Date(conv.created_at).toLocaleString(),
+        }))
+      );
     }
 
     // Check for adaptive mode usage in api_usage
@@ -108,21 +114,23 @@ async function checkAdaptiveMode() {
     if (usageResult.rows.length === 0) {
       console.log('ℹ️  No adaptive mode usage recorded yet');
     } else {
-      console.table(usageResult.rows.map(u => ({
-        'Client ID': u.client_id,
-        'Client Name': u.client_name,
-        'Adaptive Messages': u.total_adaptive_messages,
-        'Critiques': u.total_critiques,
-        'Context Fetches': u.total_context_fetches
-      })));
+      console.table(
+        usageResult.rows.map((u) => ({
+          'Client ID': u.client_id,
+          'Client Name': u.client_name,
+          'Adaptive Messages': u.total_adaptive_messages,
+          Critiques: u.total_critiques,
+          'Context Fetches': u.total_context_fetches,
+        }))
+      );
     }
 
     // Summary
     console.log('\n' + '='.repeat(60));
     console.log('✅ Configuration Check Complete\n');
 
-    const adaptivePlans = plansResult.rows.filter(p => p.ai_mode === 'adaptive');
-    const clientsOnAdaptive = clientsResult.rows.filter(c => c.ai_mode === 'adaptive');
+    const adaptivePlans = plansResult.rows.filter((p) => p.ai_mode === 'adaptive');
+    const clientsOnAdaptive = clientsResult.rows.filter((c) => c.ai_mode === 'adaptive');
 
     if (adaptivePlans.length === 0) {
       console.log('⚠️  WARNING: No plans have ai_mode set to "adaptive"!');
@@ -139,11 +147,12 @@ async function checkAdaptiveMode() {
     }
 
     if (usageResult.rows.length > 0) {
-      console.log(`✓ Adaptive mode has been used (${usageResult.rows.length} client(s) with usage)`);
+      console.log(
+        `✓ Adaptive mode has been used (${usageResult.rows.length} client(s) with usage)`
+      );
     } else {
       console.log('ℹ️  Adaptive mode has not been used yet (or no usage recorded)');
     }
-
   } catch (error) {
     console.error('❌ Error checking configuration:', error);
   } finally {

@@ -17,7 +17,7 @@ export default function WidgetPreview({ widgetConfig, onClose }) {
         style={{
           width: '400px',
           height: '600px',
-          backgroundColor: widgetConfig.bodyBgColor
+          backgroundColor: widgetConfig.bodyBgColor,
         }}
       >
         {/* Header */}
@@ -25,14 +25,11 @@ export default function WidgetPreview({ widgetConfig, onClose }) {
           className="flex items-center justify-between p-4 flex-shrink-0"
           style={{
             backgroundColor: widgetConfig.headerBgColor,
-            color: widgetConfig.headerTextColor
+            color: widgetConfig.headerTextColor,
           }}
         >
           <div>
-            <h3
-              className="font-semibold text-base"
-              style={{ color: widgetConfig.headerTextColor }}
-            >
+            <h3 className="font-semibold text-base" style={{ color: widgetConfig.headerTextColor }}>
               {widgetConfig.title}
             </h3>
             <p
@@ -49,8 +46,13 @@ export default function WidgetPreview({ widgetConfig, onClose }) {
               backgroundColor: 'rgba(255, 255, 255, 0.2)',
             }}
           >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" style={{ fill: widgetConfig.buttonTextColor }}>
-              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            <svg
+              className="w-4 h-4"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+              style={{ fill: widgetConfig.buttonTextColor }}
+            >
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
             </svg>
           </button>
         </div>
@@ -59,7 +61,7 @@ export default function WidgetPreview({ widgetConfig, onClose }) {
         <div
           className="p-5 overflow-y-auto flex-1"
           style={{
-            backgroundColor: widgetConfig.bodyBgColor
+            backgroundColor: widgetConfig.bodyBgColor,
           }}
         >
           {/* AI Greeting Message */}
@@ -69,13 +71,17 @@ export default function WidgetPreview({ widgetConfig, onClose }) {
               style={{
                 backgroundColor: widgetConfig.aiBubbleColor,
                 color: widgetConfig.aiTextColor,
-                borderBottomLeftRadius: '4px'
+                borderBottomLeftRadius: '4px',
               }}
             >
               <p className="text-sm whitespace-pre-wrap">{widgetConfig.greeting}</p>
             </div>
             <div className="text-xs mt-1 px-1" style={{ color: '#666' }}>
-              {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              {new Date().toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+              })}
             </div>
           </div>
 
@@ -86,13 +92,17 @@ export default function WidgetPreview({ widgetConfig, onClose }) {
               style={{
                 backgroundColor: widgetConfig.userBubbleColor,
                 color: widgetConfig.userTextColor,
-                borderBottomRightRadius: '4px'
+                borderBottomRightRadius: '4px',
               }}
             >
               <p className="text-sm">Hello! I need help with my order.</p>
             </div>
             <div className="text-xs mt-1 px-1" style={{ color: '#666' }}>
-              {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              {new Date().toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+              })}
             </div>
           </div>
 
@@ -103,13 +113,20 @@ export default function WidgetPreview({ widgetConfig, onClose }) {
               style={{
                 backgroundColor: widgetConfig.aiBubbleColor,
                 color: widgetConfig.aiTextColor,
-                borderBottomLeftRadius: '4px'
+                borderBottomLeftRadius: '4px',
               }}
             >
-              <p className="text-sm">I'd be happy to help you with your order! Could you please provide your order number?</p>
+              <p className="text-sm">
+                I'd be happy to help you with your order! Could you please provide your order
+                number?
+              </p>
             </div>
             <div className="text-xs mt-1 px-1" style={{ color: '#666' }}>
-              {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              {new Date().toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+              })}
             </div>
           </div>
         </div>
@@ -119,7 +136,7 @@ export default function WidgetPreview({ widgetConfig, onClose }) {
           className="p-4 border-t flex-shrink-0"
           style={{
             backgroundColor: widgetConfig.footerBgColor,
-            borderColor: '#e0e0e0'
+            borderColor: '#e0e0e0',
           }}
         >
           <div className="flex gap-2">
@@ -130,7 +147,7 @@ export default function WidgetPreview({ widgetConfig, onClose }) {
               style={{
                 backgroundColor: widgetConfig.inputBgColor,
                 color: widgetConfig.inputTextColor,
-                borderColor: '#e0e0e0'
+                borderColor: '#e0e0e0',
               }}
               disabled
             />
@@ -141,8 +158,12 @@ export default function WidgetPreview({ widgetConfig, onClose }) {
               }}
               disabled
             >
-              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ fill: widgetConfig.buttonTextColor, width: '18px', height: '18px' }}>
-                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+              <svg
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                style={{ fill: widgetConfig.buttonTextColor, width: '18px', height: '18px' }}
+              >
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
               </svg>
             </button>
           </div>

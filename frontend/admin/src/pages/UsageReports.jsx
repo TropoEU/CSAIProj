@@ -66,7 +66,7 @@ export default function UsageReports() {
 
       // Check if client ID is in query params
       const clientIdFromQuery = searchParams.get('client');
-      if (clientIdFromQuery && clientData.some(c => c.id === parseInt(clientIdFromQuery))) {
+      if (clientIdFromQuery && clientData.some((c) => c.id === parseInt(clientIdFromQuery))) {
         setSelectedClient(parseInt(clientIdFromQuery));
       } else if (selectedClient === null) {
         // Only set default if no filter was loaded from localStorage
@@ -124,7 +124,11 @@ export default function UsageReports() {
       const startDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
       const endDate = now;
 
-      const csvData = await usage.exportCSV(selectedClient, startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]);
+      const csvData = await usage.exportCSV(
+        selectedClient,
+        startDate.toISOString().split('T')[0],
+        endDate.toISOString().split('T')[0]
+      );
 
       // Create download link
       const blob = new Blob([csvData], { type: 'text/csv' });
@@ -161,7 +165,7 @@ export default function UsageReports() {
         name: 'All Clients',
         plan_type: 'Platform-Wide',
         domain: `${clients.length} clients`,
-        status: 'active'
+        status: 'active',
       };
     }
     return clients.find((c) => c.id === selectedClient);
@@ -186,8 +190,18 @@ export default function UsageReports() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              <svg className={`w-4 h-4 ${autoRefresh ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <svg
+                className={`w-4 h-4 ${autoRefresh ? 'animate-spin' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
               </svg>
               {autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
             </button>
@@ -198,7 +212,12 @@ export default function UsageReports() {
             className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
             </svg>
             Refresh Now
           </button>
@@ -217,9 +236,7 @@ export default function UsageReports() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Client Selector */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Client
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Select Client</label>
             <select
               value={selectedClient || ''}
               onChange={(e) => {
@@ -239,9 +256,7 @@ export default function UsageReports() {
 
           {/* Period Selector */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Time Period
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Time Period</label>
             <select
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
@@ -275,7 +290,9 @@ export default function UsageReports() {
               </div>
               <div>
                 <span className="text-gray-600">Plan:</span>
-                <span className="ml-2 font-semibold capitalize">{getSelectedClientInfo().plan_type}</span>
+                <span className="ml-2 font-semibold capitalize">
+                  {getSelectedClientInfo().plan_type}
+                </span>
               </div>
               <div>
                 <span className="text-gray-600">Domain:</span>
@@ -283,7 +300,9 @@ export default function UsageReports() {
               </div>
               <div>
                 <span className="text-gray-600">Status:</span>
-                <span className={`ml-2 font-semibold ${getSelectedClientInfo().status === 'active' ? 'text-green-600' : 'text-red-600'}`}>
+                <span
+                  className={`ml-2 font-semibold ${getSelectedClientInfo().status === 'active' ? 'text-green-600' : 'text-red-600'}`}
+                >
                   {getSelectedClientInfo().status}
                 </span>
               </div>
@@ -321,8 +340,18 @@ export default function UsageReports() {
                   </p>
                 </div>
                 <div className="bg-blue-100 rounded-full p-3">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  <svg
+                    className="w-6 h-6 text-blue-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    />
                   </svg>
                 </div>
               </div>
@@ -337,8 +366,18 @@ export default function UsageReports() {
                   </p>
                 </div>
                 <div className="bg-green-100 rounded-full p-3">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                  <svg
+                    className="w-6 h-6 text-green-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
+                    />
                   </svg>
                 </div>
               </div>
@@ -352,12 +391,23 @@ export default function UsageReports() {
                     {formatNumber(summary.tokens.total)}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    In: {formatNumber(summary.tokens.input)} | Out: {formatNumber(summary.tokens.output)}
+                    In: {formatNumber(summary.tokens.input)} | Out:{' '}
+                    {formatNumber(summary.tokens.output)}
                   </p>
                 </div>
                 <div className="bg-purple-100 rounded-full p-3">
-                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  <svg
+                    className="w-6 h-6 text-purple-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
                   </svg>
                 </div>
               </div>
@@ -372,9 +422,24 @@ export default function UsageReports() {
                   </p>
                 </div>
                 <div className="bg-yellow-100 rounded-full p-3">
-                  <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <svg
+                    className="w-6 h-6 text-yellow-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
                   </svg>
                 </div>
               </div>
@@ -389,8 +454,18 @@ export default function UsageReports() {
                   </p>
                 </div>
                 <div className="bg-red-100 rounded-full p-3">
-                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="w-6 h-6 text-red-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                 </div>
               </div>
@@ -398,66 +473,105 @@ export default function UsageReports() {
           </div>
 
           {/* Reasoning Metrics (Adaptive Mode) */}
-          {summary.reasoning && (summary.reasoning.adaptiveMessages > 0 || summary.reasoning.critiqueTriggers > 0 || summary.reasoning.contextFetches > 0) && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white shadow rounded-lg p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Adaptive Mode Messages</p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">
-                      {formatNumber(summary.reasoning.adaptiveMessages)}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {summary.messages > 0 ? `${Math.round((summary.reasoning.adaptiveMessages / summary.messages) * 100)}% of messages` : '0%'}
-                    </p>
-                  </div>
-                  <div className="bg-indigo-100 rounded-full p-3">
-                    <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
+          {summary.reasoning &&
+            (summary.reasoning.adaptiveMessages > 0 ||
+              summary.reasoning.critiqueTriggers > 0 ||
+              summary.reasoning.contextFetches > 0) && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white shadow rounded-lg p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Adaptive Mode Messages</p>
+                      <p className="text-2xl font-bold text-gray-900 mt-1">
+                        {formatNumber(summary.reasoning.adaptiveMessages)}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {summary.messages > 0
+                          ? `${Math.round((summary.reasoning.adaptiveMessages / summary.messages) * 100)}% of messages`
+                          : '0%'}
+                      </p>
+                    </div>
+                    <div className="bg-indigo-100 rounded-full p-3">
+                      <svg
+                        className="w-6 h-6 text-indigo-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                        />
+                      </svg>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="bg-white shadow rounded-lg p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Critique Triggers</p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">
-                      {formatNumber(summary.reasoning.critiqueTriggers)}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {summary.reasoning.adaptiveMessages > 0 ? `${Math.round((summary.reasoning.critiqueTriggers / summary.reasoning.adaptiveMessages) * 100)}% of adaptive` : '0%'}
-                    </p>
-                  </div>
-                  <div className="bg-orange-100 rounded-full p-3">
-                    <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                <div className="bg-white shadow rounded-lg p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Critique Triggers</p>
+                      <p className="text-2xl font-bold text-gray-900 mt-1">
+                        {formatNumber(summary.reasoning.critiqueTriggers)}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {summary.reasoning.adaptiveMessages > 0
+                          ? `${Math.round((summary.reasoning.critiqueTriggers / summary.reasoning.adaptiveMessages) * 100)}% of adaptive`
+                          : '0%'}
+                      </p>
+                    </div>
+                    <div className="bg-orange-100 rounded-full p-3">
+                      <svg
+                        className="w-6 h-6 text-orange-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="bg-white shadow rounded-lg p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Context Fetches</p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">
-                      {formatNumber(summary.reasoning.contextFetches)}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {summary.reasoning.adaptiveMessages > 0 ? `${(summary.reasoning.contextFetches / summary.reasoning.adaptiveMessages).toFixed(2)} avg per adaptive msg` : '0 avg'}
-                    </p>
-                  </div>
-                  <div className="bg-teal-100 rounded-full p-3">
-                    <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                    </svg>
+                <div className="bg-white shadow rounded-lg p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Context Fetches</p>
+                      <p className="text-2xl font-bold text-gray-900 mt-1">
+                        {formatNumber(summary.reasoning.contextFetches)}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {summary.reasoning.adaptiveMessages > 0
+                          ? `${(summary.reasoning.contextFetches / summary.reasoning.adaptiveMessages).toFixed(2)} avg per adaptive msg`
+                          : '0 avg'}
+                      </p>
+                    </div>
+                    <div className="bg-teal-100 rounded-full p-3">
+                      <svg
+                        className="w-6 h-6 text-teal-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
+                        />
+                      </svg>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Additional Stats */}
           <div className="bg-white shadow rounded-lg p-6">
@@ -470,7 +584,9 @@ export default function UsageReports() {
               <div>
                 <p className="text-sm text-gray-600">Avg Messages per Conversation</p>
                 <p className="text-xl font-bold text-gray-900 mt-1">
-                  {summary.conversations > 0 ? Math.round(summary.messages / summary.conversations) : 0}
+                  {summary.conversations > 0
+                    ? Math.round(summary.messages / summary.conversations)
+                    : 0}
                 </p>
               </div>
               <div>
@@ -485,7 +601,9 @@ export default function UsageReports() {
           {/* Usage History Chart */}
           {history.length > 0 && (
             <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Message Usage History (Last 12 Months)</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Message Usage History (Last 12 Months)
+              </h2>
               <div className="space-y-3">
                 {history.map((item, index) => (
                   <div key={index} className="flex items-center">
@@ -495,7 +613,7 @@ export default function UsageReports() {
                         <div
                           className="bg-indigo-600 h-full rounded-full flex items-center justify-end px-2 text-white text-xs font-medium"
                           style={{
-                            width: `${Math.min(100, (item.value / Math.max(...history.map(h => h.value))) * 100)}%`,
+                            width: `${Math.min(100, (item.value / Math.max(...history.map((h) => h.value))) * 100)}%`,
                           }}
                         >
                           {item.value > 0 && formatNumber(item.value)}
@@ -516,7 +634,9 @@ export default function UsageReports() {
       {/* No Data State */}
       {!loading && !summary && selectedClient && (
         <div className="bg-white shadow rounded-lg p-12 text-center">
-          <p className="text-gray-600">No usage data available for this client in the selected period.</p>
+          <p className="text-gray-600">
+            No usage data available for this client in the selected period.
+          </p>
         </div>
       )}
     </div>

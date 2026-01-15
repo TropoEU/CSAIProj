@@ -32,7 +32,10 @@ export default function AIBehaviorSettings({ onMessage }) {
       await api.put('/admin/prompt-config', config);
       onMessage?.({ type: 'success', text: 'AI behavior settings saved successfully!' });
     } catch (error) {
-      onMessage?.({ type: 'error', text: error.response?.data?.error || 'Failed to save settings' });
+      onMessage?.({
+        type: 'error',
+        text: error.response?.data?.error || 'Failed to save settings',
+      });
     } finally {
       setSaving(false);
     }
@@ -72,14 +75,14 @@ export default function AIBehaviorSettings({ onMessage }) {
   const addReasoningStep = () => {
     setConfig({
       ...config,
-      reasoning_steps: [...(config.reasoning_steps || []), { title: '', instruction: '' }]
+      reasoning_steps: [...(config.reasoning_steps || []), { title: '', instruction: '' }],
     });
   };
 
   const removeReasoningStep = (index) => {
     setConfig({
       ...config,
-      reasoning_steps: config.reasoning_steps.filter((_, i) => i !== index)
+      reasoning_steps: config.reasoning_steps.filter((_, i) => i !== index),
     });
   };
 
@@ -100,19 +103,19 @@ export default function AIBehaviorSettings({ onMessage }) {
   const updateResponseStyle = (field, value) => {
     setConfig({
       ...config,
-      response_style: { ...config.response_style, [field]: value }
+      response_style: { ...config.response_style, [field]: value },
     });
   };
 
   const toggleSection = (section) => {
-    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
   // Tone Instructions handlers
   const updateToneInstruction = (tone, value) => {
     setConfig({
       ...config,
-      tone_instructions: { ...(config.tone_instructions || {}), [tone]: value }
+      tone_instructions: { ...(config.tone_instructions || {}), [tone]: value },
     });
   };
 
@@ -120,7 +123,7 @@ export default function AIBehaviorSettings({ onMessage }) {
   const updateFormalityInstruction = (formality, value) => {
     setConfig({
       ...config,
-      formality_instructions: { ...(config.formality_instructions || {}), [formality]: value }
+      formality_instructions: { ...(config.formality_instructions || {}), [formality]: value },
     });
   };
 
@@ -128,7 +131,7 @@ export default function AIBehaviorSettings({ onMessage }) {
   const updateToolInstruction = (toolName, value) => {
     setConfig({
       ...config,
-      tool_instructions: { ...(config.tool_instructions || {}), [toolName]: value }
+      tool_instructions: { ...(config.tool_instructions || {}), [toolName]: value },
     });
   };
 
@@ -136,7 +139,7 @@ export default function AIBehaviorSettings({ onMessage }) {
     const newKey = `new_tool_${Date.now()}`;
     setConfig({
       ...config,
-      tool_instructions: { ...(config.tool_instructions || {}), [newKey]: '' }
+      tool_instructions: { ...(config.tool_instructions || {}), [newKey]: '' },
     });
   };
 
@@ -160,7 +163,7 @@ export default function AIBehaviorSettings({ onMessage }) {
   const updateLanguageName = (code, value) => {
     setConfig({
       ...config,
-      language_names: { ...(config.language_names || {}), [code]: value }
+      language_names: { ...(config.language_names || {}), [code]: value },
     });
   };
 
@@ -168,7 +171,7 @@ export default function AIBehaviorSettings({ onMessage }) {
     const newCode = `xx`;
     setConfig({
       ...config,
-      language_names: { ...(config.language_names || {}), [newCode]: 'New Language' }
+      language_names: { ...(config.language_names || {}), [newCode]: 'New Language' },
     });
   };
 
@@ -205,7 +208,8 @@ export default function AIBehaviorSettings({ onMessage }) {
       {/* Info Banner */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-sm text-blue-800">
-          These settings configure the <strong>Standard Mode</strong> AI behavior. For advanced guided reasoning with self-assessment, see the <strong>Guided Reasoning</strong> tab.
+          These settings configure the <strong>Standard Mode</strong> AI behavior. For advanced
+          guided reasoning with self-assessment, see the <strong>Guided Reasoning</strong> tab.
         </p>
       </div>
 
@@ -214,7 +218,9 @@ export default function AIBehaviorSettings({ onMessage }) {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-medium text-gray-900">Guided Reasoning</h3>
-            <p className="text-sm text-gray-500">Enable step-by-step reasoning process before responses</p>
+            <p className="text-sm text-gray-500">
+              Enable step-by-step reasoning process before responses
+            </p>
           </div>
           <button
             onClick={() => setConfig({ ...config, reasoning_enabled: !config.reasoning_enabled })}
@@ -222,9 +228,11 @@ export default function AIBehaviorSettings({ onMessage }) {
               config.reasoning_enabled ? 'bg-primary-600' : 'bg-gray-200'
             }`}
           >
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              config.reasoning_enabled ? 'translate-x-6' : 'translate-x-1'
-            }`} />
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                config.reasoning_enabled ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
           </button>
         </div>
       </div>
@@ -235,9 +243,14 @@ export default function AIBehaviorSettings({ onMessage }) {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-lg font-medium text-gray-900">Reasoning Steps</h3>
-              <p className="text-sm text-gray-500">Define the steps the AI follows before responding</p>
+              <p className="text-sm text-gray-500">
+                Define the steps the AI follows before responding
+              </p>
             </div>
-            <button onClick={addReasoningStep} className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100">
+            <button
+              onClick={addReasoningStep}
+              className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100"
+            >
               <PlusIcon /> Add Step
             </button>
           </div>
@@ -263,7 +276,10 @@ export default function AIBehaviorSettings({ onMessage }) {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   />
                 </div>
-                <button onClick={() => removeReasoningStep(index)} className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500">
+                <button
+                  onClick={() => removeReasoningStep(index)}
+                  className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500"
+                >
                   <TrashIcon />
                 </button>
               </div>
@@ -321,7 +337,10 @@ export default function AIBehaviorSettings({ onMessage }) {
             <h3 className="text-lg font-medium text-gray-900">Tool Usage Rules</h3>
             <p className="text-sm text-gray-500">Guidelines for when the AI should use tools</p>
           </div>
-          <button onClick={addToolRule} className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100">
+          <button
+            onClick={addToolRule}
+            className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100"
+          >
             <PlusIcon /> Add Rule
           </button>
         </div>
@@ -336,7 +355,10 @@ export default function AIBehaviorSettings({ onMessage }) {
                 placeholder="Enter a tool usage rule..."
                 className="flex-grow px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
               />
-              <button onClick={() => removeToolRule(index)} className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500">
+              <button
+                onClick={() => removeToolRule(index)}
+                className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500"
+              >
                 <CloseIcon />
               </button>
             </div>
@@ -361,7 +383,8 @@ export default function AIBehaviorSettings({ onMessage }) {
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-2">Introduction Template</h3>
         <p className="text-sm text-gray-500 mb-4">
-          The opening instruction for the AI. Use <code className="bg-gray-100 px-1 rounded">{'{client_name}'}</code> as a placeholder.
+          The opening instruction for the AI. Use{' '}
+          <code className="bg-gray-100 px-1 rounded">{'{client_name}'}</code> as a placeholder.
         </p>
         <textarea
           value={config.intro_template || ''}
@@ -377,8 +400,12 @@ export default function AIBehaviorSettings({ onMessage }) {
         <h3 className="text-lg font-medium text-gray-900 mb-4">System Messages</h3>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Escalation Message</label>
-            <p className="text-xs text-gray-500 mb-2">Shown when conversation is escalated to human support</p>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Escalation Message
+            </label>
+            <p className="text-xs text-gray-500 mb-2">
+              Shown when conversation is escalated to human support
+            </p>
             <textarea
               value={config.escalation_message || ''}
               onChange={(e) => setConfig({ ...config, escalation_message: e.target.value })}
@@ -409,7 +436,9 @@ export default function AIBehaviorSettings({ onMessage }) {
         >
           <div>
             <h3 className="text-lg font-medium text-gray-900">Advanced Settings</h3>
-            <p className="text-sm text-gray-500">Tone instructions, formality, language names, tool instructions</p>
+            <p className="text-sm text-gray-500">
+              Tone instructions, formality, language names, tool instructions
+            </p>
           </div>
           <ChevronIcon expanded={expandedSections.advanced} />
         </button>
@@ -423,7 +452,9 @@ export default function AIBehaviorSettings({ onMessage }) {
               <div className="space-y-3">
                 {['friendly', 'professional', 'casual'].map((tone) => (
                   <div key={tone} className="flex gap-3 items-start">
-                    <label className="w-28 text-sm font-medium text-gray-600 pt-2 capitalize">{tone}</label>
+                    <label className="w-28 text-sm font-medium text-gray-600 pt-2 capitalize">
+                      {tone}
+                    </label>
                     <input
                       type="text"
                       value={(config.tone_instructions || {})[tone] || ''}
@@ -443,7 +474,9 @@ export default function AIBehaviorSettings({ onMessage }) {
               <div className="space-y-3">
                 {['casual', 'neutral', 'formal'].map((formality) => (
                   <div key={formality} className="flex gap-3 items-start">
-                    <label className="w-28 text-sm font-medium text-gray-600 pt-2 capitalize">{formality}</label>
+                    <label className="w-28 text-sm font-medium text-gray-600 pt-2 capitalize">
+                      {formality}
+                    </label>
                     <input
                       type="text"
                       value={(config.formality_instructions || {})[formality] || ''}
@@ -463,7 +496,10 @@ export default function AIBehaviorSettings({ onMessage }) {
                   <h4 className="text-md font-medium text-gray-800">Language Names</h4>
                   <p className="text-sm text-gray-500">Display names for language codes</p>
                 </div>
-                <button onClick={addLanguage} className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100">
+                <button
+                  onClick={addLanguage}
+                  className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100"
+                >
                   <PlusIcon /> Add
                 </button>
               </div>
@@ -484,7 +520,10 @@ export default function AIBehaviorSettings({ onMessage }) {
                       className="flex-grow px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
                       placeholder="Language name..."
                     />
-                    <button onClick={() => removeLanguage(code)} className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500">
+                    <button
+                      onClick={() => removeLanguage(code)}
+                      className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500"
+                    >
                       <CloseIcon />
                     </button>
                   </div>
@@ -499,7 +538,10 @@ export default function AIBehaviorSettings({ onMessage }) {
                   <h4 className="text-md font-medium text-gray-800">Tool-Specific Instructions</h4>
                   <p className="text-sm text-gray-500">Custom instructions for each tool</p>
                 </div>
-                <button onClick={addToolInstruction} className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100">
+                <button
+                  onClick={addToolInstruction}
+                  className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100"
+                >
                   <PlusIcon /> Add
                 </button>
               </div>
@@ -514,7 +556,10 @@ export default function AIBehaviorSettings({ onMessage }) {
                         className="w-48 px-2 py-1 border border-gray-300 rounded text-sm font-mono focus:ring-2 focus:ring-primary-500"
                         placeholder="tool_name"
                       />
-                      <button onClick={() => removeToolInstruction(toolName)} className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500">
+                      <button
+                        onClick={() => removeToolInstruction(toolName)}
+                        className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500"
+                      >
                         <CloseIcon />
                       </button>
                     </div>
@@ -528,7 +573,9 @@ export default function AIBehaviorSettings({ onMessage }) {
                   </div>
                 ))}
                 {Object.keys(config.tool_instructions || {}).length === 0 && (
-                  <p className="text-center text-gray-400 py-4">No tool-specific instructions. Tools will use default behavior.</p>
+                  <p className="text-center text-gray-400 py-4">
+                    No tool-specific instructions. Tools will use default behavior.
+                  </p>
                 )}
               </div>
             </div>
@@ -538,8 +585,12 @@ export default function AIBehaviorSettings({ onMessage }) {
               <h4 className="text-md font-medium text-gray-800 mb-3">Tool Format Settings</h4>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tool Format Template</label>
-                  <p className="text-xs text-gray-500 mb-2">Format for tool calls (for models without native function calling)</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tool Format Template
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Format for tool calls (for models without native function calling)
+                  </p>
                   <textarea
                     value={config.tool_format_template || ''}
                     onChange={(e) => setConfig({ ...config, tool_format_template: e.target.value })}
@@ -549,11 +600,15 @@ export default function AIBehaviorSettings({ onMessage }) {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tool Result Instruction</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tool Result Instruction
+                  </label>
                   <p className="text-xs text-gray-500 mb-2">How AI should handle tool results</p>
                   <textarea
                     value={config.tool_result_instruction || ''}
-                    onChange={(e) => setConfig({ ...config, tool_result_instruction: e.target.value })}
+                    onChange={(e) =>
+                      setConfig({ ...config, tool_result_instruction: e.target.value })
+                    }
                     placeholder="Summarize the result naturally for the customer..."
                     rows={2}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
@@ -564,13 +619,19 @@ export default function AIBehaviorSettings({ onMessage }) {
 
             {/* Language Instruction Template */}
             <div>
-              <h4 className="text-md font-medium text-gray-800 mb-2">Language Instruction Template</h4>
+              <h4 className="text-md font-medium text-gray-800 mb-2">
+                Language Instruction Template
+              </h4>
               <p className="text-sm text-gray-500 mb-3">
-                Template for non-English language instructions. Use <code className="bg-gray-100 px-1 rounded">{'{language_name}'}</code> as placeholder.
+                Template for non-English language instructions. Use{' '}
+                <code className="bg-gray-100 px-1 rounded">{'{language_name}'}</code> as
+                placeholder.
               </p>
               <textarea
                 value={config.language_instruction_template || ''}
-                onChange={(e) => setConfig({ ...config, language_instruction_template: e.target.value })}
+                onChange={(e) =>
+                  setConfig({ ...config, language_instruction_template: e.target.value })
+                }
                 placeholder="You MUST respond in {language_name}..."
                 rows={2}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
@@ -582,11 +643,18 @@ export default function AIBehaviorSettings({ onMessage }) {
 
       {/* Action Buttons */}
       <div className="flex justify-between items-center">
-        <button onClick={resetConfig} disabled={saving} className="px-4 py-2 text-gray-600 hover:text-gray-800">
+        <button
+          onClick={resetConfig}
+          disabled={saving}
+          className="px-4 py-2 text-gray-600 hover:text-gray-800"
+        >
           Reset to Defaults
         </button>
         <div className="flex gap-3">
-          <button onClick={previewPrompt} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+          <button
+            onClick={previewPrompt}
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
             Preview Prompt
           </button>
           <button
@@ -605,7 +673,10 @@ export default function AIBehaviorSettings({ onMessage }) {
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h3 className="text-lg font-medium">Generated System Prompt Preview</h3>
-              <button onClick={() => setShowPreview(false)} className="text-gray-400 hover:text-gray-600">
+              <button
+                onClick={() => setShowPreview(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
                 <CloseIcon className="w-6 h-6" />
               </button>
             </div>
@@ -615,7 +686,10 @@ export default function AIBehaviorSettings({ onMessage }) {
               </pre>
             </div>
             <div className="p-4 border-t">
-              <button onClick={() => setShowPreview(false)} className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+              <button
+                onClick={() => setShowPreview(false)}
+                className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              >
                 Close
               </button>
             </div>
@@ -638,12 +712,17 @@ function PlusIcon() {
 function TrashIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+      />
     </svg>
   );
 }
 
-function CloseIcon({ className = "w-5 h-5" }) {
+function CloseIcon({ className = 'w-5 h-5' }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -653,7 +732,12 @@ function CloseIcon({ className = "w-5 h-5" }) {
 
 function ChevronIcon({ expanded }) {
   return (
-    <svg className={`w-5 h-5 text-gray-500 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg
+      className={`w-5 h-5 text-gray-500 transition-transform ${expanded ? 'rotate-180' : ''}`}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
     </svg>
   );

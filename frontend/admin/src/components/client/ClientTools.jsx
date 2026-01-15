@@ -52,7 +52,7 @@ export default function ClientTools({
     try {
       const payload = {
         ...data,
-        integrationMapping: integrationMapping
+        integrationMapping: integrationMapping,
       };
       await toolsApi.enableForClient(clientId, payload);
       setIsToolModalOpen(false);
@@ -78,7 +78,7 @@ export default function ClientTools({
     try {
       await toolsApi.updateForClient(clientId, editingTool.tool_id, {
         webhookUrl: data.webhookUrl,
-        integrationMapping: integrationMapping
+        integrationMapping: integrationMapping,
       });
       setIsEditToolModalOpen(false);
       setEditingTool(null);
@@ -142,9 +142,18 @@ export default function ClientTools({
       <Card>
         <CardHeader className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Enabled Tools</h3>
-          <Button size="sm" onClick={() => setIsToolModalOpen(true)} disabled={availableTools.length === 0}>
+          <Button
+            size="sm"
+            onClick={() => setIsToolModalOpen(true)}
+            disabled={availableTools.length === 0}
+          >
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
             </svg>
             Add Tool
           </Button>
@@ -164,9 +173,7 @@ export default function ClientTools({
               {clientTools.length > 0 ? (
                 clientTools.map((tool) => (
                   <TableRow key={tool.id}>
-                    <TableCell className="font-medium text-gray-900">
-                      {tool.tool_name}
-                    </TableCell>
+                    <TableCell className="font-medium text-gray-900">{tool.tool_name}</TableCell>
                     <TableCell className="text-gray-500 max-w-xs truncate">
                       {tool.description}
                     </TableCell>
@@ -187,18 +194,10 @@ export default function ClientTools({
                         >
                           {tool.enabled ? 'Disable' : 'Enable'}
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleTestTool(tool)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => handleTestTool(tool)}>
                           Test
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditTool(tool)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => handleEditTool(tool)}>
                           Edit
                         </Button>
                         <Button
@@ -253,22 +252,23 @@ export default function ClientTools({
               // Update react-hook-form value
               toolForm.setValue('toolId', e.target.value);
               // Update local state for integration mapping UI
-              const tool = allTools.find(t => t.id === parseInt(e.target.value, 10));
+              const tool = allTools.find((t) => t.id === parseInt(e.target.value, 10));
               setSelectedToolForEnable(tool);
               setIntegrationMapping({});
             }}
           />
 
           {/* Show required integrations if tool has any */}
-          {selectedToolForEnable?.required_integrations && selectedToolForEnable.required_integrations.length > 0 && (
-            <IntegrationMappingSection
-              requiredIntegrations={selectedToolForEnable.required_integrations}
-              clientIntegrations={clientIntegrations}
-              integrationMapping={integrationMapping}
-              setIntegrationMapping={setIntegrationMapping}
-              clientId={clientId}
-            />
-          )}
+          {selectedToolForEnable?.required_integrations &&
+            selectedToolForEnable.required_integrations.length > 0 && (
+              <IntegrationMappingSection
+                requiredIntegrations={selectedToolForEnable.required_integrations}
+                clientIntegrations={clientIntegrations}
+                integrationMapping={integrationMapping}
+                setIntegrationMapping={setIntegrationMapping}
+                clientId={clientId}
+              />
+            )}
 
           <Input
             label="Webhook URL"
@@ -293,11 +293,9 @@ export default function ClientTools({
             <Button
               type="submit"
               loading={toolForm.formState.isSubmitting}
-              disabled={
-                selectedToolForEnable?.required_integrations?.some(
-                  reqInt => reqInt.required && !integrationMapping[reqInt.key]
-                )
-              }
+              disabled={selectedToolForEnable?.required_integrations?.some(
+                (reqInt) => reqInt.required && !integrationMapping[reqInt.key]
+              )}
             >
               Enable Tool
             </Button>
@@ -328,10 +326,12 @@ export default function ClientTools({
             <div className="border border-indigo-200 rounded-lg p-4 bg-indigo-50">
               <h4 className="font-medium text-indigo-900 mb-2">Integration Mapping</h4>
               <p className="text-xs text-indigo-700 mb-3">
-                Connect this tool to your client's integrations. The tool will use these APIs when executed.
+                Connect this tool to your client's integrations. The tool will use these APIs when
+                executed.
               </p>
 
-              {(!editingTool.required_integrations || editingTool.required_integrations.length === 0) ? (
+              {!editingTool.required_integrations ||
+              editingTool.required_integrations.length === 0 ? (
                 <div className="bg-white p-3 rounded border border-indigo-200">
                   <p className="text-sm text-gray-500 italic">
                     This tool has no required integrations defined.
@@ -359,18 +359,23 @@ export default function ClientTools({
                       <Select
                         label=""
                         value={integrationMapping[reqInt.key] || ''}
-                        onChange={(e) => setIntegrationMapping({
-                          ...integrationMapping,
-                          [reqInt.key]: e.target.value ? parseInt(e.target.value, 10) : null
-                        })}
+                        onChange={(e) =>
+                          setIntegrationMapping({
+                            ...integrationMapping,
+                            [reqInt.key]: e.target.value ? parseInt(e.target.value, 10) : null,
+                          })
+                        }
                         options={[
-                          { value: '', label: reqInt.required ? 'Select an integration...' : 'None (optional)' },
+                          {
+                            value: '',
+                            label: reqInt.required ? 'Select an integration...' : 'None (optional)',
+                          },
                           ...clientIntegrations
-                            .filter(int => int.status === 'active')
-                            .map(int => ({
+                            .filter((int) => int.status === 'active')
+                            .map((int) => ({
                               value: int.id,
-                              label: `${int.name} (type: ${int.integration_type})`
-                            }))
+                              label: `${int.name} (type: ${int.integration_type})`,
+                            })),
                         ]}
                       />
                       {reqInt.required && !integrationMapping[reqInt.key] && (
@@ -383,7 +388,7 @@ export default function ClientTools({
                 </div>
               )}
 
-              {clientIntegrations.filter(int => int.status === 'active').length === 0 && (
+              {clientIntegrations.filter((int) => int.status === 'active').length === 0 && (
                 <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
                   No active integrations found. Create integrations in the Integrations page first.
                 </div>
@@ -413,11 +418,9 @@ export default function ClientTools({
               <Button
                 type="submit"
                 loading={editToolForm.formState.isSubmitting}
-                disabled={
-                  editingTool?.required_integrations?.some(
-                    reqInt => reqInt.required && !integrationMapping[reqInt.key]
-                  )
-                }
+                disabled={editingTool?.required_integrations?.some(
+                  (reqInt) => reqInt.required && !integrationMapping[reqInt.key]
+                )}
               >
                 Save Changes
               </Button>
@@ -530,7 +533,8 @@ function IntegrationMappingSection({
     <div className="border border-indigo-200 rounded-lg p-4 bg-indigo-50">
       <h4 className="font-medium text-indigo-900 mb-3">Required Integrations</h4>
       <p className="text-sm text-indigo-700 mb-4">
-        This tool needs the following integrations. Map each to your client's configured integrations:
+        This tool needs the following integrations. Map each to your client's configured
+        integrations:
       </p>
       <div className="space-y-3">
         {requiredIntegrations.map((reqInt, idx) => (
@@ -540,9 +544,7 @@ function IntegrationMappingSection({
                 {reqInt.name || reqInt.key}
                 {reqInt.required && <span className="text-red-500 ml-1">*</span>}
               </span>
-              {!reqInt.required && (
-                <span className="text-xs text-gray-500">Optional</span>
-              )}
+              {!reqInt.required && <span className="text-xs text-gray-500">Optional</span>}
             </div>
             {reqInt.description && (
               <p className="text-xs text-gray-600 mb-2">{reqInt.description}</p>
@@ -550,23 +552,31 @@ function IntegrationMappingSection({
             <Select
               label=""
               value={integrationMapping[reqInt.key] || ''}
-              onChange={(e) => setIntegrationMapping({
-                ...integrationMapping,
-                [reqInt.key]: e.target.value ? parseInt(e.target.value, 10) : null
-              })}
+              onChange={(e) =>
+                setIntegrationMapping({
+                  ...integrationMapping,
+                  [reqInt.key]: e.target.value ? parseInt(e.target.value, 10) : null,
+                })
+              }
               options={[
-                { value: '', label: reqInt.required ? 'Select integration...' : 'None (skip this integration)' },
+                {
+                  value: '',
+                  label: reqInt.required ? 'Select integration...' : 'None (skip this integration)',
+                },
                 ...clientIntegrations
-                  .filter(int => int.status === 'active')
-                  .map(int => ({
+                  .filter((int) => int.status === 'active')
+                  .map((int) => ({
                     value: int.id,
-                    label: `${int.name} (${int.integration_type})`
-                  }))
+                    label: `${int.name} (${int.integration_type})`,
+                  })),
               ]}
             />
             {reqInt.required && !integrationMapping[reqInt.key] && (
               <p className="text-xs text-red-600 mt-1">
-                This integration is required. {clientIntegrations.length === 0 ? 'Please add an integration for this client first.' : 'Please select an integration.'}
+                This integration is required.{' '}
+                {clientIntegrations.length === 0
+                  ? 'Please add an integration for this client first.'
+                  : 'Please select an integration.'}
               </p>
             )}
           </div>
@@ -578,8 +588,8 @@ function IntegrationMappingSection({
             This client has no integrations configured. Add integrations on the{' '}
             <Link to={`/integrations?client=${clientId}`} className="underline font-medium">
               Integrations page
-            </Link>
-            {' '}before enabling this tool.
+            </Link>{' '}
+            before enabling this tool.
           </p>
         </div>
       )}

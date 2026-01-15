@@ -30,7 +30,7 @@ const corsOptions = {
 
     // In production, use whitelist from environment
     const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
-      ? process.env.CORS_ALLOWED_ORIGINS.split(',').map(o => o.trim())
+      ? process.env.CORS_ALLOWED_ORIGINS.split(',').map((o) => o.trim())
       : null;
 
     if (allowedOrigins) {
@@ -42,12 +42,9 @@ const corsOptions = {
       }
     } else {
       // Development mode: allow localhost and common dev ports
-      const devPatterns = [
-        /^http:\/\/localhost(:\d+)?$/,
-        /^http:\/\/127\.0\.0\.1(:\d+)?$/,
-      ];
+      const devPatterns = [/^http:\/\/localhost(:\d+)?$/, /^http:\/\/127\.0\.0\.1(:\d+)?$/];
 
-      if (devPatterns.some(pattern => pattern.test(origin))) {
+      if (devPatterns.some((pattern) => pattern.test(origin))) {
         callback(null, true);
       } else {
         // Still allow in dev for flexibility, but log warning
@@ -95,7 +92,7 @@ app.get('/health', async (req, res) => {
       const n8nUrl = `${process.env.N8N_PROTOCOL || 'http'}://${process.env.N8N_HOST || 'localhost'}:${process.env.N8N_PORT || 5678}`;
       const response = await axios.get(`${n8nUrl}/healthz`, {
         timeout: 2000,
-        validateStatus: (status) => status < 500
+        validateStatus: (status) => status < 500,
       });
       n8nStatus = response.status < 400 ? 'n8n: OK' : `n8n: DEGRADED (HTTP ${response.status})`;
     } catch (error) {
@@ -104,7 +101,10 @@ app.get('/health', async (req, res) => {
 
     res.type('text/plain').send(`${redisStatus}\n${postgresStatus}\n${n8nStatus}`);
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).type('text/plain').send(`Health check failed: ${error.message}`);
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .type('text/plain')
+      .send(`Health check failed: ${error.message}`);
   }
 });
 

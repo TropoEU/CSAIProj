@@ -75,13 +75,14 @@ export default function Tools() {
   const onCreateTool = async (data) => {
     try {
       // Parse parameters schema JSON
-      const parametersSchema = data.parametersSchema
-        ? JSON.parse(data.parametersSchema)
-        : {};
+      const parametersSchema = data.parametersSchema ? JSON.parse(data.parametersSchema) : {};
 
       // Parse capabilities from newline-separated string to array
       const capabilities = data.capabilities
-        ? data.capabilities.split('\n').map(c => c.trim()).filter(c => c.length > 0)
+        ? data.capabilities
+            .split('\n')
+            .map((c) => c.trim())
+            .filter((c) => c.length > 0)
         : null;
 
       // Parse required integrations JSON
@@ -108,7 +109,10 @@ export default function Tools() {
     try {
       // Parse test parameters JSON
       const params = data.params ? JSON.parse(data.params) : {};
-      const response = await toolsApi.test(selectedTool.id, { params, webhookUrl: data.webhookUrl });
+      const response = await toolsApi.test(selectedTool.id, {
+        params,
+        webhookUrl: data.webhookUrl,
+      });
       setTestResult({ success: true, data: response.data });
     } catch (err) {
       if (err instanceof SyntaxError) {
@@ -138,9 +142,7 @@ export default function Tools() {
       description: tool.description,
       requiredIntegrations: JSON.stringify(tool.required_integrations || [], null, 2),
       parametersSchema: JSON.stringify(tool.parameters_schema || {}, null, 2),
-      capabilities: Array.isArray(tool.capabilities)
-        ? tool.capabilities.join('\n')
-        : '',
+      capabilities: Array.isArray(tool.capabilities) ? tool.capabilities.join('\n') : '',
       isDestructive: tool.is_destructive || false,
       requiresConfirmation: tool.requires_confirmation || false,
       maxConfidence: tool.max_confidence ?? 7,
@@ -153,7 +155,10 @@ export default function Tools() {
       const parametersSchema = data.parametersSchema ? JSON.parse(data.parametersSchema) : {};
       // Parse capabilities from newline-separated string to array
       const capabilities = data.capabilities
-        ? data.capabilities.split('\n').map(c => c.trim()).filter(c => c.length > 0)
+        ? data.capabilities
+            .split('\n')
+            .map((c) => c.trim())
+            .filter((c) => c.length > 0)
         : null;
       // Parse required integrations JSON
       const requiredIntegrations = data.requiredIntegrations
@@ -227,9 +232,18 @@ export default function Tools() {
       <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg">
         <h3 className="font-semibold text-purple-900 mb-2">Generic Tools</h3>
         <div className="text-sm text-purple-800 space-y-1">
-          <p><strong>Tools are templates</strong> that define what actions the AI can perform (check orders, book appointments, etc.)</p>
-          <p><strong>Required Integrations</strong> specify what TYPE of API the tool needs (e.g., "order_api") - NOT specific client APIs</p>
-          <p><strong>Client Setup:</strong> Each client enables tools and maps them to THEIR specific integrations in their Client page</p>
+          <p>
+            <strong>Tools are templates</strong> that define what actions the AI can perform (check
+            orders, book appointments, etc.)
+          </p>
+          <p>
+            <strong>Required Integrations</strong> specify what TYPE of API the tool needs (e.g.,
+            "order_api") - NOT specific client APIs
+          </p>
+          <p>
+            <strong>Client Setup:</strong> Each client enables tools and maps them to THEIR specific
+            integrations in their Client page
+          </p>
         </div>
         <p className="text-xs text-purple-600 mt-2">
           One tool + different client integrations = same functionality for all clients
@@ -248,7 +262,10 @@ export default function Tools() {
       {statsError && (
         <div className="p-4 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg">
           {statsError}
-          <button onClick={() => setStatsError(null)} className="ml-2 text-yellow-500 hover:text-yellow-700">
+          <button
+            onClick={() => setStatsError(null)}
+            className="ml-2 text-yellow-500 hover:text-yellow-700"
+          >
             Dismiss
           </button>
         </div>
@@ -287,7 +304,8 @@ export default function Tools() {
                               variant={int.required ? 'primary' : 'info'}
                               title={int.description || int.name}
                             >
-                              {int.key}{int.required ? '*' : ''}
+                              {int.key}
+                              {int.required ? '*' : ''}
                             </Badge>
                           ))}
                         </div>
@@ -298,7 +316,7 @@ export default function Tools() {
                     <TableCell>
                       {tool.parameters_schema?.properties ? (
                         <div className="flex flex-wrap gap-1">
-                          {Object.keys(tool.parameters_schema.properties).map(param => (
+                          {Object.keys(tool.parameters_schema.properties).map((param) => (
                             <code key={param} className="text-xs bg-gray-100 px-2 py-1 rounded">
                               {param}
                             </code>
@@ -313,18 +331,10 @@ export default function Tools() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openTestModal(tool)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => openTestModal(tool)}>
                           Test
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(tool)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => handleEdit(tool)}>
                           Edit
                         </Button>
                         <Button
@@ -395,7 +405,8 @@ export default function Tools() {
               placeholder="Get real-time tracking information&#10;View driver details and contact info&#10;See estimated delivery time"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Enter one capability per line. These will be shown as bullet points in the customer dashboard.
+              Enter one capability per line. These will be shown as bullet points in the customer
+              dashboard.
             </p>
           </div>
 
@@ -422,13 +433,25 @@ export default function Tools() {
             <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded text-xs">
               <p className="font-medium text-blue-900 mb-2">📘 How this works:</p>
               <ul className="space-y-1 text-blue-800">
-                <li><strong>"key"</strong>: A unique identifier (e.g., "order_api") - clients will map this to their actual integration</li>
-                <li><strong>"name"</strong>: Human-readable name shown in the admin UI</li>
-                <li><strong>"required"</strong>: true = must be configured, false = optional</li>
-                <li><strong>"description"</strong>: Explains what this integration is used for</li>
+                <li>
+                  <strong>"key"</strong>: A unique identifier (e.g., "order_api") - clients will map
+                  this to their actual integration
+                </li>
+                <li>
+                  <strong>"name"</strong>: Human-readable name shown in the admin UI
+                </li>
+                <li>
+                  <strong>"required"</strong>: true = must be configured, false = optional
+                </li>
+                <li>
+                  <strong>"description"</strong>: Explains what this integration is used for
+                </li>
               </ul>
               <p className="mt-2 text-blue-700">
-                💡 The "key" should match the <code className="bg-blue-100 px-1 rounded">integration_type</code> of client integrations (e.g., if key is "order_api", clients need an integration with type "order_api")
+                💡 The "key" should match the{' '}
+                <code className="bg-blue-100 px-1 rounded">integration_type</code> of client
+                integrations (e.g., if key is "order_api", clients need an integration with type
+                "order_api")
               </p>
             </div>
           </div>
@@ -464,7 +487,9 @@ export default function Tools() {
                 />
                 <label htmlFor="isDestructive" className="text-sm text-gray-700">
                   <span className="font-medium">Destructive</span>
-                  <p className="text-xs text-gray-500">Triggers critique step (cancel, delete, refund)</p>
+                  <p className="text-xs text-gray-500">
+                    Triggers critique step (cancel, delete, refund)
+                  </p>
                 </label>
               </div>
               <div className="flex items-center gap-3">
@@ -549,13 +574,13 @@ export default function Tools() {
                   : 'bg-red-50 border border-red-200'
               }`}
             >
-              <h4 className={`font-medium ${testResult.success ? 'text-green-700' : 'text-red-700'}`}>
+              <h4
+                className={`font-medium ${testResult.success ? 'text-green-700' : 'text-red-700'}`}
+              >
                 {testResult.success ? 'Success' : 'Error'}
               </h4>
               <pre className="mt-2 text-sm overflow-auto max-h-40">
-                {testResult.success
-                  ? JSON.stringify(testResult.data, null, 2)
-                  : testResult.error}
+                {testResult.success ? JSON.stringify(testResult.data, null, 2) : testResult.error}
               </pre>
             </div>
           )}
@@ -611,7 +636,9 @@ export default function Tools() {
               placeholder="Describe what this tool does..."
             />
             {editForm.formState.errors.description && (
-              <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.description.message}</p>
+              <p className="text-sm text-red-600 mt-1">
+                {editForm.formState.errors.description.message}
+              </p>
             )}
           </div>
 
@@ -623,7 +650,8 @@ export default function Tools() {
               placeholder="Get real-time tracking information&#10;View driver details and contact info&#10;See estimated delivery time"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Enter one capability per line. These will be shown as bullet points in the customer dashboard.
+              Enter one capability per line. These will be shown as bullet points in the customer
+              dashboard.
             </p>
           </div>
 
@@ -644,9 +672,16 @@ export default function Tools() {
             <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded text-xs">
               <p className="font-medium text-blue-900 mb-2">📘 How this works:</p>
               <ul className="space-y-1 text-blue-800">
-                <li><strong>"key"</strong>: Unique ID (e.g., "order_api") - must match client integration's <code className="bg-blue-100 px-1">integration_type</code></li>
-                <li><strong>"name"</strong>: Display name for admin UI</li>
-                <li><strong>"required"</strong>: true = mandatory, false = optional</li>
+                <li>
+                  <strong>"key"</strong>: Unique ID (e.g., "order_api") - must match client
+                  integration's <code className="bg-blue-100 px-1">integration_type</code>
+                </li>
+                <li>
+                  <strong>"name"</strong>: Display name for admin UI
+                </li>
+                <li>
+                  <strong>"required"</strong>: true = mandatory, false = optional
+                </li>
               </ul>
             </div>
           </div>
@@ -682,7 +717,9 @@ export default function Tools() {
                 />
                 <label htmlFor="editIsDestructive" className="text-sm text-gray-700">
                   <span className="font-medium">Destructive</span>
-                  <p className="text-xs text-gray-500">Triggers critique step (cancel, delete, refund)</p>
+                  <p className="text-xs text-gray-500">
+                    Triggers critique step (cancel, delete, refund)
+                  </p>
                 </label>
               </div>
               <div className="flex items-center gap-3">

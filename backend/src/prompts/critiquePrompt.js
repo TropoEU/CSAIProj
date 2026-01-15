@@ -14,22 +14,33 @@
  * @param {Object} conversationContext - Recent conversation history
  * @returns {string} Critique prompt
  */
-export function getCritiquePrompt(userMessage, assessment, availableTools, conversationContext = []) {
-    const toolList = availableTools.map(t => {
-        const name = t.tool_name || t.name || t;
-        const desc = t.description || '';
-        return desc ? `- ${name}: ${desc}` : `- ${name}`;
-    }).join('\n');
+export function getCritiquePrompt(
+  userMessage,
+  assessment,
+  availableTools,
+  conversationContext = []
+) {
+  const toolList = availableTools
+    .map((t) => {
+      const name = t.tool_name || t.name || t;
+      const desc = t.description || '';
+      return desc ? `- ${name}: ${desc}` : `- ${name}`;
+    })
+    .join('\n');
 
-    // Build conversation context if provided
-    let contextSection = '';
-    if (conversationContext && conversationContext.length > 0) {
-        contextSection = '\n## Recent Conversation\n' +
-            conversationContext.map(msg => `${msg.role}: ${msg.content}`).slice(-5).join('\n') +
-            '\n';
-    }
+  // Build conversation context if provided
+  let contextSection = '';
+  if (conversationContext && conversationContext.length > 0) {
+    contextSection =
+      '\n## Recent Conversation\n' +
+      conversationContext
+        .map((msg) => `${msg.role}: ${msg.content}`)
+        .slice(-5)
+        .join('\n') +
+      '\n';
+  }
 
-    return `You are a second-opinion validator. Review the AI's understanding and planned action.
+  return `You are a second-opinion validator. Review the AI's understanding and planned action.
 
 ## User's Message
 "${userMessage}"

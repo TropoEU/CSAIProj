@@ -12,50 +12,50 @@
 export const PROVIDER_PRICING = {
   ollama: {
     name: 'Ollama (Local)',
-    inputCostPer1M: 0,      // Free (local)
-    outputCostPer1M: 0,     // Free (local)
+    inputCostPer1M: 0, // Free (local)
+    outputCostPer1M: 0, // Free (local)
     description: 'Free local model',
   },
   groq: {
     name: 'Groq (Cloud)',
-    inputCostPer1M: 0,      // Free during beta
-    outputCostPer1M: 0,     // Free during beta
+    inputCostPer1M: 0, // Free during beta
+    outputCostPer1M: 0, // Free during beta
     description: 'Extremely fast inference (free during beta)',
   },
   'llama-3.3-70b-versatile': {
     name: 'Llama 3.3 70B (Groq)',
-    inputCostPer1M: 0,      // Free during beta
-    outputCostPer1M: 0,     // Free during beta
+    inputCostPer1M: 0, // Free during beta
+    outputCostPer1M: 0, // Free during beta
     description: 'Best Groq model - versatile and powerful',
   },
   'llama-3.1-8b-instant': {
     name: 'Llama 3.1 8B (Groq)',
-    inputCostPer1M: 0,      // Free during beta
-    outputCostPer1M: 0,     // Free during beta
+    inputCostPer1M: 0, // Free during beta
+    outputCostPer1M: 0, // Free during beta
     description: 'Fastest Groq model - 131k context',
   },
   'claude-3-5-sonnet': {
     name: 'Claude 3.5 Sonnet',
-    inputCostPer1M: 3.00,   // Configure based on Anthropic pricing
-    outputCostPer1M: 15.00, // Configure based on Anthropic pricing
+    inputCostPer1M: 3.0, // Configure based on Anthropic pricing
+    outputCostPer1M: 15.0, // Configure based on Anthropic pricing
     description: 'High-quality reasoning',
   },
   'claude-3-haiku': {
     name: 'Claude 3 Haiku',
-    inputCostPer1M: 0.25,   // Configure based on Anthropic pricing
-    outputCostPer1M: 1.25,  // Configure based on Anthropic pricing
+    inputCostPer1M: 0.25, // Configure based on Anthropic pricing
+    outputCostPer1M: 1.25, // Configure based on Anthropic pricing
     description: 'Fast and cost-effective',
   },
   'gpt-4o': {
     name: 'GPT-4o',
-    inputCostPer1M: 2.50,   // Configure based on OpenAI pricing
-    outputCostPer1M: 10.00, // Configure based on OpenAI pricing
+    inputCostPer1M: 2.5, // Configure based on OpenAI pricing
+    outputCostPer1M: 10.0, // Configure based on OpenAI pricing
     description: 'Multimodal flagship model',
   },
   'gpt-4o-mini': {
     name: 'GPT-4o Mini',
-    inputCostPer1M: 0.15,   // Configure based on OpenAI pricing
-    outputCostPer1M: 0.60,  // Configure based on OpenAI pricing
+    inputCostPer1M: 0.15, // Configure based on OpenAI pricing
+    outputCostPer1M: 0.6, // Configure based on OpenAI pricing
     description: 'Affordable and intelligent',
   },
 };
@@ -194,9 +194,7 @@ export class CostCalculator {
     const targetCost = this.calculateConversationCost(currentUsage, targetProvider);
 
     const savings = currentCost.cost - targetCost.cost;
-    const savingsPercent = currentCost.cost > 0
-      ? (savings / currentCost.cost) * 100
-      : 0;
+    const savingsPercent = currentCost.cost > 0 ? (savings / currentCost.cost) * 100 : 0;
 
     return {
       currentProvider,
@@ -205,9 +203,10 @@ export class CostCalculator {
       targetCost: targetCost.cost,
       savings,
       savingsPercent: Math.round(savingsPercent * 100) / 100,
-      recommendation: savings > 0
-        ? `Switch to ${PROVIDER_PRICING[targetProvider].name} to save $${savings.toFixed(2)}`
-        : `Stay with ${PROVIDER_PRICING[currentProvider].name}`,
+      recommendation:
+        savings > 0
+          ? `Switch to ${PROVIDER_PRICING[targetProvider].name} to save $${savings.toFixed(2)}`
+          : `Stay with ${PROVIDER_PRICING[currentProvider].name}`,
     };
   }
 
@@ -219,10 +218,8 @@ export class CostCalculator {
    * @returns {Object} Break-even analysis
    */
   static calculatePlanBreakeven(currentPlan, targetPlan, currentUsage) {
-    const currentMonthlyCost =
-      currentPlan.baseCost + currentUsage * currentPlan.costPerMessage;
-    const targetMonthlyCost =
-      targetPlan.baseCost + currentUsage * targetPlan.costPerMessage;
+    const currentMonthlyCost = currentPlan.baseCost + currentUsage * currentPlan.costPerMessage;
+    const targetMonthlyCost = targetPlan.baseCost + currentUsage * targetPlan.costPerMessage;
 
     const monthlySavings = currentMonthlyCost - targetMonthlyCost;
 
@@ -239,8 +236,7 @@ export class CostCalculator {
                 (currentPlan.costPerMessage - targetPlan.costPerMessage || 1)
             )
           : 0,
-      recommendation:
-        monthlySavings > 0 ? 'Upgrade recommended' : 'Stay on current plan',
+      recommendation: monthlySavings > 0 ? 'Upgrade recommended' : 'Stay on current plan',
     };
   }
 

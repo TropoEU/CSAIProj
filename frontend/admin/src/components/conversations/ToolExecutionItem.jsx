@@ -37,9 +37,7 @@ export default function ToolExecutionItem({ execution }) {
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <Badge variant="info">{execution.tool_name}</Badge>
-          <Badge variant={getStatusVariant(execution.status)}>
-            {execution.status}
-          </Badge>
+          <Badge variant={getStatusVariant(execution.status)}>{execution.status}</Badge>
         </div>
         <span className="text-xs text-gray-500">
           {execution.execution_time_ms > 0 ? `${execution.execution_time_ms}ms` : '-'}

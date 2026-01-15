@@ -45,16 +45,23 @@ export default function Settings() {
 
       {/* Message Alert */}
       {message && (
-        <div className={`p-4 rounded-lg ${
-          message.type === 'success'
-            ? 'bg-green-50 text-green-800 border border-green-200'
-            : 'bg-red-50 text-red-800 border border-red-200'
-        }`}>
+        <div
+          className={`p-4 rounded-lg ${
+            message.type === 'success'
+              ? 'bg-green-50 text-green-800 border border-green-200'
+              : 'bg-red-50 text-red-800 border border-red-200'
+          }`}
+        >
           <div className={`flex justify-between items-start ${isRTL ? 'flex-row-reverse' : ''}`}>
             <p>{message.text}</p>
             <button onClick={() => setMessage(null)} className="text-gray-500 hover:text-gray-700">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -99,7 +106,15 @@ export default function Settings() {
   );
 }
 
-function LanguageSettings({ selectedLang, setSelectedLang, currentLang, loading, isRTL, t, onSave }) {
+function LanguageSettings({
+  selectedLang,
+  setSelectedLang,
+  currentLang,
+  loading,
+  isRTL,
+  t,
+  onSave,
+}) {
   return (
     <>
       {/* Settings Card */}
@@ -111,11 +126,13 @@ function LanguageSettings({ selectedLang, setSelectedLang, currentLang, loading,
         <div className="px-6 py-6">
           <div className="space-y-4">
             {/* English Option */}
-            <label className={`flex items-center p-4 border rounded-lg cursor-pointer transition-colors ${
-              selectedLang === 'en'
-                ? 'border-primary-500 bg-primary-50'
-                : 'border-gray-200 hover:border-gray-300'
-            }`}>
+            <label
+              className={`flex items-center p-4 border rounded-lg cursor-pointer transition-colors ${
+                selectedLang === 'en'
+                  ? 'border-primary-500 bg-primary-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
               <input
                 type="radio"
                 name="language"
@@ -125,9 +142,7 @@ function LanguageSettings({ selectedLang, setSelectedLang, currentLang, loading,
                 className="h-4 w-4 text-primary-600 focus:ring-primary-500"
               />
               <div className={`${isRTL ? 'mr-3' : 'ml-3'}`}>
-                <span className="block text-sm font-medium text-gray-900">
-                  English
-                </span>
+                <span className="block text-sm font-medium text-gray-900">English</span>
                 <span className="block text-sm text-gray-500">
                   Use English for the dashboard and chat widget
                 </span>
@@ -135,11 +150,13 @@ function LanguageSettings({ selectedLang, setSelectedLang, currentLang, loading,
             </label>
 
             {/* Hebrew Option */}
-            <label className={`flex items-center p-4 border rounded-lg cursor-pointer transition-colors ${
-              selectedLang === 'he'
-                ? 'border-primary-500 bg-primary-50'
-                : 'border-gray-200 hover:border-gray-300'
-            }`}>
+            <label
+              className={`flex items-center p-4 border rounded-lg cursor-pointer transition-colors ${
+                selectedLang === 'he'
+                  ? 'border-primary-500 bg-primary-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
               <input
                 type="radio"
                 name="language"
@@ -149,9 +166,7 @@ function LanguageSettings({ selectedLang, setSelectedLang, currentLang, loading,
                 className="h-4 w-4 text-primary-600 focus:ring-primary-500"
               />
               <div className={`${isRTL ? 'mr-3' : 'ml-3'}`}>
-                <span className="block text-sm font-medium text-gray-900">
-                  עברית (Hebrew)
-                </span>
+                <span className="block text-sm font-medium text-gray-900">עברית (Hebrew)</span>
                 <span className="block text-sm text-gray-500" dir="rtl">
                   השתמש בעברית ללוח הבקרה ולווידג'ט הצ'אט
                 </span>
@@ -179,8 +194,16 @@ function LanguageSettings({ selectedLang, setSelectedLang, currentLang, loading,
       {/* Info Card */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className={`flex ${isRTL ? 'flex-row-reverse' : ''}`}>
-          <svg className={`h-5 w-5 text-blue-500 flex-shrink-0 ${isRTL ? 'ml-3' : 'mr-3'}`} fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+          <svg
+            className={`h-5 w-5 text-blue-500 flex-shrink-0 ${isRTL ? 'ml-3' : 'mr-3'}`}
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fillRule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+              clipRule="evenodd"
+            />
           </svg>
           <div>
             <h3 className="text-sm font-medium text-blue-800">
@@ -188,7 +211,7 @@ function LanguageSettings({ selectedLang, setSelectedLang, currentLang, loading,
             </h3>
             <p className="text-sm text-blue-700 mt-1">
               {currentLang === 'he'
-                ? 'שינוי השפה ישפיע גם על ווידג\'ט הצ\'אט באתר שלך.'
+                ? "שינוי השפה ישפיע גם על ווידג'ט הצ'אט באתר שלך."
                 : 'Changing the language will also affect the chat widget on your website.'}
             </p>
           </div>

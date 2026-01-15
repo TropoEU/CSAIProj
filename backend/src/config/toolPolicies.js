@@ -16,75 +16,75 @@
  * requiresConfirmation: Whether this tool always requires user confirmation
  */
 export const TOOL_POLICIES = {
-    // High-risk destructive tools
-    cancel_order: {
-        maxConfidence: 6,
-        isDestructive: true,
-        requiresConfirmation: true
-    },
-    refund: {
-        maxConfidence: 5,
-        isDestructive: true,
-        requiresConfirmation: true
-    },
-    delete_account: {
-        maxConfidence: 4,
-        isDestructive: true,
-        requiresConfirmation: true
-    },
-    delete_booking: {
-        maxConfidence: 5,
-        isDestructive: true,
-        requiresConfirmation: true
-    },
+  // High-risk destructive tools
+  cancel_order: {
+    maxConfidence: 6,
+    isDestructive: true,
+    requiresConfirmation: true,
+  },
+  refund: {
+    maxConfidence: 5,
+    isDestructive: true,
+    requiresConfirmation: true,
+  },
+  delete_account: {
+    maxConfidence: 4,
+    isDestructive: true,
+    requiresConfirmation: true,
+  },
+  delete_booking: {
+    maxConfidence: 5,
+    isDestructive: true,
+    requiresConfirmation: true,
+  },
 
-    // Medium-risk action tools
-    book_appointment: {
-        maxConfidence: 7,
-        isDestructive: false,
-        requiresConfirmation: false
-    },
-    update_profile: {
-        maxConfidence: 7,
-        isDestructive: false,
-        requiresConfirmation: false
-    },
-    place_order: {
-        maxConfidence: 7,
-        isDestructive: false,
-        requiresConfirmation: false
-    },
+  // Medium-risk action tools
+  book_appointment: {
+    maxConfidence: 7,
+    isDestructive: false,
+    requiresConfirmation: false,
+  },
+  update_profile: {
+    maxConfidence: 7,
+    isDestructive: false,
+    requiresConfirmation: false,
+  },
+  place_order: {
+    maxConfidence: 7,
+    isDestructive: false,
+    requiresConfirmation: false,
+  },
 
-    // Low-risk read-only tools
-    get_order_status: {
-        maxConfidence: 9,
-        isDestructive: false,
-        requiresConfirmation: false
-    },
-    check_inventory: {
-        maxConfidence: 9,
-        isDestructive: false,
-        requiresConfirmation: false
-    },
-    search_products: {
-        maxConfidence: 9,
-        isDestructive: false,
-        requiresConfirmation: false
-    },
-    get_account_info: {
-        maxConfidence: 9,
-        isDestructive: false,
-        requiresConfirmation: false
-    }
+  // Low-risk read-only tools
+  get_order_status: {
+    maxConfidence: 9,
+    isDestructive: false,
+    requiresConfirmation: false,
+  },
+  check_inventory: {
+    maxConfidence: 9,
+    isDestructive: false,
+    requiresConfirmation: false,
+  },
+  search_products: {
+    maxConfidence: 9,
+    isDestructive: false,
+    requiresConfirmation: false,
+  },
+  get_account_info: {
+    maxConfidence: 9,
+    isDestructive: false,
+    requiresConfirmation: false,
+  },
 };
 
 /**
  * Default policy for tools not explicitly listed above
  */
 export const DEFAULT_POLICY = {
-    maxConfidence: 7,
-    isDestructive: false,
-    requiresConfirmation: false
+  maxConfidence: 7,
+  isDestructive: false,
+  requiresConfirmation: false,
 };
 
 /**
@@ -92,30 +92,19 @@ export const DEFAULT_POLICY = {
  * These phrases suggest destructive intent even if not explicitly stated
  */
 export const IMPLIED_DESTRUCTIVE_PHRASES = {
-    en: [
-        "don't want",
-        'get rid of',
-        'remove',
-        'undo',
-        'delete',
-        'cancel',
-        'throw away',
-        'discard',
-        'eliminate',
-        'refund'
-    ],
-    he: [
-        'לא רוצה',
-        'תבטל',
-        'בטל',
-        'תסיר',
-        'תמחק',
-        'מחק',
-        'להיפטר',
-        'לזרוק',
-        'לבטל',
-        'החזר'
-    ]
+  en: [
+    "don't want",
+    'get rid of',
+    'remove',
+    'undo',
+    'delete',
+    'cancel',
+    'throw away',
+    'discard',
+    'eliminate',
+    'refund',
+  ],
+  he: ['לא רוצה', 'תבטל', 'בטל', 'תסיר', 'תמחק', 'מחק', 'להיפטר', 'לזרוק', 'לבטל', 'החזר'],
 };
 
 /**
@@ -123,34 +112,23 @@ export const IMPLIED_DESTRUCTIVE_PHRASES = {
  * Used to detect when user is confirming a pending action
  */
 export const CONFIRMATION_PHRASES = {
-    en: [
-        'yes',
-        'yeah',
-        'yep',
-        'sure',
-        'ok',
-        'okay',
-        'confirm',
-        'confirmed',
-        'go ahead',
-        'do it',
-        'proceed',
-        'correct',
-        'right',
-        'affirmative'
-    ],
-    he: [
-        'כן',
-        'בסדר',
-        'אוקיי',
-        'נכון',
-        'תאשר',
-        'אישור',
-        'תמשיך',
-        'קדימה',
-        'בצע',
-        'המשך'
-    ]
+  en: [
+    'yes',
+    'yeah',
+    'yep',
+    'sure',
+    'ok',
+    'okay',
+    'confirm',
+    'confirmed',
+    'go ahead',
+    'do it',
+    'proceed',
+    'correct',
+    'right',
+    'affirmative',
+  ],
+  he: ['כן', 'בסדר', 'אוקיי', 'נכון', 'תאשר', 'אישור', 'תמשיך', 'קדימה', 'בצע', 'המשך'],
 };
 
 /**
@@ -161,17 +139,17 @@ export const CONFIRMATION_PHRASES = {
  * @returns {Object} Policy object with maxConfidence, isDestructive, requiresConfirmation
  */
 export function getToolPolicy(toolName, toolObject = null) {
-    // If tool object provided with database fields, use those
-    if (toolObject) {
-        return {
-            maxConfidence: toolObject.max_confidence ?? DEFAULT_POLICY.maxConfidence,
-            isDestructive: toolObject.is_destructive ?? DEFAULT_POLICY.isDestructive,
-            requiresConfirmation: toolObject.requires_confirmation ?? DEFAULT_POLICY.requiresConfirmation
-        };
-    }
+  // If tool object provided with database fields, use those
+  if (toolObject) {
+    return {
+      maxConfidence: toolObject.max_confidence ?? DEFAULT_POLICY.maxConfidence,
+      isDestructive: toolObject.is_destructive ?? DEFAULT_POLICY.isDestructive,
+      requiresConfirmation: toolObject.requires_confirmation ?? DEFAULT_POLICY.requiresConfirmation,
+    };
+  }
 
-    // Fall back to hardcoded policies (for backwards compatibility)
-    return TOOL_POLICIES[toolName] || DEFAULT_POLICY;
+  // Fall back to hardcoded policies (for backwards compatibility)
+  return TOOL_POLICIES[toolName] || DEFAULT_POLICY;
 }
 
 /**
@@ -182,8 +160,8 @@ export function getToolPolicy(toolName, toolObject = null) {
  * @returns {boolean} True if the tool is destructive
  */
 export function isDestructiveTool(toolName, toolObject = null) {
-    const policy = getToolPolicy(toolName, toolObject);
-    return policy.isDestructive;
+  const policy = getToolPolicy(toolName, toolObject);
+  return policy.isDestructive;
 }
 
 /**
@@ -195,8 +173,8 @@ export function isDestructiveTool(toolName, toolObject = null) {
  * @returns {number} Effective confidence after applying floor
  */
 export function applyConfidenceFloor(toolName, modelConfidence, toolObject = null) {
-    const policy = getToolPolicy(toolName, toolObject);
-    return Math.min(modelConfidence, policy.maxConfidence);
+  const policy = getToolPolicy(toolName, toolObject);
+  return Math.min(modelConfidence, policy.maxConfidence);
 }
 
 /**
@@ -206,10 +184,10 @@ export function applyConfidenceFloor(toolName, modelConfidence, toolObject = nul
  * @returns {boolean} True if message implies destructive intent
  */
 export function detectImpliedDestructiveIntent(message, language = 'en') {
-    const messageLower = message.toLowerCase();
-    const phrases = IMPLIED_DESTRUCTIVE_PHRASES[language] || IMPLIED_DESTRUCTIVE_PHRASES.en;
+  const messageLower = message.toLowerCase();
+  const phrases = IMPLIED_DESTRUCTIVE_PHRASES[language] || IMPLIED_DESTRUCTIVE_PHRASES.en;
 
-    return phrases.some(phrase => messageLower.includes(phrase.toLowerCase()));
+  return phrases.some((phrase) => messageLower.includes(phrase.toLowerCase()));
 }
 
 /**
@@ -219,14 +197,14 @@ export function detectImpliedDestructiveIntent(message, language = 'en') {
  * @returns {boolean} True if message is a confirmation
  */
 export function isConfirmation(message, language = 'en') {
-    const messageLower = message.toLowerCase().trim();
-    const phrases = CONFIRMATION_PHRASES[language] || CONFIRMATION_PHRASES.en;
+  const messageLower = message.toLowerCase().trim();
+  const phrases = CONFIRMATION_PHRASES[language] || CONFIRMATION_PHRASES.en;
 
-    // Exact match or starts with confirmation phrase
-    return phrases.some(phrase =>
-        messageLower === phrase.toLowerCase() ||
-        messageLower.startsWith(phrase.toLowerCase() + ' ')
-    );
+  // Exact match or starts with confirmation phrase
+  return phrases.some(
+    (phrase) =>
+      messageLower === phrase.toLowerCase() || messageLower.startsWith(phrase.toLowerCase() + ' ')
+  );
 }
 
 /**
@@ -234,7 +212,7 @@ export function isConfirmation(message, language = 'en') {
  * @returns {string[]} Array of destructive tool names
  */
 export function getDestructiveTools() {
-    return Object.entries(TOOL_POLICIES)
-        .filter(([_, policy]) => policy.isDestructive)
-        .map(([toolName, _]) => toolName);
+  return Object.entries(TOOL_POLICIES)
+    .filter(([_, policy]) => policy.isDestructive)
+    .map(([toolName, _]) => toolName);
 }

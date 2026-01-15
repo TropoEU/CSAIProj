@@ -73,7 +73,7 @@ export const REDIS_CONFIG = {
 // Ollama configuration (runs on Windows host, accessible via localhost)
 export const OLLAMA_CONFIG = {
   url: process.env.OLLAMA_URL || 'http://localhost:11434',
-  model: process.env.OLLAMA_MODEL || 'dolphin-llama3'
+  model: process.env.OLLAMA_MODEL || 'dolphin-llama3',
 };
 
 // n8n configuration - build URL from components
@@ -85,7 +85,7 @@ export const N8N_CONFIG = {
   host: n8nHost,
   port: parseInt(n8nPort, 10),
   protocol: n8nProtocol,
-  baseUrl: `${n8nProtocol}://${n8nHost}:${n8nPort}/`
+  baseUrl: `${n8nProtocol}://${n8nHost}:${n8nPort}/`,
 };
 
 /**
@@ -105,18 +105,18 @@ export function validateEnvironment() {
     { name: 'N8N_HOST', value: process.env.N8N_HOST },
   ];
 
-  const missingRequired = required.filter(v => !v.value);
-  const missingRecommended = recommended.filter(v => !v.value);
+  const missingRequired = required.filter((v) => !v.value);
+  const missingRecommended = recommended.filter((v) => !v.value);
 
   if (missingRequired.length > 0) {
     console.error('[Config] CRITICAL: Missing required environment variables:');
-    missingRequired.forEach(v => console.error(`  - ${v.name}`));
+    missingRequired.forEach((v) => console.error(`  - ${v.name}`));
     console.error('[Config] The application may not function correctly.');
   }
 
   if (missingRecommended.length > 0) {
     console.warn('[Config] Warning: Missing recommended environment variables:');
-    missingRecommended.forEach(v => console.warn(`  - ${v.name} (using default)`));
+    missingRecommended.forEach((v) => console.warn(`  - ${v.name} (using default)`));
   }
 
   return missingRequired.length === 0;

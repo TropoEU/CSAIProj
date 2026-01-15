@@ -3,7 +3,11 @@ import { HTTP_STATUS } from '../../config/constants.js';
 import { PlatformConfig } from '../../models/PlatformConfig.js';
 import { Client } from '../../models/Client.js';
 import promptService from '../../services/promptService.js';
-import { getSystemPrompt, refreshCachedConfig, getAdaptiveModePromptAsync } from '../../prompts/systemPrompt.js';
+import {
+  getSystemPrompt,
+  refreshCachedConfig,
+  getAdaptiveModePromptAsync,
+} from '../../prompts/systemPrompt.js';
 
 const router = express.Router();
 
@@ -21,7 +25,9 @@ router.get('/', async (req, res) => {
     res.json(config);
   } catch (error) {
     console.error('[Admin] Error fetching prompt config:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to fetch prompt configuration' });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to fetch prompt configuration' });
   }
 });
 
@@ -41,11 +47,15 @@ router.put('/', async (req, res) => {
     // Validate reasoning_steps if provided
     if (config.reasoning_steps) {
       if (!Array.isArray(config.reasoning_steps)) {
-        return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'reasoning_steps must be an array' });
+        return res
+          .status(HTTP_STATUS.BAD_REQUEST)
+          .json({ error: 'reasoning_steps must be an array' });
       }
       for (const step of config.reasoning_steps) {
         if (!step.title || !step.instruction) {
-          return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Each reasoning step must have title and instruction' });
+          return res
+            .status(HTTP_STATUS.BAD_REQUEST)
+            .json({ error: 'Each reasoning step must have title and instruction' });
         }
       }
     }
@@ -65,7 +75,9 @@ router.put('/', async (req, res) => {
     res.json({ message: 'Prompt configuration updated successfully', config });
   } catch (error) {
     console.error('[Admin] Error updating prompt config:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: error.message || 'Failed to update prompt configuration' });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: error.message || 'Failed to update prompt configuration' });
   }
 });
 
@@ -116,7 +128,9 @@ router.post('/reset', async (req, res) => {
     res.json({ message: 'Prompt configuration reset to defaults', config: defaults });
   } catch (error) {
     console.error('[Admin] Error resetting prompt config:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to reset prompt configuration' });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to reset prompt configuration' });
   }
 });
 
@@ -134,7 +148,9 @@ router.get('/adaptive', async (req, res) => {
     res.json(config);
   } catch (error) {
     console.error('[Admin] Error fetching adaptive prompt config:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to fetch adaptive prompt configuration' });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to fetch adaptive prompt configuration' });
   }
 });
 
@@ -154,11 +170,15 @@ router.put('/adaptive', async (req, res) => {
     // Validate reasoning_steps if provided
     if (config.reasoning_steps) {
       if (!Array.isArray(config.reasoning_steps)) {
-        return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'reasoning_steps must be an array' });
+        return res
+          .status(HTTP_STATUS.BAD_REQUEST)
+          .json({ error: 'reasoning_steps must be an array' });
       }
       for (const step of config.reasoning_steps) {
         if (!step.title || !step.instruction) {
-          return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Each reasoning step must have title and instruction' });
+          return res
+            .status(HTTP_STATUS.BAD_REQUEST)
+            .json({ error: 'Each reasoning step must have title and instruction' });
         }
       }
     }
@@ -170,7 +190,9 @@ router.put('/adaptive', async (req, res) => {
       }
       for (const ctx of config.context_keys) {
         if (!ctx.key || !ctx.description) {
-          return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Each context key must have key and description' });
+          return res
+            .status(HTTP_STATUS.BAD_REQUEST)
+            .json({ error: 'Each context key must have key and description' });
         }
       }
     }
@@ -189,7 +211,9 @@ router.put('/adaptive', async (req, res) => {
     res.json({ message: 'Adaptive prompt configuration updated successfully', config });
   } catch (error) {
     console.error('[Admin] Error updating adaptive prompt config:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: error.message || 'Failed to update adaptive prompt configuration' });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: error.message || 'Failed to update adaptive prompt configuration' });
   }
 });
 
@@ -215,15 +239,37 @@ router.post('/adaptive/preview', async (req, res) => {
     if (config) {
       // Use mock tools for preview
       const mockTools = [
-        { tool_name: 'book_appointment', description: 'Book appointments', parameters_schema: { properties: { date: { type: 'string' }, time: { type: 'string' } }, required: ['date', 'time'] } },
-        { tool_name: 'check_inventory', description: 'Check product availability', parameters_schema: { properties: { product: { type: 'string' } }, required: ['product'] } }
+        {
+          tool_name: 'book_appointment',
+          description: 'Book appointments',
+          parameters_schema: {
+            properties: { date: { type: 'string' }, time: { type: 'string' } },
+            required: ['date', 'time'],
+          },
+        },
+        {
+          tool_name: 'check_inventory',
+          description: 'Check product availability',
+          parameters_schema: { properties: { product: { type: 'string' } }, required: ['product'] },
+        },
       ];
       prompt = await getAdaptiveModePromptAsync(client, mockTools);
     } else {
       // Use mock tools for preview
       const mockTools = [
-        { tool_name: 'book_appointment', description: 'Book appointments', parameters_schema: { properties: { date: { type: 'string' }, time: { type: 'string' } }, required: ['date', 'time'] } },
-        { tool_name: 'check_inventory', description: 'Check product availability', parameters_schema: { properties: { product: { type: 'string' } }, required: ['product'] } }
+        {
+          tool_name: 'book_appointment',
+          description: 'Book appointments',
+          parameters_schema: {
+            properties: { date: { type: 'string' }, time: { type: 'string' } },
+            required: ['date', 'time'],
+          },
+        },
+        {
+          tool_name: 'check_inventory',
+          description: 'Check product availability',
+          parameters_schema: { properties: { product: { type: 'string' } }, required: ['product'] },
+        },
       ];
       prompt = await getAdaptiveModePromptAsync(client, mockTools);
     }
@@ -231,7 +277,9 @@ router.post('/adaptive/preview', async (req, res) => {
     res.json({ prompt });
   } catch (error) {
     console.error('[Admin] Error previewing adaptive prompt:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to preview adaptive prompt' });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to preview adaptive prompt' });
   }
 });
 
@@ -248,7 +296,9 @@ router.post('/adaptive/reset', async (req, res) => {
     res.json({ message: 'Adaptive prompt configuration reset to defaults', config: defaults });
   } catch (error) {
     console.error('[Admin] Error resetting adaptive prompt config:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to reset adaptive prompt configuration' });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to reset adaptive prompt configuration' });
   }
 });
 
@@ -289,11 +339,13 @@ router.get('/clients/:clientId/prompt-config', async (req, res) => {
       effective: effectiveConfig,
       overrides: clientOverrides,
       customizedFields,
-      hasCustomConfig: Object.keys(clientOverrides).length > 0
+      hasCustomConfig: Object.keys(clientOverrides).length > 0,
     });
   } catch (error) {
     console.error('[Admin] Error fetching client prompt config:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to fetch client prompt configuration' });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to fetch client prompt configuration' });
   }
 });
 
@@ -314,11 +366,15 @@ router.put('/clients/:clientId/prompt-config', async (req, res) => {
     // Validate reasoning_steps if provided
     if (config.reasoning_steps) {
       if (!Array.isArray(config.reasoning_steps)) {
-        return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'reasoning_steps must be an array' });
+        return res
+          .status(HTTP_STATUS.BAD_REQUEST)
+          .json({ error: 'reasoning_steps must be an array' });
       }
       for (const step of config.reasoning_steps) {
         if (!step.title || !step.instruction) {
-          return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Each reasoning step must have title and instruction' });
+          return res
+            .status(HTTP_STATUS.BAD_REQUEST)
+            .json({ error: 'Each reasoning step must have title and instruction' });
         }
       }
     }
@@ -329,7 +385,9 @@ router.put('/clients/:clientId/prompt-config', async (req, res) => {
     res.json({ message: 'Client prompt configuration updated successfully', config });
   } catch (error) {
     console.error('[Admin] Error updating client prompt config:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to update client prompt configuration' });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to update client prompt configuration' });
   }
 });
 
@@ -352,7 +410,9 @@ router.delete('/clients/:clientId/prompt-config', async (req, res) => {
     res.json({ message: 'Client prompt configuration cleared, using platform defaults' });
   } catch (error) {
     console.error('[Admin] Error clearing client prompt config:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to clear client prompt configuration' });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to clear client prompt configuration' });
   }
 });
 

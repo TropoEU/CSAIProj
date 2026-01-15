@@ -79,7 +79,11 @@ export default function Integrations() {
       console.error('Failed to load integration types:', err);
       // Fallback types if API fails
       setIntegrationTypes([
-        { type: 'inventory_api', name: 'Inventory API', description: 'Product stock and availability' },
+        {
+          type: 'inventory_api',
+          name: 'Inventory API',
+          description: 'Product stock and availability',
+        },
         { type: 'order_api', name: 'Order API', description: 'Order status and management' },
         { type: 'customer_api', name: 'Customer API', description: 'Customer data and profiles' },
         { type: 'booking_api', name: 'Booking API', description: 'Appointments and reservations' },
@@ -101,7 +105,7 @@ export default function Integrations() {
 
       // Check if client ID is in query params
       const clientIdFromQuery = searchParams.get('client');
-      if (clientIdFromQuery && response.data.some(c => c.id === parseInt(clientIdFromQuery))) {
+      if (clientIdFromQuery && response.data.some((c) => c.id === parseInt(clientIdFromQuery))) {
         setSelectedClient(parseInt(clientIdFromQuery));
       } else if (selectedClient === null && response.data.length > 0) {
         // Only set default if no filter was loaded from localStorage
@@ -154,8 +158,20 @@ export default function Integrations() {
     setValue('authMethod', integration.connection_config?.auth_method || 'bearer');
 
     // Extract extra config (everything except standard fields)
-    const { name: _name, api_url: _apiUrl, api_key: _apiKey, api_secret: _apiSecret, auth_method: _authMethod, headers: _headers, method: _method, ...extraConfig } = integration.connection_config || {};
-    setValue('config', Object.keys(extraConfig).length > 0 ? JSON.stringify(extraConfig, null, 2) : '');
+    const {
+      name: _name,
+      api_url: _apiUrl,
+      api_key: _apiKey,
+      api_secret: _apiSecret,
+      auth_method: _authMethod,
+      headers: _headers,
+      method: _method,
+      ...extraConfig
+    } = integration.connection_config || {};
+    setValue(
+      'config',
+      Object.keys(extraConfig).length > 0 ? JSON.stringify(extraConfig, null, 2) : ''
+    );
     setIsModalOpen(true);
   };
 
@@ -209,7 +225,7 @@ export default function Integrations() {
     setEditingIntegration(null);
     reset({
       authMethod: 'bearer', // Set default auth method
-      httpMethod: 'GET'     // Set default HTTP method
+      httpMethod: 'GET', // Set default HTTP method
     });
     setIsModalOpen(true);
   };
@@ -241,12 +257,25 @@ export default function Integrations() {
       <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
         <h3 className="font-semibold text-blue-900 mb-2">How Integrations Work</h3>
         <div className="text-sm text-blue-800 space-y-1">
-          <p><strong>1. Create Integration:</strong> Connect to a client's external API (Shopify, custom system, etc.)</p>
-          <p><strong>2. Set Integration Type:</strong> Use a category like "order_api" or "inventory_api" - this is how tools find the right integration</p>
-          <p><strong>3. Map to Tools:</strong> In the Client page, enable tools and select which integration each tool should use</p>
+          <p>
+            <strong>1. Create Integration:</strong> Connect to a client's external API (Shopify,
+            custom system, etc.)
+          </p>
+          <p>
+            <strong>2. Set Integration Type:</strong> Use a category like "order_api" or
+            "inventory_api" - this is how tools find the right integration
+          </p>
+          <p>
+            <strong>3. Map to Tools:</strong> In the Client page, enable tools and select which
+            integration each tool should use
+          </p>
         </div>
         <p className="text-xs text-blue-600 mt-2">
-          See <Link to="/docs" className="underline hover:text-blue-800">docs/TOOLS_INTEGRATIONS_ARCHITECTURE.md</Link> for full details
+          See{' '}
+          <Link to="/docs" className="underline hover:text-blue-800">
+            docs/TOOLS_INTEGRATIONS_ARCHITECTURE.md
+          </Link>{' '}
+          for full details
         </p>
       </div>
 
@@ -303,8 +332,8 @@ export default function Integrations() {
                         </TableCell>
                         <TableCell>
                           <Badge variant="info">
-                            {integrationTypes.find((t) => t.type === integration.integration_type)?.name ||
-                              integration.integration_type}
+                            {integrationTypes.find((t) => t.type === integration.integration_type)
+                              ?.name || integration.integration_type}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-gray-500 max-w-xs truncate">
@@ -337,33 +366,49 @@ export default function Integrations() {
                                   {testResult.details.error}
                                 </span>
                               )}
-                              {!testResult.success && testResult.details?.endpointTests && testResult.details.endpointTests.length > 0 && (
-                                <div className="text-xs text-red-600">
-                                  {testResult.details.endpointTests.filter(t => !t.success).map((t, i) => (
-                                    <div key={i}>• {t.endpoint}: {t.error}</div>
-                                  ))}
-                                </div>
-                              )}
-                              {testResult.details?.capturedSchema && Object.keys(testResult.details.capturedSchema).length > 0 && (
-                                <span className="text-xs text-green-600">
-                                  Schema captured ({Object.keys(testResult.details.capturedSchema).length} endpoints)
-                                </span>
-                              )}
+                              {!testResult.success &&
+                                testResult.details?.endpointTests &&
+                                testResult.details.endpointTests.length > 0 && (
+                                  <div className="text-xs text-red-600">
+                                    {testResult.details.endpointTests
+                                      .filter((t) => !t.success)
+                                      .map((t, i) => (
+                                        <div key={i}>
+                                          • {t.endpoint}: {t.error}
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
+                              {testResult.details?.capturedSchema &&
+                                Object.keys(testResult.details.capturedSchema).length > 0 && (
+                                  <span className="text-xs text-green-600">
+                                    Schema captured (
+                                    {Object.keys(testResult.details.capturedSchema).length}{' '}
+                                    endpoints)
+                                  </span>
+                                )}
                             </div>
                           ) : (
                             <Badge
                               variant={
-                                integration.status === 'active' ? 'success' :
-                                integration.status === 'error' ? 'danger' :
-                                integration.status === 'not_configured' ? 'warning' :
-                                'warning'
+                                integration.status === 'active'
+                                  ? 'success'
+                                  : integration.status === 'error'
+                                    ? 'danger'
+                                    : integration.status === 'not_configured'
+                                      ? 'warning'
+                                      : 'warning'
                               }
                             >
-                              {integration.status === 'active' ? 'Active' :
-                               integration.status === 'error' ? 'Error' :
-                               integration.status === 'not_configured' ? 'Not Configured' :
-                               integration.status === 'inactive' ? 'Inactive' :
-                               'Unknown'}
+                              {integration.status === 'active'
+                                ? 'Active'
+                                : integration.status === 'error'
+                                  ? 'Error'
+                                  : integration.status === 'not_configured'
+                                    ? 'Not Configured'
+                                    : integration.status === 'inactive'
+                                      ? 'Inactive'
+                                      : 'Unknown'}
                             </Badge>
                           )}
                         </TableCell>
@@ -376,7 +421,8 @@ export default function Integrations() {
                             </span>
                             {integration.last_test_result?.capturedSchema && (
                               <span className="text-xs text-gray-400">
-                                {Object.keys(integration.last_test_result.capturedSchema).length} endpoints mapped
+                                {Object.keys(integration.last_test_result.capturedSchema).length}{' '}
+                                endpoints mapped
                               </span>
                             )}
                           </div>
@@ -401,7 +447,11 @@ export default function Integrations() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className={integration.status === 'active' ? 'text-orange-600 hover:text-orange-700 hover:bg-orange-50' : 'text-green-600 hover:text-green-700 hover:bg-green-50'}
+                              className={
+                                integration.status === 'active'
+                                  ? 'text-orange-600 hover:text-orange-700 hover:bg-orange-50'
+                                  : 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                              }
                               onClick={() => handleToggle(integration.id)}
                             >
                               {integration.status === 'active' ? 'Deactivate' : 'Activate'}
@@ -455,11 +505,13 @@ export default function Integrations() {
               <p className="font-medium text-blue-900 mb-1">💡 Important:</p>
               <p className="text-blue-800">
                 This should match the <code className="bg-blue-100 px-1 rounded">"key"</code> field
-                in your tool's <code className="bg-blue-100 px-1 rounded">required_integrations</code>.
+                in your tool's{' '}
+                <code className="bg-blue-100 px-1 rounded">required_integrations</code>.
               </p>
               <p className="text-blue-700 mt-2">
-                Example: If your tool has <code className="bg-blue-100 px-1 rounded">{`{"key": "order_api"}`}</code>,
-                enter "order_api" here.
+                Example: If your tool has{' '}
+                <code className="bg-blue-100 px-1 rounded">{`{"key": "order_api"}`}</code>, enter
+                "order_api" here.
               </p>
             </div>
           </div>
@@ -477,7 +529,10 @@ export default function Integrations() {
             placeholder="https://api.example.com/orders/{orderNumber}/status"
           />
           <div className="text-xs text-gray-600 -mt-3 space-y-2">
-            <p><strong>Full endpoint URL</strong> including the path. Use placeholders for dynamic values.</p>
+            <p>
+              <strong>Full endpoint URL</strong> including the path. Use placeholders for dynamic
+              values.
+            </p>
             <div className="bg-gray-50 p-2 rounded border text-gray-700">
               <p className="font-medium mb-1">Examples:</p>
               <code className="block">http://api.example.com/orders/{'{orderNumber}'}/status</code>
@@ -485,8 +540,8 @@ export default function Integrations() {
               <code className="block">http://api.example.com/bookings</code>
             </div>
             <p className="text-gray-500">
-              Placeholders like <code className="bg-gray-100 px-1 rounded">{'{orderNumber}'}</code> will be replaced
-              with actual values when the tool executes.
+              Placeholders like <code className="bg-gray-100 px-1 rounded">{'{orderNumber}'}</code>{' '}
+              will be replaced with actual values when the tool executes.
             </p>
           </div>
 
@@ -513,7 +568,9 @@ export default function Integrations() {
             label="API Secret (optional)"
             type="password"
             {...register('apiSecret')}
-            placeholder={editingIntegration ? '(leave blank to keep current)' : 'Enter API secret if required'}
+            placeholder={
+              editingIntegration ? '(leave blank to keep current)' : 'Enter API secret if required'
+            }
           />
 
           <Select
@@ -521,7 +578,6 @@ export default function Integrations() {
             {...register('authMethod')}
             options={AUTH_METHODS}
           />
-
 
           <div>
             <label className="label">Additional Config (JSON, optional)</label>

@@ -1,87 +1,96 @@
 import { db } from '../db.js';
 
 export class Invoice {
-    /**
-     * Create a new invoice
-     * @param {Object} invoiceData - Invoice data
-     * @returns {Object} Created invoice
-     */
-    static async create(invoiceData) {
-        const {
-            clientId,
-            billingPeriod,
-            planType,
-            baseCost = 0,
-            usageCost = 0,
-            totalCost,
-            status = 'pending',
-            paymentProvider = null,
-            paymentProviderId = null,
-            paymentMethod = null,
-            dueDate = null,
-            notes = null
-        } = invoiceData;
+  /**
+   * Create a new invoice
+   * @param {Object} invoiceData - Invoice data
+   * @returns {Object} Created invoice
+   */
+  static async create(invoiceData) {
+    const {
+      clientId,
+      billingPeriod,
+      planType,
+      baseCost = 0,
+      usageCost = 0,
+      totalCost,
+      status = 'pending',
+      paymentProvider = null,
+      paymentProviderId = null,
+      paymentMethod = null,
+      dueDate = null,
+      notes = null,
+    } = invoiceData;
 
-        const result = await db.query(
-            `INSERT INTO invoices
+    const result = await db.query(
+      `INSERT INTO invoices
             (client_id, billing_period, plan_type, base_cost, usage_cost, total_cost,
              status, payment_provider, payment_provider_id, payment_method, due_date, notes)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING *`,
-            [clientId, billingPeriod, planType, baseCost, usageCost, totalCost,
-             status, paymentProvider, paymentProviderId, paymentMethod, dueDate, notes]
-        );
-        return result.rows[0];
+      [
+        clientId,
+        billingPeriod,
+        planType,
+        baseCost,
+        usageCost,
+        totalCost,
+        status,
+        paymentProvider,
+        paymentProviderId,
+        paymentMethod,
+        dueDate,
+        notes,
+      ]
+    );
+    return result.rows[0];
+  }
+
+  /**
+   * Find invoice by ID
+   */
+  static async findById(id) {
+    const result = await db.query('SELECT * FROM invoices WHERE id = $1', [id]);
+    return result.rows[0] || null;
+  }
+
+  /**
+   * Get all invoices with optional filters
+   * @param {Object} filters - { status, clientId, billingPeriod }
+   * @param {number} limit - Max number of results
+   * @param {number} offset - Offset for pagination
+   */
+  static async findAll(filters = {}, limit = 100, offset = 0) {
+    const conditions = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (filters.status) {
+      conditions.push(`i.status = $${paramIndex}`);
+      values.push(filters.status);
+      paramIndex++;
     }
 
-    /**
-     * Find invoice by ID
-     */
-    static async findById(id) {
-        const result = await db.query(
-            'SELECT * FROM invoices WHERE id = $1',
-            [id]
-        );
-        return result.rows[0] || null;
+    if (filters.clientId) {
+      conditions.push(`i.client_id = $${paramIndex}`);
+      values.push(filters.clientId);
+      paramIndex++;
     }
 
-    /**
-     * Get all invoices with optional filters
-     * @param {Object} filters - { status, clientId, billingPeriod }
-     * @param {number} limit - Max number of results
-     * @param {number} offset - Offset for pagination
-     */
-    static async findAll(filters = {}, limit = 100, offset = 0) {
-        const conditions = [];
-        const values = [];
-        let paramIndex = 1;
+    if (filters.billingPeriod) {
+      conditions.push(`i.billing_period = $${paramIndex}`);
+      values.push(filters.billingPeriod);
+      paramIndex++;
+    }
 
-        if (filters.status) {
-            conditions.push(`i.status = $${paramIndex}`);
-            values.push(filters.status);
-            paramIndex++;
-        }
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-        if (filters.clientId) {
-            conditions.push(`i.client_id = $${paramIndex}`);
-            values.push(filters.clientId);
-            paramIndex++;
-        }
+    // Add limit and offset to values array
+    values.push(limit, offset);
+    const limitParamIndex = paramIndex;
+    const offsetParamIndex = paramIndex + 1;
 
-        if (filters.billingPeriod) {
-            conditions.push(`i.billing_period = $${paramIndex}`);
-            values.push(filters.billingPeriod);
-            paramIndex++;
-        }
-
-        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-        
-        // Add limit and offset to values array
-        values.push(limit, offset);
-        const limitParamIndex = paramIndex;
-        const offsetParamIndex = paramIndex + 1;
-
-        const query = `
+    const query = `
             SELECT i.*, c.name as client_name, c.domain as client_domain
             FROM invoices i
             LEFT JOIN clients c ON i.client_id = c.id
@@ -90,143 +99,147 @@ export class Invoice {
             LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
         `;
 
-        const result = await db.query(query, values);
-        return result.rows;
-    }
+    const result = await db.query(query, values);
+    return result.rows;
+  }
 
-    /**
-     * Get invoices for a specific client
-     */
-    static async findByClientId(clientId, limit = 100, offset = 0) {
-        const result = await db.query(
-            `SELECT * FROM invoices
+  /**
+   * Get invoices for a specific client
+   */
+  static async findByClientId(clientId, limit = 100, offset = 0) {
+    const result = await db.query(
+      `SELECT * FROM invoices
              WHERE client_id = $1
              ORDER BY created_at DESC
              LIMIT $2 OFFSET $3`,
-            [clientId, limit, offset]
-        );
-        return result.rows;
-    }
+      [clientId, limit, offset]
+    );
+    return result.rows;
+  }
 
-    /**
-     * Get invoice by client and billing period
-     */
-    static async findByClientAndPeriod(clientId, billingPeriod) {
-        const result = await db.query(
-            `SELECT * FROM invoices
+  /**
+   * Get invoice by client and billing period
+   */
+  static async findByClientAndPeriod(clientId, billingPeriod) {
+    const result = await db.query(
+      `SELECT * FROM invoices
              WHERE client_id = $1 AND billing_period = $2`,
-            [clientId, billingPeriod]
-        );
-        return result.rows[0] || null;
+      [clientId, billingPeriod]
+    );
+    return result.rows[0] || null;
+  }
+
+  /**
+   * Update invoice
+   */
+  static async update(id, updates) {
+    const allowedFields = [
+      'status',
+      'payment_provider',
+      'payment_provider_id',
+      'payment_method',
+      'paid_at',
+      'due_date',
+      'notes',
+      'base_cost',
+      'usage_cost',
+      'total_cost',
+    ];
+    const fields = [];
+    const values = [];
+    let paramIndex = 1;
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (allowedFields.includes(key)) {
+        fields.push(`${key} = $${paramIndex}`);
+        values.push(value);
+        paramIndex++;
+      }
     }
 
-    /**
-     * Update invoice
-     */
-    static async update(id, updates) {
-        const allowedFields = [
-            'status', 'payment_provider', 'payment_provider_id',
-            'payment_method', 'paid_at', 'due_date', 'notes',
-            'base_cost', 'usage_cost', 'total_cost'
-        ];
-        const fields = [];
-        const values = [];
-        let paramIndex = 1;
+    if (fields.length === 0) {
+      throw new Error('No valid fields to update');
+    }
 
-        for (const [key, value] of Object.entries(updates)) {
-            if (allowedFields.includes(key)) {
-                fields.push(`${key} = $${paramIndex}`);
-                values.push(value);
-                paramIndex++;
-            }
-        }
+    values.push(id);
 
-        if (fields.length === 0) {
-            throw new Error('No valid fields to update');
-        }
-
-        values.push(id);
-
-        const query = `
+    const query = `
             UPDATE invoices
             SET ${fields.join(', ')}
             WHERE id = $${paramIndex}
             RETURNING *
         `;
 
-        const result = await db.query(query, values);
-        return result.rows[0];
+    const result = await db.query(query, values);
+    return result.rows[0];
+  }
+
+  /**
+   * Mark invoice as paid
+   */
+  static async markAsPaid(id, paymentData = {}) {
+    const updates = {
+      status: 'paid',
+      paid_at: new Date(),
+      ...paymentData,
+    };
+    return this.update(id, updates);
+  }
+
+  /**
+   * Mark invoice as overdue
+   */
+  static async markAsOverdue(id) {
+    return this.update(id, { status: 'overdue' });
+  }
+
+  /**
+   * Cancel invoice
+   */
+  static async cancel(id, notes = null) {
+    const updates = { status: 'cancelled' };
+    if (notes) updates.notes = notes;
+    return this.update(id, updates);
+  }
+
+  /**
+   * Delete invoice (hard delete)
+   */
+  static async delete(id) {
+    const result = await db.query('DELETE FROM invoices WHERE id = $1 RETURNING *', [id]);
+    return result.rows[0];
+  }
+
+  /**
+   * Get revenue analytics
+   * @param {Object} filters - { startDate, endDate, status }
+   */
+  static async getRevenueAnalytics(filters = {}) {
+    const conditions = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (filters.startDate) {
+      conditions.push(`created_at >= $${paramIndex}`);
+      values.push(filters.startDate);
+      paramIndex++;
     }
 
-    /**
-     * Mark invoice as paid
-     */
-    static async markAsPaid(id, paymentData = {}) {
-        const updates = {
-            status: 'paid',
-            paid_at: new Date(),
-            ...paymentData
-        };
-        return this.update(id, updates);
+    if (filters.endDate) {
+      conditions.push(`created_at <= $${paramIndex}`);
+      values.push(filters.endDate);
+      paramIndex++;
     }
 
-    /**
-     * Mark invoice as overdue
-     */
-    static async markAsOverdue(id) {
-        return this.update(id, { status: 'overdue' });
+    if (filters.status) {
+      conditions.push(`status = $${paramIndex}`);
+      values.push(filters.status);
+      paramIndex++;
     }
 
-    /**
-     * Cancel invoice
-     */
-    static async cancel(id, notes = null) {
-        const updates = { status: 'cancelled' };
-        if (notes) updates.notes = notes;
-        return this.update(id, updates);
-    }
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    /**
-     * Delete invoice (hard delete)
-     */
-    static async delete(id) {
-        const result = await db.query(
-            'DELETE FROM invoices WHERE id = $1 RETURNING *',
-            [id]
-        );
-        return result.rows[0];
-    }
-
-    /**
-     * Get revenue analytics
-     * @param {Object} filters - { startDate, endDate, status }
-     */
-    static async getRevenueAnalytics(filters = {}) {
-        const conditions = [];
-        const values = [];
-        let paramIndex = 1;
-
-        if (filters.startDate) {
-            conditions.push(`created_at >= $${paramIndex}`);
-            values.push(filters.startDate);
-            paramIndex++;
-        }
-
-        if (filters.endDate) {
-            conditions.push(`created_at <= $${paramIndex}`);
-            values.push(filters.endDate);
-            paramIndex++;
-        }
-
-        if (filters.status) {
-            conditions.push(`status = $${paramIndex}`);
-            values.push(filters.status);
-            paramIndex++;
-        }
-
-        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-
-        const query = `
+    const query = `
             SELECT
                 COUNT(*) as total_invoices,
                 SUM(total_cost) as total_revenue,
@@ -243,19 +256,19 @@ export class Invoice {
             ${whereClause}
         `;
 
-        const result = await db.query(query, values);
-        return result.rows[0];
-    }
+    const result = await db.query(query, values);
+    return result.rows[0];
+  }
 
-    /**
-     * Get revenue by month
-     * @param {number} months - Number of months to look back
-     */
-    static async getRevenueByMonth(months = 12) {
-        // Validate months is a positive integer to prevent injection
-        const safeMonths = Math.max(1, Math.min(120, Math.floor(Number(months) || 12)));
-        const result = await db.query(
-            `SELECT
+  /**
+   * Get revenue by month
+   * @param {number} months - Number of months to look back
+   */
+  static async getRevenueByMonth(months = 12) {
+    // Validate months is a positive integer to prevent injection
+    const safeMonths = Math.max(1, Math.min(120, Math.floor(Number(months) || 12)));
+    const result = await db.query(
+      `SELECT
                 billing_period,
                 COUNT(*) as invoice_count,
                 SUM(total_cost) as total_revenue,
@@ -265,17 +278,17 @@ export class Invoice {
             WHERE billing_period >= TO_CHAR(NOW() - INTERVAL '1 month' * $1, 'YYYY-MM')
             GROUP BY billing_period
             ORDER BY billing_period DESC`,
-            [safeMonths]
-        );
-        return result.rows;
-    }
+      [safeMonths]
+    );
+    return result.rows;
+  }
 
-    /**
-     * Get revenue by plan type
-     */
-    static async getRevenueByPlan() {
-        const result = await db.query(
-            `SELECT
+  /**
+   * Get revenue by plan type
+   */
+  static async getRevenueByPlan() {
+    const result = await db.query(
+      `SELECT
                 plan_type,
                 COUNT(*) as invoice_count,
                 SUM(total_cost) as total_revenue,
@@ -284,39 +297,39 @@ export class Invoice {
             WHERE status = 'paid'
             GROUP BY plan_type
             ORDER BY total_revenue DESC`,
-            []
-        );
-        return result.rows;
-    }
+      []
+    );
+    return result.rows;
+  }
 
-    /**
-     * Get outstanding invoices (pending or overdue)
-     */
-    static async getOutstanding() {
-        const result = await db.query(
-            `SELECT i.*, c.name as client_name, c.domain as client_domain
+  /**
+   * Get outstanding invoices (pending or overdue)
+   */
+  static async getOutstanding() {
+    const result = await db.query(
+      `SELECT i.*, c.name as client_name, c.domain as client_domain
             FROM invoices i
             LEFT JOIN clients c ON i.client_id = c.id
             WHERE i.status IN ('pending', 'overdue')
             ORDER BY i.due_date ASC NULLS LAST, i.created_at DESC`,
-            []
-        );
-        return result.rows;
-    }
+      []
+    );
+    return result.rows;
+  }
 
-    /**
-     * Check and mark overdue invoices
-     * (Run this as a scheduled job)
-     */
-    static async markOverdueInvoices() {
-        const result = await db.query(
-            `UPDATE invoices
+  /**
+   * Check and mark overdue invoices
+   * (Run this as a scheduled job)
+   */
+  static async markOverdueInvoices() {
+    const result = await db.query(
+      `UPDATE invoices
             SET status = 'overdue'
             WHERE status = 'pending'
             AND due_date < CURRENT_DATE
             RETURNING *`,
-            []
-        );
-        return result.rows;
-    }
+      []
+    );
+    return result.rows;
+  }
 }

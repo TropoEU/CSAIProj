@@ -24,7 +24,10 @@ class PromptService {
       this.defaultConfig = await PlatformConfig.getDefaultPromptConfig();
       log.info('Prompt service initialized with default config');
     } catch (error) {
-      log.warn('Failed to load prompt config from database, using hardcoded defaults', error.message);
+      log.warn(
+        'Failed to load prompt config from database, using hardcoded defaults',
+        error.message
+      );
       this.defaultConfig = PlatformConfig.getHardcodedDefaults();
     }
   }
@@ -98,11 +101,13 @@ class PromptService {
    * @returns {String} Generated system prompt
    */
   async buildSystemPrompt(client, config = null) {
-    const promptConfig = config || await this.getClientConfig(client);
+    const promptConfig = config || (await this.getClientConfig(client));
     const language = client.language || 'en';
 
     // Build intro from configurable template
-    const introTemplate = promptConfig.intro_template || 'You are a friendly customer support assistant for {client_name}.';
+    const introTemplate =
+      promptConfig.intro_template ||
+      'You are a friendly customer support assistant for {client_name}.';
     let prompt = introTemplate.replace('{client_name}', client.name);
 
     // Add reasoning process if enabled
@@ -141,11 +146,14 @@ class PromptService {
     }
 
     // Add tool format instructions from config
-    const toolFormat = promptConfig.tool_format_template || 'USE_TOOL: tool_name\nPARAMETERS: {"key": "value"}';
+    const toolFormat =
+      promptConfig.tool_format_template || 'USE_TOOL: tool_name\nPARAMETERS: {"key": "value"}';
     prompt += `\n## TOOL FORMAT (for models without native function calling)\n${toolFormat}\n`;
 
     // Add after tool results instructions from config
-    const toolResultInstruction = promptConfig.tool_result_instruction || 'Summarize the result naturally for the customer. Do not expose raw data or JSON.';
+    const toolResultInstruction =
+      promptConfig.tool_result_instruction ||
+      'Summarize the result naturally for the customer. Do not expose raw data or JSON.';
     prompt += `\n## AFTER RECEIVING TOOL RESULTS\n${toolResultInstruction}`;
 
     // Add custom instructions if any
@@ -157,7 +165,8 @@ class PromptService {
     if (language !== 'en') {
       const languageNames = promptConfig.language_names || {};
       const langName = languageNames[language] || language;
-      const langTemplate = promptConfig.language_instruction_template ||
+      const langTemplate =
+        promptConfig.language_instruction_template ||
         'You MUST respond in {language_name}. Use natural, conversational {language_name}. All your responses must be in this language.';
       const langInstruction = langTemplate.replace(/{language_name}/g, langName);
       prompt += `\n\n## LANGUAGE REQUIREMENT\n${langInstruction}`;
@@ -172,7 +181,10 @@ class PromptService {
    */
   async getToolGuidance() {
     const config = await this.getDefaultConfig();
-    return config.tool_guidance || 'BEFORE CALLING: (1) Verify the user actually needs this external data, (2) Confirm you have ALL required parameters from user input - not placeholders, (3) Check you have not already called this with the same parameters.';
+    return (
+      config.tool_guidance ||
+      'BEFORE CALLING: (1) Verify the user actually needs this external data, (2) Confirm you have ALL required parameters from user input - not placeholders, (3) Check you have not already called this with the same parameters.'
+    );
   }
 
   /**
@@ -242,8 +254,9 @@ class PromptService {
     const language = client.language || 'en';
 
     // Build intro from configurable template
-    let prompt = (config.intro_template || 'You are a customer support assistant for {client_name}.')
-      .replace('{client_name}', client.name);
+    let prompt = (
+      config.intro_template || 'You are a customer support assistant for {client_name}.'
+    ).replace('{client_name}', client.name);
 
     // Add custom AI instructions if available
     if (client.business_info?.ai_instructions) {
@@ -255,31 +268,33 @@ class PromptService {
     prompt += `\n\nCurrent date/time: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
 
     // Format tool descriptions
-    const toolDescriptions = tools.map(t => {
-      const schema = t.parameters_schema || {};
-      const required = schema.required || [];
-      const properties = schema.properties || {};
+    const toolDescriptions = tools
+      .map((t) => {
+        const schema = t.parameters_schema || {};
+        const required = schema.required || [];
+        const properties = schema.properties || {};
 
-      let toolDesc = `- **${t.tool_name}**: ${t.description || 'No description'}`;
-      if (required.length > 0) {
-        toolDesc += `\n  Required parameters: ${required.join(', ')}`;
-      }
-      if (Object.keys(properties).length > 0) {
-        toolDesc += '\n  Parameters:';
-        for (const [param, details] of Object.entries(properties)) {
-          const isRequired = required.includes(param) ? ' (required)' : '';
-          toolDesc += `\n    - ${param}${isRequired}: ${details.description || details.type || ''}`;
+        let toolDesc = `- **${t.tool_name}**: ${t.description || 'No description'}`;
+        if (required.length > 0) {
+          toolDesc += `\n  Required parameters: ${required.join(', ')}`;
         }
-      }
-      return toolDesc;
-    }).join('\n\n');
+        if (Object.keys(properties).length > 0) {
+          toolDesc += '\n  Parameters:';
+          for (const [param, details] of Object.entries(properties)) {
+            const isRequired = required.includes(param) ? ' (required)' : '';
+            toolDesc += `\n    - ${param}${isRequired}: ${details.description || details.type || ''}`;
+          }
+        }
+        return toolDesc;
+      })
+      .join('\n\n');
 
     // Build reasoning section
     const reasoningSteps = config.reasoning_steps || [];
     let reasoningSection = '';
     if (reasoningSteps.length > 0) {
       reasoningSection = `\n<reasoning>
-${reasoningSteps.map(s => `${s.title}: [${s.instruction}]`).join('\n')}
+${reasoningSteps.map((s) => `${s.title}: [${s.instruction}]`).join('\n')}
 </reasoning>`;
     }
 
@@ -288,7 +303,7 @@ ${reasoningSteps.map(s => `${s.title}: [${s.instruction}]`).join('\n')}
     let contextSection = '';
     if (contextKeys.length > 0) {
       contextSection = `\n**Context Fetching**: Use needs_more_context to request:
-${contextKeys.map(c => `- "${c.key}" - ${c.description}`).join('\n')}`;
+${contextKeys.map((c) => `- "${c.key}" - ${c.description}`).join('\n')}`;
     }
 
     // Build tool rules section
@@ -296,7 +311,7 @@ ${contextKeys.map(c => `- "${c.key}" - ${c.description}`).join('\n')}`;
     let rulesSection = '';
     if (toolRules.length > 0) {
       rulesSection = `\n\n**Rules**:
-${toolRules.map(r => `- ${r}`).join('\n')}`;
+${toolRules.map((r) => `- ${r}`).join('\n')}`;
     }
 
     // Build assessment section
@@ -330,12 +345,12 @@ ${rulesSection}`;
     // Add language instruction for non-English
     if (language !== 'en') {
       const languageNames = {
-        'he': 'Hebrew (עברית)',
-        'es': 'Spanish (Español)',
-        'fr': 'French (Français)',
-        'de': 'German (Deutsch)',
-        'ar': 'Arabic (العربية)',
-        'ru': 'Russian (Русский)'
+        he: 'Hebrew (עברית)',
+        es: 'Spanish (Español)',
+        fr: 'French (Français)',
+        de: 'German (Deutsch)',
+        ar: 'Arabic (العربية)',
+        ru: 'Russian (Русский)',
       };
       const langName = languageNames[language] || language;
       prompt += `\n\n**Language**: Respond in ${langName}. Assessment must remain in English.`;

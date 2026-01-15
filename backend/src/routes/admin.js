@@ -32,7 +32,9 @@ router.post('/login', async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Username and password are required' });
+      return res
+        .status(HTTP_STATUS.BAD_REQUEST)
+        .json({ error: 'Username and password are required' });
     }
 
     const admin = await Admin.verifyCredentials(username, password);
@@ -142,7 +144,9 @@ router.post('/test-chat', async (req, res) => {
     const { clientId, message, sessionId } = req.body;
 
     if (!clientId || !message || !sessionId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Client ID, message, and session ID are required' });
+      return res
+        .status(HTTP_STATUS.BAD_REQUEST)
+        .json({ error: 'Client ID, message, and session ID are required' });
     }
 
     // Get client
@@ -162,7 +166,9 @@ router.post('/test-chat', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Test chat error:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Test chat failed', message: error.message });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Test chat failed', message: error.message });
   }
 });
 

@@ -59,9 +59,15 @@ export default function ClientAIBehavior({ clientId, clientName }) {
     if (!currentConfig || !defaults) return {};
 
     const overrides = {};
-    const fields = ['reasoning_enabled', 'reasoning_steps', 'response_style', 'tool_rules', 'custom_instructions'];
+    const fields = [
+      'reasoning_enabled',
+      'reasoning_steps',
+      'response_style',
+      'tool_rules',
+      'custom_instructions',
+    ];
 
-    fields.forEach(field => {
+    fields.forEach((field) => {
       const currentValue = currentConfig[field];
       const defaultValue = defaults[field];
 
@@ -100,7 +106,10 @@ export default function ClientAIBehavior({ clientId, clientName }) {
   };
 
   const resetToDefaults = async () => {
-    if (!confirm('Reset to platform defaults? This will remove all custom settings for this client.')) return;
+    if (
+      !confirm('Reset to platform defaults? This will remove all custom settings for this client.')
+    )
+      return;
 
     setSaving(true);
     try {
@@ -120,7 +129,9 @@ export default function ClientAIBehavior({ clientId, clientName }) {
 
   const previewPrompt = async () => {
     try {
-      const response = await api.post(`/admin/clients/${clientId}/prompt-config/preview`, { config });
+      const response = await api.post(`/admin/clients/${clientId}/prompt-config/preview`, {
+        config,
+      });
       setPreview(response.data.prompt);
       setShowPreview(true);
     } catch {
@@ -137,14 +148,14 @@ export default function ClientAIBehavior({ clientId, clientName }) {
   const addReasoningStep = () => {
     setConfig({
       ...config,
-      reasoning_steps: [...(config.reasoning_steps || []), { title: '', instruction: '' }]
+      reasoning_steps: [...(config.reasoning_steps || []), { title: '', instruction: '' }],
     });
   };
 
   const removeReasoningStep = (index) => {
     setConfig({
       ...config,
-      reasoning_steps: config.reasoning_steps.filter((_, i) => i !== index)
+      reasoning_steps: config.reasoning_steps.filter((_, i) => i !== index),
     });
   };
 
@@ -165,7 +176,7 @@ export default function ClientAIBehavior({ clientId, clientName }) {
   const updateResponseStyle = (field, value) => {
     setConfig({
       ...config,
-      response_style: { ...config.response_style, [field]: value }
+      response_style: { ...config.response_style, [field]: value },
     });
   };
 
@@ -193,19 +204,24 @@ export default function ClientAIBehavior({ clientId, clientName }) {
               : 'Using platform default settings'}
           </p>
         </div>
-        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-          hasCustomConfig ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-700'
-        }`}>
+        <span
+          className={`px-3 py-1 rounded-full text-sm font-medium ${
+            hasCustomConfig ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-700'
+          }`}
+        >
           {hasCustomConfig ? 'Custom' : 'Default'}
         </span>
       </div>
 
       {/* Message Alert */}
       {message && (
-        <div className={`p-3 rounded-lg ${
-          message.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' :
-          'bg-red-50 text-red-800 border border-red-200'
-        }`}>
+        <div
+          className={`p-3 rounded-lg ${
+            message.type === 'success'
+              ? 'bg-green-50 text-green-800 border border-green-200'
+              : 'bg-red-50 text-red-800 border border-red-200'
+          }`}
+        >
           {message.text}
         </div>
       )}
@@ -226,9 +242,11 @@ export default function ClientAIBehavior({ clientId, clientName }) {
               config.reasoning_enabled ? 'bg-primary-600' : 'bg-gray-200'
             }`}
           >
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              config.reasoning_enabled ? 'translate-x-6' : 'translate-x-1'
-            }`} />
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                config.reasoning_enabled ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
           </button>
         </div>
       </div>
@@ -241,7 +259,10 @@ export default function ClientAIBehavior({ clientId, clientName }) {
               Reasoning Steps
               {isCustomized('reasoning_steps') && <ModifiedBadge />}
             </h4>
-            <button onClick={addReasoningStep} className="text-sm text-primary-600 hover:text-primary-700">
+            <button
+              onClick={addReasoningStep}
+              className="text-sm text-primary-600 hover:text-primary-700"
+            >
               + Add Step
             </button>
           </div>
@@ -267,7 +288,10 @@ export default function ClientAIBehavior({ clientId, clientName }) {
                     className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-primary-500"
                   />
                 </div>
-                <button onClick={() => removeReasoningStep(index)} className="text-gray-400 hover:text-red-500">
+                <button
+                  onClick={() => removeReasoningStep(index)}
+                  className="text-gray-400 hover:text-red-500"
+                >
                   <TrashIcon />
                 </button>
               </div>
@@ -343,7 +367,10 @@ export default function ClientAIBehavior({ clientId, clientName }) {
                 placeholder="Enter a rule..."
                 className="flex-grow px-3 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-primary-500"
               />
-              <button onClick={() => removeToolRule(index)} className="text-gray-400 hover:text-red-500">
+              <button
+                onClick={() => removeToolRule(index)}
+                className="text-gray-400 hover:text-red-500"
+              >
                 <CloseIcon />
               </button>
             </div>
@@ -399,7 +426,10 @@ export default function ClientAIBehavior({ clientId, clientName }) {
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h3 className="text-lg font-medium">Generated System Prompt for {clientName}</h3>
-              <button onClick={() => setShowPreview(false)} className="text-gray-400 hover:text-gray-600">
+              <button
+                onClick={() => setShowPreview(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
                 <CloseIcon className="w-6 h-6" />
               </button>
             </div>
@@ -425,7 +455,10 @@ export default function ClientAIBehavior({ clientId, clientName }) {
 
 function ModifiedBadge() {
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800" title="This setting differs from platform defaults">
+    <span
+      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800"
+      title="This setting differs from platform defaults"
+    >
       Modified
     </span>
   );
@@ -434,12 +467,17 @@ function ModifiedBadge() {
 function TrashIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+      />
     </svg>
   );
 }
 
-function CloseIcon({ className = "w-5 h-5" }) {
+function CloseIcon({ className = 'w-5 h-5' }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

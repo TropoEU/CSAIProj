@@ -1,9 +1,7 @@
 export default function Table({ children, className = '' }) {
   return (
     <div className={`overflow-x-auto ${className}`}>
-      <table className="min-w-full divide-y divide-gray-200">
-        {children}
-      </table>
+      <table className="min-w-full divide-y divide-gray-200">{children}</table>
     </div>
   );
 }
@@ -38,9 +36,5 @@ export function TableHeader({ children, className = '' }) {
 }
 
 export function TableCell({ children, className = '' }) {
-  return (
-    <td className={`px-6 py-4 whitespace-nowrap text-sm ${className}`}>
-      {children}
-    </td>
-  );
+  return <td className={`px-6 py-4 whitespace-nowrap text-sm ${className}`}>{children}</td>;
 }

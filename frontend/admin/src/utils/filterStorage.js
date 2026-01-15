@@ -58,7 +58,7 @@ export const clearFilterState = (pageKey) => {
 export const clearAllFilters = () => {
   try {
     const keys = Object.keys(localStorage);
-    keys.forEach(key => {
+    keys.forEach((key) => {
       if (key.startsWith(STORAGE_PREFIX)) {
         localStorage.removeItem(key);
       }

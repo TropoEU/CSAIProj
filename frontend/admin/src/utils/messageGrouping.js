@@ -28,7 +28,9 @@ function parseJsonFromContent(content) {
  */
 function _isDebugMessage(msg) {
   const type = msg.message_type || 'visible';
-  return ['system', 'assessment', 'internal', 'critique', 'tool_call', 'tool_result'].includes(type);
+  return ['system', 'assessment', 'internal', 'critique', 'tool_call', 'tool_result'].includes(
+    type
+  );
 }
 
 /**
@@ -47,7 +49,7 @@ function extractUnderstandDecide(content) {
   const decide = content.match(/DECIDE:\s*([^\n]+)/);
   return {
     understand: understand ? understand[1].trim() : null,
-    decide: decide ? decide[1].trim() : null
+    decide: decide ? decide[1].trim() : null,
   };
 }
 
@@ -175,7 +177,7 @@ function buildReasoningGroup(messages, critiqueMessage) {
         contextFetches.push({
           attempt: attemptMatch ? attemptMatch[1] : contextFetches.length + 1,
           found: foundMatch ? foundMatch[1].trim() : '',
-          missing: missingMatch ? missingMatch[1].trim() : ''
+          missing: missingMatch ? missingMatch[1].trim() : '',
         });
       } else if (content.includes('Context fetch limit')) {
         contextFetches.push({ limitReached: true });
@@ -197,8 +199,8 @@ function buildReasoningGroup(messages, critiqueMessage) {
 
   // Summarize context fetches
   if (contextFetches.length > 0) {
-    const limitReached = contextFetches.some(cf => cf.limitReached);
-    const regularFetches = contextFetches.filter(cf => !cf.limitReached);
+    const limitReached = contextFetches.some((cf) => cf.limitReached);
+    const regularFetches = contextFetches.filter((cf) => !cf.limitReached);
 
     if (regularFetches.length === 1) {
       const cf = regularFetches[0];

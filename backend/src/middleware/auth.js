@@ -18,7 +18,7 @@ export async function authenticateClient(req, res, next) {
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({
-        error: 'Missing or invalid Authorization header. Expected: "Bearer <api_key>"'
+        error: 'Missing or invalid Authorization header. Expected: "Bearer <api_key>"',
       });
     }
 
@@ -26,7 +26,7 @@ export async function authenticateClient(req, res, next) {
 
     if (!apiKey) {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({
-        error: 'API key is required'
+        error: 'API key is required',
       });
     }
 
@@ -35,14 +35,14 @@ export async function authenticateClient(req, res, next) {
 
     if (!client) {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({
-        error: 'Invalid API key'
+        error: 'Invalid API key',
       });
     }
 
     // Check if client is active
     if (client.status !== 'active') {
       return res.status(HTTP_STATUS.FORBIDDEN).json({
-        error: 'Client account is not active'
+        error: 'Client account is not active',
       });
     }
 
@@ -54,7 +54,7 @@ export async function authenticateClient(req, res, next) {
     console.error('[Auth] Authentication error:', error);
     return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       error: 'Authentication failed',
-      message: error.message
+      message: error.message,
     });
   }
 }

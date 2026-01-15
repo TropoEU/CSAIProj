@@ -6,11 +6,7 @@ const Input = forwardRef(function Input(
 ) {
   return (
     <div className={className}>
-      {label && (
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          {label}
-        </label>
-      )}
+      {label && <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
       <input
         ref={ref}
         type={type}
@@ -21,9 +17,7 @@ const Input = forwardRef(function Input(
         `}
         {...props}
       />
-      {error && (
-        <p className="mt-1 text-sm text-red-600">{error}</p>
-      )}
+      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>
   );
 });

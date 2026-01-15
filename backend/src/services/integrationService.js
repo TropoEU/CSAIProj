@@ -119,7 +119,7 @@ class IntegrationService {
       method: config.method || 'GET', // HTTP method for the endpoint
       headers: config.headers || {},
       // Include full config for complex cases
-      config: config
+      config: config,
     };
   }
 
@@ -139,14 +139,14 @@ class IntegrationService {
     if (!integration) {
       return {
         valid: false,
-        error: `Client does not have a '${integrationType}' integration configured. Please set up the integration in the admin panel.`
+        error: `Client does not have a '${integrationType}' integration configured. Please set up the integration in the admin panel.`,
       };
     }
 
     if (!integration.apiUrl) {
       return {
         valid: false,
-        error: `Integration '${integrationType}' is missing API URL configuration.`
+        error: `Integration '${integrationType}' is missing API URL configuration.`,
       };
     }
 
@@ -176,7 +176,9 @@ class IntegrationService {
 
       case 'basic':
         if (integration.apiKey && integration.apiSecret) {
-          const credentials = Buffer.from(`${integration.apiKey}:${integration.apiSecret}`).toString('base64');
+          const credentials = Buffer.from(
+            `${integration.apiKey}:${integration.apiSecret}`
+          ).toString('base64');
           headers['Authorization'] = `Basic ${credentials}`;
         }
         break;
@@ -199,7 +201,11 @@ class IntegrationService {
    */
   getAvailableIntegrationTypes() {
     return [
-      { type: 'inventory_api', name: 'Inventory API', description: 'Product stock and availability' },
+      {
+        type: 'inventory_api',
+        name: 'Inventory API',
+        description: 'Product stock and availability',
+      },
       { type: 'order_api', name: 'Order API', description: 'Order status and management' },
       { type: 'customer_api', name: 'Customer API', description: 'Customer data and profiles' },
       { type: 'booking_api', name: 'Booking API', description: 'Appointments and reservations' },
@@ -242,7 +248,7 @@ class IntegrationService {
         const response = await fetch(formatted.apiUrl, {
           method: 'GET',
           headers,
-          signal: controller.signal
+          signal: controller.signal,
         });
 
         clearTimeout(timeoutId);
@@ -255,7 +261,7 @@ class IntegrationService {
           success: response.ok,
           statusCode: response.status,
           responseTime,
-          error: response.ok ? null : `API returned ${response.status}`
+          error: response.ok ? null : `API returned ${response.status}`,
         };
       } catch (fetchError) {
         clearTimeout(timeoutId);
@@ -273,4 +279,3 @@ class IntegrationService {
 // Export singleton instance
 const integrationService = new IntegrationService();
 export default integrationService;
-

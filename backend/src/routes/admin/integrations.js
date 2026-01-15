@@ -21,7 +21,9 @@ router.get('/types', async (req, res) => {
     }
   } catch (error) {
     console.error('[Admin] Get integration types error:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get integration types' });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to get integration types' });
   }
 });
 
@@ -76,7 +78,9 @@ router.post('/clients/:clientId/integrations', async (req, res) => {
       req.body;
 
     if (!integrationType || !name) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Integration type and name are required' });
+      return res
+        .status(HTTP_STATUS.BAD_REQUEST)
+        .json({ error: 'Integration type and name are required' });
     }
 
     const connectionConfig = {
@@ -178,8 +182,7 @@ router.post('/:id/test', async (req, res) => {
       return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Integration not found' });
     }
 
-    const apiUrl =
-      integration.connection_config?.api_url || integration.connection_config?.apiUrl;
+    const apiUrl = integration.connection_config?.api_url || integration.connection_config?.apiUrl;
     if (!apiUrl) {
       return res.json({
         message: 'No API URL configured to test',

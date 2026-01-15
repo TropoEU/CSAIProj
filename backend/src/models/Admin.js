@@ -33,10 +33,7 @@ export class Admin {
    * Find admin by username
    */
   static async findByUsername(username) {
-    const result = await db.query(
-      'SELECT * FROM admins WHERE username = $1',
-      [username]
-    );
+    const result = await db.query('SELECT * FROM admins WHERE username = $1', [username]);
     return result.rows[0] || null;
   }
 
@@ -70,10 +67,7 @@ export class Admin {
    * Update last login timestamp
    */
   static async updateLastLogin(id) {
-    await db.query(
-      'UPDATE admins SET last_login_at = NOW() WHERE id = $1',
-      [id]
-    );
+    await db.query('UPDATE admins SET last_login_at = NOW() WHERE id = $1', [id]);
   }
 
   /**
@@ -136,10 +130,7 @@ export class Admin {
    * Delete admin
    */
   static async delete(id) {
-    const result = await db.query(
-      'DELETE FROM admins WHERE id = $1 RETURNING id, username',
-      [id]
-    );
+    const result = await db.query('DELETE FROM admins WHERE id = $1 RETURNING id, username', [id]);
     return result.rows[0];
   }
 }

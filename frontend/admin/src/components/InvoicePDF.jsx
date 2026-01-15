@@ -163,13 +163,19 @@ export const InvoicePDF = ({ invoice }) => {
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+            }}
+          >
             <View>
               <Text style={styles.title}>INVOICE</Text>
               <Text style={styles.subtitle}>Invoice #{invoice.id}</Text>
               <Text style={styles.subtitle}>Billing Period: {invoice.billing_period}</Text>
             </View>
-              <View style={{ alignItems: 'flex-end' }}>
+            <View style={{ alignItems: 'flex-end' }}>
               <View style={getStatusBadgeStyle(invoice.status)}>
                 <Text style={{ color: '#fff', fontSize: 10, textTransform: 'uppercase' }}>
                   {invoice.status}
@@ -185,14 +191,21 @@ export const InvoicePDF = ({ invoice }) => {
         {/* Client Information */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Client Information</Text>
-            <View style={styles.box}>
-              <View style={{ marginBottom: 5 }}>
-                <Text style={styles.label}>Name: <Text style={styles.value}>{invoice.client_name || `Client ${invoice.client_id}`}</Text></Text>
-              </View>
-              <View>
-                <Text style={styles.label}>Client ID: <Text style={styles.value}>{invoice.client_id}</Text></Text>
-              </View>
+          <View style={styles.box}>
+            <View style={{ marginBottom: 5 }}>
+              <Text style={styles.label}>
+                Name:{' '}
+                <Text style={styles.value}>
+                  {invoice.client_name || `Client ${invoice.client_id}`}
+                </Text>
+              </Text>
             </View>
+            <View>
+              <Text style={styles.label}>
+                Client ID: <Text style={styles.value}>{invoice.client_id}</Text>
+              </Text>
+            </View>
+          </View>
         </View>
 
         {/* Cost Breakdown */}
@@ -239,23 +252,30 @@ export const InvoicePDF = ({ invoice }) => {
         {invoice.payment_provider && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Payment Information</Text>
-              <View style={styles.paymentInfo}>
+            <View style={styles.paymentInfo}>
               <View style={{ marginBottom: 5 }}>
                 <Text style={{ color: '#2e7d32', fontSize: 11 }}>
-                  Provider: <Text style={{ fontWeight: 'bold', color: '#1b5e20' }}>{invoice.payment_provider}</Text>
+                  Provider:{' '}
+                  <Text style={{ fontWeight: 'bold', color: '#1b5e20' }}>
+                    {invoice.payment_provider}
+                  </Text>
                 </Text>
               </View>
               {invoice.payment_method && (
                 <View style={{ marginBottom: 5 }}>
                   <Text style={{ color: '#2e7d32', fontSize: 11 }}>
-                    Method: <Text style={{ fontWeight: 'bold', color: '#1b5e20' }}>{invoice.payment_method}</Text>
+                    Method:{' '}
+                    <Text style={{ fontWeight: 'bold', color: '#1b5e20' }}>
+                      {invoice.payment_method}
+                    </Text>
                   </Text>
                 </View>
               )}
               {invoice.payment_provider_id && (
                 <View>
                   <Text style={{ color: '#2e7d32', fontSize: 11 }}>
-                    Transaction ID: <Text style={{ fontFamily: 'Courier', fontSize: 9, color: '#1b5e20' }}>
+                    Transaction ID:{' '}
+                    <Text style={{ fontFamily: 'Courier', fontSize: 9, color: '#1b5e20' }}>
                       {invoice.payment_provider_id}
                     </Text>
                   </Text>
@@ -277,14 +297,17 @@ export const InvoicePDF = ({ invoice }) => {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text>This is an automatically generated invoice. For questions, please contact support.</Text>
+          <Text>
+            This is an automatically generated invoice. For questions, please contact support.
+          </Text>
           <Text style={{ marginTop: 5 }}>
-            Generated on {new Date().toLocaleDateString('en-US', { 
-              year: 'numeric', 
-              month: 'long', 
+            Generated on{' '}
+            {new Date().toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'long',
               day: 'numeric',
               hour: '2-digit',
-              minute: '2-digit'
+              minute: '2-digit',
             })}
           </Text>
         </View>
@@ -292,4 +315,3 @@ export const InvoicePDF = ({ invoice }) => {
     </Document>
   );
 };
-

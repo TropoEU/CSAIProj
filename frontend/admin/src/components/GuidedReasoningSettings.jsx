@@ -31,7 +31,10 @@ export default function GuidedReasoningSettings({ onMessage }) {
       await api.put('/admin/prompt-config/adaptive', config);
       onMessage?.({ type: 'success', text: 'Guided reasoning settings saved successfully!' });
     } catch (error) {
-      onMessage?.({ type: 'error', text: error.response?.data?.error || 'Failed to save settings' });
+      onMessage?.({
+        type: 'error',
+        text: error.response?.data?.error || 'Failed to save settings',
+      });
     } finally {
       setSaving(false);
     }
@@ -72,14 +75,14 @@ export default function GuidedReasoningSettings({ onMessage }) {
   const addReasoningStep = () => {
     setConfig({
       ...config,
-      reasoning_steps: [...(config.reasoning_steps || []), { title: '', instruction: '' }]
+      reasoning_steps: [...(config.reasoning_steps || []), { title: '', instruction: '' }],
     });
   };
 
   const removeReasoningStep = (index) => {
     setConfig({
       ...config,
-      reasoning_steps: config.reasoning_steps.filter((_, i) => i !== index)
+      reasoning_steps: config.reasoning_steps.filter((_, i) => i !== index),
     });
   };
 
@@ -93,14 +96,14 @@ export default function GuidedReasoningSettings({ onMessage }) {
   const addContextKey = () => {
     setConfig({
       ...config,
-      context_keys: [...(config.context_keys || []), { key: '', description: '' }]
+      context_keys: [...(config.context_keys || []), { key: '', description: '' }],
     });
   };
 
   const removeContextKey = (index) => {
     setConfig({
       ...config,
-      context_keys: config.context_keys.filter((_, i) => i !== index)
+      context_keys: config.context_keys.filter((_, i) => i !== index),
     });
   };
 
@@ -128,7 +131,9 @@ export default function GuidedReasoningSettings({ onMessage }) {
   }
 
   if (!config) {
-    return <div className="text-center p-8 text-gray-500">Failed to load guided reasoning settings</div>;
+    return (
+      <div className="text-center p-8 text-gray-500">Failed to load guided reasoning settings</div>
+    );
   }
 
   return (
@@ -136,8 +141,9 @@ export default function GuidedReasoningSettings({ onMessage }) {
       {/* Info Banner */}
       <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
         <p className="text-sm text-purple-800">
-          <strong>Guided Reasoning Mode</strong> uses a structured self-assessment approach where the AI evaluates its confidence,
-          identifies missing information, and requests additional context before responding. This produces more accurate and contextual responses.
+          <strong>Guided Reasoning Mode</strong> uses a structured self-assessment approach where
+          the AI evaluates its confidence, identifies missing information, and requests additional
+          context before responding. This produces more accurate and contextual responses.
         </p>
       </div>
 
@@ -145,7 +151,8 @@ export default function GuidedReasoningSettings({ onMessage }) {
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-2">Introduction Template</h3>
         <p className="text-sm text-gray-500 mb-4">
-          The opening instruction for the AI. Use <code className="bg-gray-100 px-1 rounded">{'{client_name}'}</code> as a placeholder.
+          The opening instruction for the AI. Use{' '}
+          <code className="bg-gray-100 px-1 rounded">{'{client_name}'}</code> as a placeholder.
         </p>
         <textarea
           value={config.intro_template || ''}
@@ -161,9 +168,14 @@ export default function GuidedReasoningSettings({ onMessage }) {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-medium text-gray-900">Reasoning Steps</h3>
-            <p className="text-sm text-gray-500">Steps the AI follows internally before responding (shown in reasoning block)</p>
+            <p className="text-sm text-gray-500">
+              Steps the AI follows internally before responding (shown in reasoning block)
+            </p>
           </div>
-          <button onClick={addReasoningStep} className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100">
+          <button
+            onClick={addReasoningStep}
+            className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100"
+          >
             <PlusIcon /> Add Step
           </button>
         </div>
@@ -189,13 +201,18 @@ export default function GuidedReasoningSettings({ onMessage }) {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
-              <button onClick={() => removeReasoningStep(index)} className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500">
+              <button
+                onClick={() => removeReasoningStep(index)}
+                className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500"
+              >
                 <TrashIcon />
               </button>
             </div>
           ))}
           {(config.reasoning_steps || []).length === 0 && (
-            <p className="text-center text-gray-400 py-4">No reasoning steps defined. Add steps to guide the AI's thinking process.</p>
+            <p className="text-center text-gray-400 py-4">
+              No reasoning steps defined. Add steps to guide the AI's thinking process.
+            </p>
           )}
         </div>
       </div>
@@ -205,9 +222,15 @@ export default function GuidedReasoningSettings({ onMessage }) {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-medium text-gray-900">Context Keys</h3>
-            <p className="text-sm text-gray-500">Data the AI can request via <code className="bg-gray-100 px-1 rounded">needs_more_context</code></p>
+            <p className="text-sm text-gray-500">
+              Data the AI can request via{' '}
+              <code className="bg-gray-100 px-1 rounded">needs_more_context</code>
+            </p>
           </div>
-          <button onClick={addContextKey} className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100">
+          <button
+            onClick={addContextKey}
+            className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100"
+          >
             <PlusIcon /> Add Key
           </button>
         </div>
@@ -228,13 +251,18 @@ export default function GuidedReasoningSettings({ onMessage }) {
                 placeholder="Description shown to AI..."
                 className="flex-grow px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
               />
-              <button onClick={() => removeContextKey(index)} className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500">
+              <button
+                onClick={() => removeContextKey(index)}
+                className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500"
+              >
                 <CloseIcon />
               </button>
             </div>
           ))}
           {(config.context_keys || []).length === 0 && (
-            <p className="text-center text-gray-400 py-4">No context keys defined. Add keys to allow AI to request specific business data.</p>
+            <p className="text-center text-gray-400 py-4">
+              No context keys defined. Add keys to allow AI to request specific business data.
+            </p>
           )}
         </div>
       </div>
@@ -244,9 +272,14 @@ export default function GuidedReasoningSettings({ onMessage }) {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-medium text-gray-900">Tool Usage Rules</h3>
-            <p className="text-sm text-gray-500">Guidelines for when and how the AI should use tools</p>
+            <p className="text-sm text-gray-500">
+              Guidelines for when and how the AI should use tools
+            </p>
           </div>
-          <button onClick={addToolRule} className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100">
+          <button
+            onClick={addToolRule}
+            className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100"
+          >
             <PlusIcon /> Add Rule
           </button>
         </div>
@@ -261,13 +294,18 @@ export default function GuidedReasoningSettings({ onMessage }) {
                 placeholder="Enter a tool usage rule..."
                 className="flex-grow px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
               />
-              <button onClick={() => removeToolRule(index)} className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500">
+              <button
+                onClick={() => removeToolRule(index)}
+                className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500"
+              >
                 <CloseIcon />
               </button>
             </div>
           ))}
           {(config.tool_rules || []).length === 0 && (
-            <p className="text-center text-gray-400 py-4">No tool rules defined. Add rules to guide tool usage.</p>
+            <p className="text-center text-gray-400 py-4">
+              No tool rules defined. Add rules to guide tool usage.
+            </p>
           )}
         </div>
       </div>
@@ -298,11 +336,18 @@ export default function GuidedReasoningSettings({ onMessage }) {
 
       {/* Action Buttons */}
       <div className="flex justify-between items-center">
-        <button onClick={resetConfig} disabled={saving} className="px-4 py-2 text-gray-600 hover:text-gray-800">
+        <button
+          onClick={resetConfig}
+          disabled={saving}
+          className="px-4 py-2 text-gray-600 hover:text-gray-800"
+        >
           Reset to Defaults
         </button>
         <div className="flex gap-3">
-          <button onClick={previewPrompt} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+          <button
+            onClick={previewPrompt}
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
             Preview Prompt
           </button>
           <button
@@ -321,7 +366,10 @@ export default function GuidedReasoningSettings({ onMessage }) {
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h3 className="text-lg font-medium">Generated Guided Reasoning Prompt Preview</h3>
-              <button onClick={() => setShowPreview(false)} className="text-gray-400 hover:text-gray-600">
+              <button
+                onClick={() => setShowPreview(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
                 <CloseIcon className="w-6 h-6" />
               </button>
             </div>
@@ -331,7 +379,10 @@ export default function GuidedReasoningSettings({ onMessage }) {
               </pre>
             </div>
             <div className="p-4 border-t">
-              <button onClick={() => setShowPreview(false)} className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+              <button
+                onClick={() => setShowPreview(false)}
+                className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              >
                 Close
               </button>
             </div>
@@ -354,12 +405,17 @@ function PlusIcon() {
 function TrashIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+      />
     </svg>
   );
 }
 
-function CloseIcon({ className = "w-5 h-5" }) {
+function CloseIcon({ className = 'w-5 h-5' }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

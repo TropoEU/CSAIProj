@@ -114,7 +114,9 @@ router.get('/clients/:id/usage/export', async (req, res) => {
     const { startDate, endDate } = req.query;
 
     if (!startDate || !endDate) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Start date and end date are required' });
+      return res
+        .status(HTTP_STATUS.BAD_REQUEST)
+        .json({ error: 'Start date and end date are required' });
     }
 
     const csv = await UsageTracker.exportUsageCSV(req.params.id, startDate, endDate);

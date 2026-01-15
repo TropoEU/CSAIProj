@@ -37,7 +37,8 @@ function buildPromptFromConfig(client, config) {
   const language = client.language || 'en';
 
   // Build intro from configurable template
-  const introTemplate = config.intro_template || 'You are a friendly customer support assistant for {client_name}.';
+  const introTemplate =
+    config.intro_template || 'You are a friendly customer support assistant for {client_name}.';
   let prompt = introTemplate.replace('{client_name}', client.name);
 
   // Add current date context - critical for interpreting "today", "tomorrow", etc.
@@ -76,12 +77,12 @@ When calling tools: today=${isoDate}, tomorrow=${tomorrowIso}`;
     const toneInstructions = config.tone_instructions || {
       friendly: 'Be warm and approachable.',
       professional: 'Maintain a professional and polished tone.',
-      casual: 'Keep it conversational and relaxed.'
+      casual: 'Keep it conversational and relaxed.',
     };
     const formalityInstructions = config.formality_instructions || {
       casual: 'Use everyday language.',
       neutral: 'Balance professionalism with approachability.',
-      formal: 'Use formal language and proper grammar.'
+      formal: 'Use formal language and proper grammar.',
     };
 
     prompt += '\n## RESPONSE STYLE\n';
@@ -105,11 +106,14 @@ When calling tools: today=${isoDate}, tomorrow=${tomorrowIso}`;
   }
 
   // Add tool format instructions from config
-  const toolFormat = config.tool_format_template || 'USE_TOOL: tool_name\nPARAMETERS: {"key": "value"}';
+  const toolFormat =
+    config.tool_format_template || 'USE_TOOL: tool_name\nPARAMETERS: {"key": "value"}';
   prompt += `\n## TOOL FORMAT (for models without native function calling)\n${toolFormat}\n`;
 
   // Add after tool results instructions from config
-  const toolResultInstruction = config.tool_result_instruction || 'Summarize the result naturally for the customer. Do not expose raw data or JSON.';
+  const toolResultInstruction =
+    config.tool_result_instruction ||
+    'Summarize the result naturally for the customer. Do not expose raw data or JSON.';
   prompt += `\n## AFTER RECEIVING TOOL RESULTS\n${toolResultInstruction}`;
 
   // Add custom instructions if any
@@ -120,16 +124,17 @@ When calling tools: today=${isoDate}, tomorrow=${tomorrowIso}`;
   // Add language instruction for non-English (all from config)
   if (language !== 'en') {
     const languageNames = config.language_names || {
-      'en': 'English',
-      'he': 'Hebrew (עברית)',
-      'es': 'Spanish (Español)',
-      'fr': 'French (Français)',
-      'de': 'German (Deutsch)',
-      'ar': 'Arabic (العربية)',
-      'ru': 'Russian (Русский)',
+      en: 'English',
+      he: 'Hebrew (עברית)',
+      es: 'Spanish (Español)',
+      fr: 'French (Français)',
+      de: 'German (Deutsch)',
+      ar: 'Arabic (العربية)',
+      ru: 'Russian (Русский)',
     };
     const langName = languageNames[language] || language;
-    const langTemplate = config.language_instruction_template ||
+    const langTemplate =
+      config.language_instruction_template ||
       'You MUST respond in {language_name}. Use natural, conversational {language_name}. All your responses must be in this language.';
     const langInstruction = langTemplate.replace(/{language_name}/g, langName);
     prompt += `\n\n## LANGUAGE REQUIREMENT\n${langInstruction}`;
@@ -279,11 +284,16 @@ export function getContextualSystemPrompt(client, tools = [], context = {}) {
  * This is kept for backwards compatibility - actual values come from database
  */
 export const toolInstructions = {
-  get_order_status: 'When a customer asks about their order, always use the get_order_status tool. Ask for their order number if they haven\'t provided it.',
-  book_appointment: 'When a customer wants to schedule an appointment, reservation, or pickup, use the book_appointment tool immediately. Extract date and time from natural language. If customer provides name, email, phone, use them. If missing, use reasonable defaults or ask once, then proceed.',
-  check_inventory: 'When a customer asks if a product is available, use the check_inventory tool with the product name or SKU.',
-  get_product_info: 'When a customer asks about product details (price, specs, availability), use the get_product_info tool to fetch live data.',
-  send_email: 'When a customer requests to receive information via email or needs documentation sent, use the send_email tool.'
+  get_order_status:
+    "When a customer asks about their order, always use the get_order_status tool. Ask for their order number if they haven't provided it.",
+  book_appointment:
+    'When a customer wants to schedule an appointment, reservation, or pickup, use the book_appointment tool immediately. Extract date and time from natural language. If customer provides name, email, phone, use them. If missing, use reasonable defaults or ask once, then proceed.',
+  check_inventory:
+    'When a customer asks if a product is available, use the check_inventory tool with the product name or SKU.',
+  get_product_info:
+    'When a customer asks about product details (price, specs, availability), use the get_product_info tool to fetch live data.',
+  send_email:
+    'When a customer requests to receive information via email or needs documentation sent, use the send_email tool.',
 };
 
 /**
@@ -293,7 +303,8 @@ export const toolInstructions = {
  * @returns {string} Tool instruction
  */
 export function getToolInstruction(toolName, config = null) {
-  const configInstructions = config?.tool_instructions || cachedDefaultConfig?.tool_instructions || {};
+  const configInstructions =
+    config?.tool_instructions || cachedDefaultConfig?.tool_instructions || {};
   return configInstructions[toolName] || toolInstructions[toolName] || '';
 }
 
@@ -304,7 +315,8 @@ export function getToolInstruction(toolName, config = null) {
  */
 export function getAllToolInstructions(config = null) {
   const defaults = toolInstructions;
-  const configInstructions = config?.tool_instructions || cachedDefaultConfig?.tool_instructions || {};
+  const configInstructions =
+    config?.tool_instructions || cachedDefaultConfig?.tool_instructions || {};
   return { ...defaults, ...configInstructions };
 }
 
@@ -331,8 +343,9 @@ export const fallbackGreeting = 'Hi! How can I help you today?';
  * Default messages (used as fallbacks)
  */
 const defaultMessages = {
-  escalation: 'I apologize, but this request requires human assistance. Let me connect you with a team member who can better help you.',
-  error: 'I\'m sorry, I\'m having trouble processing that request. Please try again.'
+  escalation:
+    'I apologize, but this request requires human assistance. Let me connect you with a team member who can better help you.',
+  error: "I'm sorry, I'm having trouble processing that request. Please try again.",
 };
 
 /**
@@ -342,7 +355,11 @@ const defaultMessages = {
  * @returns {String} Escalation message
  */
 export function getEscalationMessage(config = null) {
-  return config?.escalation_message || cachedDefaultConfig?.escalation_message || defaultMessages.escalation;
+  return (
+    config?.escalation_message ||
+    cachedDefaultConfig?.escalation_message ||
+    defaultMessages.escalation
+  );
 }
 
 /**
@@ -393,8 +410,9 @@ function buildAdaptivePromptFromConfig(client, tools, config) {
   const language = client.language || 'en';
 
   // Build intro from config template - minimal, without loading all business info
-  let prompt = (config.intro_template || 'You are a customer support assistant for {client_name}.')
-    .replace('{client_name}', client.name);
+  let prompt = (
+    config.intro_template || 'You are a customer support assistant for {client_name}.'
+  ).replace('{client_name}', client.name);
 
   // Add custom AI instructions if available (these are always loaded)
   if (client.business_info?.ai_instructions) {
@@ -418,31 +436,33 @@ function buildAdaptivePromptFromConfig(client, tools, config) {
   prompt += `\n\nCurrent date/time: ${simpleDateTime}\nWhen calling tools: today=${isoDate}, tomorrow=${tomorrowIso}`;
 
   // Format tool schemas for the AI
-  const toolDescriptions = tools.map(t => {
-    const schema = t.parameters_schema || {};
-    const required = schema.required || [];
-    const properties = schema.properties || {};
+  const toolDescriptions = tools
+    .map((t) => {
+      const schema = t.parameters_schema || {};
+      const required = schema.required || [];
+      const properties = schema.properties || {};
 
-    let toolDesc = `- **${t.tool_name}**: ${t.description || 'No description'}`;
-    if (required.length > 0) {
-      toolDesc += `\n  Required parameters: ${required.join(', ')}`;
-    }
-    if (Object.keys(properties).length > 0) {
-      toolDesc += '\n  Parameters:';
-      for (const [param, details] of Object.entries(properties)) {
-        const isRequired = required.includes(param) ? ' (required)' : '';
-        toolDesc += `\n    - ${param}${isRequired}: ${details.description || details.type || ''}`;
+      let toolDesc = `- **${t.tool_name}**: ${t.description || 'No description'}`;
+      if (required.length > 0) {
+        toolDesc += `\n  Required parameters: ${required.join(', ')}`;
       }
-    }
-    return toolDesc;
-  }).join('\n\n');
+      if (Object.keys(properties).length > 0) {
+        toolDesc += '\n  Parameters:';
+        for (const [param, details] of Object.entries(properties)) {
+          const isRequired = required.includes(param) ? ' (required)' : '';
+          toolDesc += `\n    - ${param}${isRequired}: ${details.description || details.type || ''}`;
+        }
+      }
+      return toolDesc;
+    })
+    .join('\n\n');
 
   // Build reasoning section from config
   const reasoningSteps = config.reasoning_steps || [];
   let reasoningSection = '';
   if (reasoningSteps.length > 0) {
     reasoningSection = `<reasoning>
-${reasoningSteps.map(s => `${s.title}: [${s.instruction}]`).join('\n')}
+${reasoningSteps.map((s) => `${s.title}: [${s.instruction}]`).join('\n')}
 </reasoning>`;
   }
 
@@ -451,7 +471,7 @@ ${reasoningSteps.map(s => `${s.title}: [${s.instruction}]`).join('\n')}
   let contextSection = '';
   if (contextKeys.length > 0) {
     contextSection = `**Context Fetching**: Use needs_more_context to request:
-${contextKeys.map(c => `- "${c.key}" - ${c.description}`).join('\n')}`;
+${contextKeys.map((c) => `- "${c.key}" - ${c.description}`).join('\n')}`;
   }
 
   // Build tool rules section from config
@@ -459,7 +479,7 @@ ${contextKeys.map(c => `- "${c.key}" - ${c.description}`).join('\n')}`;
   let rulesSection = '';
   if (toolRules.length > 0) {
     rulesSection = `**Rules**:
-${toolRules.map(r => `- ${r}`).join('\n')}`;
+${toolRules.map((r) => `- ${r}`).join('\n')}`;
   }
 
   // Build the self-assessment instructions section
@@ -496,13 +516,13 @@ ${rulesSection}
   let languageSection = '';
   if (language !== 'en') {
     const defaultLanguageNames = {
-      'en': 'English',
-      'he': 'Hebrew (עברית)',
-      'es': 'Spanish (Español)',
-      'fr': 'French (Français)',
-      'de': 'German (Deutsch)',
-      'ar': 'Arabic (العربية)',
-      'ru': 'Russian (Русский)'
+      en: 'English',
+      he: 'Hebrew (עברית)',
+      es: 'Spanish (Español)',
+      fr: 'French (Français)',
+      de: 'German (Deutsch)',
+      ar: 'Arabic (العربية)',
+      ru: 'Russian (Русский)',
     };
     const languageNames = config.language_names || defaultLanguageNames;
     const langName = languageNames[language] || language;
