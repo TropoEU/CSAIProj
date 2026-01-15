@@ -138,12 +138,33 @@ jobs:
             FUNCTIONS=$(cat coverage/coverage-summary.json | jq -r '.total.functions.pct')
             BRANCHES=$(cat coverage/coverage-summary.json | jq -r '.total.branches.pct')
 
+            # Function to get emoji based on coverage percentage
+            get_emoji() {
+              local pct=$1
+              if (( $(echo "$pct >= 60" | bc -l) )); then
+                echo "🟢"
+              elif (( $(echo "$pct >= 25" | bc -l) )); then
+                echo "🟡"
+              else
+                echo "🔴"
+              fi
+            }
+
             echo "| Metric | Coverage |" >> $GITHUB_STEP_SUMMARY
             echo "|--------|----------|" >> $GITHUB_STEP_SUMMARY
-            echo "| Lines | ${LINES}% |" >> $GITHUB_STEP_SUMMARY
-            echo "| Statements | ${STATEMENTS}% |" >> $GITHUB_STEP_SUMMARY
-            echo "| Functions | ${FUNCTIONS}% |" >> $GITHUB_STEP_SUMMARY
-            echo "| Branches | ${BRANCHES}% |" >> $GITHUB_STEP_SUMMARY
+            echo "| $(get_emoji $LINES) Lines | ${LINES}% |" >> $GITHUB_STEP_SUMMARY
+            echo "| $(get_emoji $STATEMENTS) Statements | ${STATEMENTS}% |" >> $GITHUB_STEP_SUMMARY
+            echo "| $(get_emoji $FUNCTIONS) Functions | ${FUNCTIONS}% |" >> $GITHUB_STEP_SUMMARY
+            echo "| $(get_emoji $BRANCHES) Branches | ${BRANCHES}% |" >> $GITHUB_STEP_SUMMARY
+
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "<details>" >> $GITHUB_STEP_SUMMARY
+            echo "<summary>Coverage thresholds</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- 🟢 >= 60%" >> $GITHUB_STEP_SUMMARY
+            echo "- 🟡 >= 25%" >> $GITHUB_STEP_SUMMARY
+            echo "- 🔴 < 25%" >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
           else
             echo "Coverage summary not found" >> $GITHUB_STEP_SUMMARY
           fi
