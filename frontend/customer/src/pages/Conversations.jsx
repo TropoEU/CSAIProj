@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { conversations } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
@@ -17,7 +17,7 @@ export default function Conversations() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
 
-  const fetchConversations = async (isRefresh = false) => {
+  const fetchConversations = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
 
     try {
@@ -40,7 +40,7 @@ export default function Conversations() {
         setTimeout(() => setRefreshing(false), 500);
       }
     }
-  };
+  }, [page, days, search, status, t]);
 
   useEffect(() => {
     fetchConversations();
@@ -51,7 +51,7 @@ export default function Conversations() {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [page, days, search, status]);
+  }, [fetchConversations]);
 
   const handleSearch = (e) => {
     e.preventDefault();

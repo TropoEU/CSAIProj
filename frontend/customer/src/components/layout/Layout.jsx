@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import Header from './Header';
 import Sidebar from './Sidebar';
-import { useLanguage } from '../../context/LanguageContext';
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { isRTL } = useLanguage();
 
   return (
     <div className="min-h-screen flex">

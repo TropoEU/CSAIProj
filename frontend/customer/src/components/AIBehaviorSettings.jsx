@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { aiBehavior } from '../services/api';
 
@@ -11,26 +11,24 @@ export default function AIBehaviorSettings({ onMessage }) {
   const [showPreview, setShowPreview] = useState(false);
   const [hasCustomConfig, setHasCustomConfig] = useState(false);
   const [customizedFields, setCustomizedFields] = useState([]);
-  const [defaults, setDefaults] = useState(null);
 
-  useEffect(() => {
-    loadConfig();
-  }, []);
-
-  const loadConfig = async () => {
+  const loadConfig = useCallback(async () => {
     try {
       const response = await aiBehavior.get();
       setConfig(response.data);
       setHasCustomConfig(response.data.hasCustomConfig);
       setCustomizedFields(response.data.customizedFields || []);
-      setDefaults(response.data.defaults || null);
-    } catch (error) {
-      console.error('Failed to load AI behavior config:', error);
+    } catch (_error) {
+      console.error('Failed to load AI behavior config:', _error);
       onMessage?.({ type: 'error', text: t('aiBehavior.saveError') });
     } finally {
       setLoading(false);
     }
-  };
+  }, [onMessage, t]);
+
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
 
   // Helper to check if a field is customized
   const isCustomized = (field) => customizedFields.includes(field);
@@ -61,7 +59,7 @@ export default function AIBehaviorSettings({ onMessage }) {
       const response = await aiBehavior.reset();
       setConfig(response.data.config);
       onMessage?.({ type: 'success', text: t('aiBehavior.resetSuccess') });
-    } catch (error) {
+    } catch {
       // Revert on error
       setHasCustomConfig(true);
       setCustomizedFields(previousCustomizedFields);

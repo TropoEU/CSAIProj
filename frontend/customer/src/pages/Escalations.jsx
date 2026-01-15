@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { escalations } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
@@ -13,7 +13,7 @@ export default function Escalations() {
   const [refreshing, setRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
 
-  const fetchEscalations = async (isRefresh = false) => {
+  const fetchEscalations = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
 
     try {
@@ -35,7 +35,7 @@ export default function Escalations() {
         setTimeout(() => setRefreshing(false), 500);
       }
     }
-  };
+  }, [statusFilter, t]);
 
   useEffect(() => {
     fetchEscalations();
@@ -46,7 +46,7 @@ export default function Escalations() {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [statusFilter]);
+  }, [fetchEscalations]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -99,7 +99,7 @@ export default function Escalations() {
     );
   }
 
-  const { escalations: escList, pendingCount } = data || {};
+  const { escalations: escList } = data || {};
 
   return (
     <div className="space-y-6">

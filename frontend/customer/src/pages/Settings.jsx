@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
-import AIBehaviorSettings from '../components/AIBehaviorSettings';
 
 const SETTINGS_TAB_KEY = 'customer_settings_tab';
 

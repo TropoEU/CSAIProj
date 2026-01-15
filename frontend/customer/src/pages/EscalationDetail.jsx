@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { escalations } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
@@ -16,7 +16,7 @@ export default function EscalationDetail() {
   const [showResolveModal, setShowResolveModal] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
 
-  const fetchEscalation = async () => {
+  const fetchEscalation = useCallback(async () => {
     try {
       const response = await escalations.getById(id);
       setData(response.data);
@@ -27,11 +27,11 @@ export default function EscalationDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, t]);
 
   useEffect(() => {
     fetchEscalation();
-  }, [id]);
+  }, [fetchEscalation]);
 
   const handleAcknowledge = async () => {
     try {

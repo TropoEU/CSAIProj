@@ -114,7 +114,7 @@ export default function ConversationDetail() {
         <h2 className="text-lg font-semibold mb-4">{t('conversations.messages')}</h2>
         <div className="space-y-4">
           {messages && messages.length > 0 ? (
-            messages.map((msg, idx) => (
+            messages.map((msg) => (
               <div
                 key={msg.id}
                 className={`p-4 rounded-lg ${

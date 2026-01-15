@@ -28,7 +28,7 @@ export default function Billing() {
     };
 
     fetchInvoices();
-  }, []);
+  }, [t]);
 
   if (loading) {
     return (
