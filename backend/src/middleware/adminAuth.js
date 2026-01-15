@@ -2,11 +2,17 @@ import jwt from 'jsonwebtoken';
 import { HTTP_STATUS } from '../config/constants.js';
 import { Admin } from '../models/Admin.js';
 
-// JWT secret - required, no fallback for security
-const JWT_SECRET = process.env.JWT_SECRET;
+// JWT secret - use test secret in test environment, otherwise required
+let JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
-  console.error('[Auth] CRITICAL: JWT_SECRET environment variable is required');
-  process.exit(1);
+  // In test environment, use a default test secret
+  if (process.env.NODE_ENV === 'test' || process.env.VITEST === 'true') {
+    JWT_SECRET = 'test-jwt-secret-for-unit-tests';
+    console.warn('[Auth] Using default test JWT_SECRET (test environment detected)');
+  } else {
+    console.error('[Auth] CRITICAL: JWT_SECRET environment variable is required');
+    process.exit(1);
+  }
 }
 const JWT_EXPIRES_IN = '24h';
 
