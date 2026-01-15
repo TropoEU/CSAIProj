@@ -165,8 +165,8 @@ jobs:
             const total = coverage.total;
 
             const getEmoji = (pct) => {
-              if (pct >= 80) return '🟢';
-              if (pct >= 60) return '🟡';
+              if (pct >= 60) return '🟢';
+              if (pct >= 25) return '🟡';
               return '🔴';
             };
 
@@ -182,9 +182,9 @@ jobs:
             <details>
             <summary>Coverage thresholds</summary>
 
-            - 🟢 >= 80%
-            - 🟡 >= 60%
-            - 🔴 < 60%
+            - 🟢 >= 60%
+            - 🟡 >= 25%
+            - 🔴 < 25%
             </details>
 
             📁 [Download full report](../actions/runs/${{ github.run_id }}/artifacts)`;
