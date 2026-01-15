@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { t, isRTL, formatNumber, formatDate, formatCurrency, getTranslations } from '../i18n/translations';
 import { useAuth } from './AuthContext';

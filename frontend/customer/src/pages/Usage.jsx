@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { usage } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -12,7 +12,7 @@ export default function Usage() {
   const [trendPeriod, setTrendPeriod] = useState('30d');
   const [usagePeriod, setUsagePeriod] = useState('month');
 
-  const fetchData = async (trendPeriodParam = trendPeriod, usagePeriodParam = usagePeriod) => {
+  const fetchData = useCallback(async (trendPeriodParam = '30d', usagePeriodParam = 'month') => {
     try {
       setLoading(true);
       const [current, trendsData, tools] = await Promise.all([
@@ -31,11 +31,11 @@ export default function Usage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const handleTrendPeriodChange = (newPeriod) => {
     setTrendPeriod(newPeriod);
