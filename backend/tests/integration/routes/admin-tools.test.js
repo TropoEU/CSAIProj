@@ -3,14 +3,31 @@
  *
  * Tests the /admin/tools endpoints with real database operations.
  * Requires running PostgreSQL and Redis services.
+ *
+ * NOTE: These tests are automatically skipped in CI environments
+ * where PostgreSQL is not available.
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import app from '../../../src/app.js';
 import { db } from '../../../src/db.js';
 
-describe('Admin Tools API', () => {
+// Check if database is available before running tests
+async function isDatabaseAvailable() {
+  try {
+    await db.query('SELECT 1');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Determine if we should skip tests
+const dbAvailable = await isDatabaseAvailable();
+const skipTests = !dbAvailable;
+
+describe.skipIf(skipTests)('Admin Tools API', () => {
   let authToken;
   let testToolId;
   const testToolName = 'test_integration_tool_' + Date.now();
@@ -27,7 +44,11 @@ describe('Admin Tools API', () => {
 
   afterAll(async () => {
     // Cleanup any test tools that might have been left behind
-    await db.query('DELETE FROM tools WHERE tool_name LIKE $1', ['test_integration_tool_%']);
+    try {
+      await db.query('DELETE FROM tools WHERE tool_name LIKE $1', ['test_integration_tool_%']);
+    } catch {
+      // Ignore cleanup errors
+    }
   });
 
   describe('GET /admin/tools', () => {
@@ -271,7 +292,11 @@ describe('Admin Tools API', () => {
   // Cleanup the main test tool at the end
   afterAll(async () => {
     if (testToolId) {
-      await db.query('DELETE FROM tools WHERE id = $1', [testToolId]);
+      try {
+        await db.query('DELETE FROM tools WHERE id = $1', [testToolId]);
+      } catch {
+        // Ignore cleanup errors
+      }
     }
   });
 });

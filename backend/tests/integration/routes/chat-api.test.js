@@ -1,16 +1,33 @@
 /**
- * Integration Tests for Chat API
+ * Tests for Chat API
  *
- * Tests the /chat endpoints with real database operations but mocked LLM.
- * Requires running PostgreSQL and Redis services.
+ * Tests the /chat endpoints with mocked database and LLM.
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import app from '../../../src/app.js';
-import { db } from '../../../src/db.js';
 
-// Mock the LLM service to avoid hitting real LLM APIs in CI
+// Mock the database
+vi.mock('../../../src/db.js', () => ({
+  db: {
+    query: vi.fn()
+  }
+}));
+
+// Mock Redis
+vi.mock('../../../src/redis.js', () => ({
+  redisClient: {
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue('OK'),
+    del: vi.fn().mockResolvedValue(1),
+    incr: vi.fn().mockResolvedValue(1),
+    expire: vi.fn().mockResolvedValue(1),
+    isReady: true
+  }
+}));
+
+// Mock the LLM service
 vi.mock('../../../src/services/llmService.js', () => ({
   default: {
     chat: vi.fn().mockResolvedValue({
@@ -18,11 +35,12 @@ vi.mock('../../../src/services/llmService.js', () => ({
       usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 }
     }),
     isReady: vi.fn().mockReturnValue(true),
-    getProviderInfo: vi.fn().mockReturnValue({ provider: 'mock', model: 'test-model' })
+    getProviderInfo: vi.fn().mockReturnValue({ provider: 'mock', model: 'test-model' }),
+    supportsNativeFunctionCalling: vi.fn().mockReturnValue(false)
   }
 }));
 
-// Mock the adaptive reasoning service to return simple responses
+// Mock the adaptive reasoning service
 vi.mock('../../../src/services/adaptiveReasoningService.js', () => ({
   default: {
     processAdaptiveMessage: vi.fn().mockResolvedValue({
@@ -33,44 +51,89 @@ vi.mock('../../../src/services/adaptiveReasoningService.js', () => ({
   }
 }));
 
+// Mock the conversation service
+vi.mock('../../../src/services/conversationService.js', () => ({
+  default: {
+    processMessage: vi.fn().mockResolvedValue({
+      response: 'Mocked response',
+      conversationId: 1,
+      usage: { totalInputTokens: 100, totalOutputTokens: 50 }
+    }),
+    getConversationHistory: vi.fn().mockResolvedValue([]),
+    endConversation: vi.fn().mockResolvedValue(true)
+  }
+}));
+
+// Mock Redis cache service
+vi.mock('../../../src/services/redisCache.js', () => ({
+  RedisCache: {
+    checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, remaining: 59, resetIn: 60 }),
+    acquireLock: vi.fn().mockResolvedValue(true),
+    releaseLock: vi.fn().mockResolvedValue(true),
+    getConversationContext: vi.fn().mockResolvedValue(null),
+    setConversationContext: vi.fn().mockResolvedValue(true)
+  }
+}));
+
+import { db } from '../../../src/db.js';
+import { RedisCache } from '../../../src/services/redisCache.js';
+import conversationService from '../../../src/services/conversationService.js';
+
 describe('Chat API', () => {
-  let testClientApiKey;
-  let testClientId;
-  let testSessionId;
+  const testClientApiKey = 'test_api_key_12345';
+  const testClientId = 1;
+  const testSessionId = 'test_session_' + Date.now();
 
-  beforeAll(async () => {
-    // Get a test client or create one
-    const existingClient = await db.query(
-      "SELECT id, api_key FROM clients WHERE name LIKE '%Test%' OR name LIKE '%Bob%' LIMIT 1"
-    );
+  // Mock client data
+  const mockClient = {
+    id: testClientId,
+    name: 'Test Client',
+    api_key: testClientApiKey,
+    language: 'en',
+    status: 'active',
+    plan_type: 'pro',
+    widget_config: {},
+    business_info: {}
+  };
 
-    if (existingClient.rows.length > 0) {
-      testClientId = existingClient.rows[0].id;
-      testClientApiKey = existingClient.rows[0].api_key;
-    } else {
-      // Create a test client
-      const result = await db.query(
-        `INSERT INTO clients (name, api_key, language, status)
-         VALUES ($1, $2, $3, $4) RETURNING id, api_key`,
-        ['Test Client for Integration', 'test_api_key_' + Date.now(), 'en', 'active']
-      );
-      testClientId = result.rows[0].id;
-      testClientApiKey = result.rows[0].api_key;
-    }
+  beforeEach(() => {
+    vi.clearAllMocks();
 
-    testSessionId = 'test_session_' + Date.now();
-  });
+    // Setup default mock responses for database
+    db.query.mockImplementation((query, params) => {
+      // Client lookup by API key
+      if (query.includes('SELECT') && query.includes('clients') && query.includes('api_key')) {
+        if (params && params[0] === testClientApiKey) {
+          return Promise.resolve({ rows: [mockClient] });
+        }
+        return Promise.resolve({ rows: [] });
+      }
+      // Get client by ID
+      if (query.includes('SELECT') && query.includes('clients') && query.includes('WHERE id')) {
+        return Promise.resolve({ rows: [mockClient] });
+      }
+      // Conversation queries
+      if (query.includes('conversations')) {
+        return Promise.resolve({ rows: [{ id: 1, session_id: testSessionId, client_id: testClientId }] });
+      }
+      // Message queries
+      if (query.includes('messages')) {
+        return Promise.resolve({ rows: [] });
+      }
+      // Plan queries
+      if (query.includes('plans')) {
+        return Promise.resolve({ rows: [{ name: 'pro', ai_mode: 'standard' }] });
+      }
+      // Default
+      return Promise.resolve({ rows: [] });
+    });
 
-  afterAll(async () => {
-    // Cleanup test conversations
-    if (testSessionId) {
-      await db.query(
-        `DELETE FROM messages WHERE conversation_id IN
-         (SELECT id FROM conversations WHERE session_id = $1)`,
-        [testSessionId]
-      );
-      await db.query('DELETE FROM conversations WHERE session_id = $1', [testSessionId]);
-    }
+    // Reset conversation service mock
+    conversationService.processMessage.mockResolvedValue({
+      response: 'Mocked response',
+      conversationId: 1,
+      usage: { totalInputTokens: 100, totalOutputTokens: 50 }
+    });
   });
 
   describe('GET /chat/config', () => {
@@ -99,7 +162,7 @@ describe('Chat API', () => {
   });
 
   describe('POST /chat/message', () => {
-    it('should create a new conversation on first message', async () => {
+    it('should process a message and return response', async () => {
       const res = await request(app)
         .post('/chat/message')
         .set('Authorization', `Bearer ${testClientApiKey}`)
@@ -108,13 +171,9 @@ describe('Chat API', () => {
           message: 'Hello, this is a test message'
         });
 
-      // With mocked LLM, should always succeed (200) or rate limited (429)
-      expect([200, 429]).toContain(res.status);
-
-      if (res.status === 200) {
-        expect(res.body).toHaveProperty('response');
-        expect(res.body).toHaveProperty('conversationId');
-      }
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('response');
+      expect(res.body).toHaveProperty('conversationId');
     });
 
     it('should reject empty message', async () => {
@@ -151,7 +210,7 @@ describe('Chat API', () => {
       expect(res.status).toBe(401);
     });
 
-    it('should handle very long messages', async () => {
+    it('should handle long messages', async () => {
       const longMessage = 'A'.repeat(5000);
       const res = await request(app)
         .post('/chat/message')
@@ -161,31 +220,34 @@ describe('Chat API', () => {
           message: longMessage
         });
 
-      // With mocked LLM, should succeed or be rate limited
-      expect([200, 400, 429]).toContain(res.status);
+      // Should succeed with mocked services
+      expect(res.status).toBe(200);
     });
   });
 
   describe('GET /chat/history/:sessionId', () => {
     it('should return conversation history', async () => {
+      conversationService.getConversationHistory.mockResolvedValue([
+        { role: 'user', content: 'Hello' },
+        { role: 'assistant', content: 'Hi there!' }
+      ]);
+
       const res = await request(app)
         .get(`/chat/history/${testSessionId}`)
         .set('Authorization', `Bearer ${testClientApiKey}`);
 
-      expect([200, 404]).toContain(res.status);
-
-      if (res.status === 200) {
-        expect(res.body).toHaveProperty('messages');
-        expect(Array.isArray(res.body.messages)).toBe(true);
-      }
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('messages');
+      expect(Array.isArray(res.body.messages)).toBe(true);
     });
 
     it('should return empty messages for non-existent session', async () => {
+      conversationService.getConversationHistory.mockResolvedValue([]);
+
       const res = await request(app)
         .get('/chat/history/non_existent_session_12345')
         .set('Authorization', `Bearer ${testClientApiKey}`);
 
-      // API returns 200 with empty messages array for non-existent sessions
       expect(res.status).toBe(200);
       expect(res.body.messages).toEqual([]);
     });
@@ -200,33 +262,12 @@ describe('Chat API', () => {
 
   describe('POST /chat/end', () => {
     it('should end a conversation', async () => {
-      // First create a new session to end
-      const endSessionId = 'test_end_session_' + Date.now();
-
-      // Create the conversation first (with mocked LLM, this should work)
-      await request(app)
-        .post('/chat/message')
-        .set('Authorization', `Bearer ${testClientApiKey}`)
-        .send({
-          sessionId: endSessionId,
-          message: 'Hello'
-        });
-
-      // Now end it
       const res = await request(app)
         .post('/chat/end')
         .set('Authorization', `Bearer ${testClientApiKey}`)
-        .send({ sessionId: endSessionId });
+        .send({ sessionId: testSessionId });
 
-      expect([200, 404, 429]).toContain(res.status);
-
-      // Cleanup
-      await db.query(
-        `DELETE FROM messages WHERE conversation_id IN
-         (SELECT id FROM conversations WHERE session_id = $1)`,
-        [endSessionId]
-      );
-      await db.query('DELETE FROM conversations WHERE session_id = $1', [endSessionId]);
+      expect([200, 404]).toContain(res.status);
     });
 
     it('should reject without sessionId', async () => {
@@ -240,47 +281,42 @@ describe('Chat API', () => {
   });
 
   describe('Rate Limiting', () => {
-    it('should enforce rate limits on rapid requests', async () => {
-      // Create a unique client for rate limit testing to avoid interference
-      const rateLimitClient = await db.query(
-        `INSERT INTO clients (name, api_key, language, status)
-         VALUES ($1, $2, $3, $4) RETURNING id, api_key`,
-        ['Rate Limit Test Client', 'rate_test_api_key_' + Date.now(), 'en', 'active']
-      );
-      const rateLimitApiKey = rateLimitClient.rows[0].api_key;
-      const rateLimitClientId = rateLimitClient.rows[0].id;
+    it('should enforce rate limits when exceeded', async () => {
+      // Mock rate limit exceeded
+      RedisCache.checkRateLimit.mockResolvedValue({
+        allowed: false,
+        remaining: 0,
+        resetIn: 45
+      });
 
-      const requests = [];
-      const sessionId = 'rate_test_' + Date.now();
+      const res = await request(app)
+        .post('/chat/message')
+        .set('Authorization', `Bearer ${testClientApiKey}`)
+        .send({
+          sessionId: testSessionId,
+          message: 'Test message'
+        });
 
-      // With mocked LLM, requests complete fast enough to trigger rate limiting
-      // Send 65 requests in parallel (limit is 60/minute)
-      for (let i = 0; i < 65; i++) {
-        requests.push(
-          request(app)
-            .post('/chat/message')
-            .set('Authorization', `Bearer ${rateLimitApiKey}`)
-            .send({ sessionId, message: `Test ${i}` })
-        );
-      }
+      expect(res.status).toBe(429);
+    });
 
-      const responses = await Promise.all(requests);
-      const rateLimitedCount = responses.filter(r => r.status === 429).length;
+    it('should allow requests when under rate limit', async () => {
+      // Mock rate limit not exceeded
+      RedisCache.checkRateLimit.mockResolvedValue({
+        allowed: true,
+        remaining: 59,
+        resetIn: 60
+      });
 
-      // Cleanup
-      await db.query(
-        `DELETE FROM messages WHERE conversation_id IN
-         (SELECT id FROM conversations WHERE client_id = $1)`,
-        [rateLimitClientId]
-      );
-      await db.query('DELETE FROM conversations WHERE client_id = $1', [rateLimitClientId]);
-      await db.query('DELETE FROM clients WHERE id = $1', [rateLimitClientId]);
+      const res = await request(app)
+        .post('/chat/message')
+        .set('Authorization', `Bearer ${testClientApiKey}`)
+        .send({
+          sessionId: testSessionId,
+          message: 'Test message'
+        });
 
-      // With 65 requests and a 60/minute limit, at least some should be rate limited
-      // Note: Due to race condition in rate limiter (GET-then-INCR), parallel requests
-      // may not all get rate limited, but with mocked LLM the requests are fast enough
-      // that we should see at least a few rate limited
-      expect(rateLimitedCount).toBeGreaterThanOrEqual(0); // At minimum, test runs without error
+      expect(res.status).toBe(200);
     });
   });
 });
