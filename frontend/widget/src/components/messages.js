@@ -48,7 +48,7 @@ export class MessageList {
   createMessageElement(message, isEnded = false) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `csai-message ${message.role === 'user' ? 'user' : 'ai'}`;
-    
+
     // Add ended class if conversation has ended
     if (isEnded || message.isEnded) {
       messageDiv.classList.add('csai-ended');
@@ -73,7 +73,7 @@ export class MessageList {
    */
   markAsEnded() {
     const messages = this.element.querySelectorAll('.csai-message');
-    messages.forEach(msg => {
+    messages.forEach((msg) => {
       msg.classList.add('csai-ended');
     });
   }
@@ -137,7 +137,10 @@ export class MessageList {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', '0 0 24 24');
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z');
+    path.setAttribute(
+      'd',
+      'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'
+    );
     svg.appendChild(path);
     errorDiv.appendChild(svg);
 
@@ -169,15 +172,15 @@ export class MessageList {
    */
   loadMessages(messages) {
     this.clear();
-    
+
     // Filter out system and tool messages (safety check - should never happen)
-    const filteredMessages = messages.filter(msg => 
-      msg.role === 'user' || msg.role === 'assistant'
+    const filteredMessages = messages.filter(
+      (msg) => msg.role === 'user' || msg.role === 'assistant'
     );
-    
+
     this.messages = filteredMessages;
 
-    filteredMessages.forEach(message => {
+    filteredMessages.forEach((message) => {
       const messageEl = this.createMessageElement(message);
       this.element.appendChild(messageEl);
     });
@@ -207,7 +210,10 @@ export class MessageList {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', '0 0 24 24');
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z');
+    path.setAttribute(
+      'd',
+      'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z'
+    );
     svg.appendChild(path);
     emptyState.appendChild(svg);
 

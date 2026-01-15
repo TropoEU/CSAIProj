@@ -43,6 +43,7 @@ export default function Plans() {
       usageMultiplier: '0',
       isActive: true,
       sortOrder: 0,
+      aiMode: 'standard',
       features: {
         llmProvider: 'ollama',
         customBranding: false,
@@ -85,11 +86,13 @@ export default function Plans() {
       // Convert empty strings to null for limits
       const planData = {
         ...data,
-        conversationsPerMonth: data.conversationsPerMonth === '' ? null : parseInt(data.conversationsPerMonth),
+        conversationsPerMonth:
+          data.conversationsPerMonth === '' ? null : parseInt(data.conversationsPerMonth),
         messagesPerMonth: data.messagesPerMonth === '' ? null : parseInt(data.messagesPerMonth),
         tokensPerMonth: data.tokensPerMonth === '' ? null : parseInt(data.tokensPerMonth),
         toolCallsPerMonth: data.toolCallsPerMonth === '' ? null : parseInt(data.toolCallsPerMonth),
-        integrationsEnabled: data.integrationsEnabled === '' ? null : parseInt(data.integrationsEnabled),
+        integrationsEnabled:
+          data.integrationsEnabled === '' ? null : parseInt(data.integrationsEnabled),
         costLimitUsd: data.costLimitUsd === '' ? null : parseFloat(data.costLimitUsd),
         baseCost: parseFloat(data.baseCost) || 0,
         usageMultiplier: parseFloat(data.usageMultiplier) || 0,
@@ -122,6 +125,7 @@ export default function Plans() {
       usageMultiplier: plan.usage_multiplier || '0',
       isActive: plan.is_active,
       sortOrder: plan.sort_order || 0,
+      aiMode: plan.ai_mode || 'standard',
       features: plan.features || {},
     });
     setIsEditModalOpen(true);
@@ -131,11 +135,13 @@ export default function Plans() {
     try {
       const planData = {
         ...data,
-        conversationsPerMonth: data.conversationsPerMonth === '' ? null : parseInt(data.conversationsPerMonth),
+        conversationsPerMonth:
+          data.conversationsPerMonth === '' ? null : parseInt(data.conversationsPerMonth),
         messagesPerMonth: data.messagesPerMonth === '' ? null : parseInt(data.messagesPerMonth),
         tokensPerMonth: data.tokensPerMonth === '' ? null : parseInt(data.tokensPerMonth),
         toolCallsPerMonth: data.toolCallsPerMonth === '' ? null : parseInt(data.toolCallsPerMonth),
-        integrationsEnabled: data.integrationsEnabled === '' ? null : parseInt(data.integrationsEnabled),
+        integrationsEnabled:
+          data.integrationsEnabled === '' ? null : parseInt(data.integrationsEnabled),
         costLimitUsd: data.costLimitUsd === '' ? null : parseFloat(data.costLimitUsd),
         baseCost: parseFloat(data.baseCost) || 0,
         usageMultiplier: parseFloat(data.usageMultiplier) || 0,
@@ -175,7 +181,8 @@ export default function Plans() {
   };
 
   const formatLimit = (value) => {
-    if (value === null || value === undefined) return <span className="text-green-600 font-medium">Unlimited</span>;
+    if (value === null || value === undefined)
+      return <span className="text-green-600 font-medium">Unlimited</span>;
     if (typeof value === 'number') {
       if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
       if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
@@ -218,7 +225,9 @@ export default function Plans() {
       <div className="space-y-4">
         <h4 className="font-semibold text-gray-900 border-b pb-2">
           Monthly Limits
-          <span className="ml-2 text-sm font-normal text-gray-500">(leave empty for unlimited)</span>
+          <span className="ml-2 text-sm font-normal text-gray-500">
+            (leave empty for unlimited)
+          </span>
         </h4>
         <div className="grid grid-cols-2 gap-4">
           <Input
@@ -296,14 +305,34 @@ export default function Plans() {
               <option value="gpt-4o">GPT-4o</option>
             </select>
           </div>
-          <Input
-            label="Sort Order"
-            type="number"
-            {...form.register('sortOrder')}
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              AI Reasoning Mode
+              <span className="ml-1 text-xs text-gray-500">(affects safety & cost)</span>
+            </label>
+            <select
+              {...form.register('aiMode')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="standard">Standard (Fast, single call)</option>
+              <option value="adaptive">Adaptive (Safe, validates actions)</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Adaptive mode adds self-assessment and validation for risky actions
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Input label="Sort Order" type="number" {...form.register('sortOrder')} />
         </div>
         <div className="grid grid-cols-3 gap-4">
-          {['customBranding', 'prioritySupport', 'advancedAnalytics', 'apiAccess', 'whiteLabel'].map((feature) => (
+          {[
+            'customBranding',
+            'prioritySupport',
+            'advancedAnalytics',
+            'apiAccess',
+            'whiteLabel',
+          ].map((feature) => (
             <label key={feature} className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -375,7 +404,9 @@ export default function Plans() {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
           {error}
-          <button onClick={() => setError(null)} className="float-right">&times;</button>
+          <button onClick={() => setError(null)} className="float-right">
+            &times;
+          </button>
         </div>
       )}
 
@@ -393,6 +424,7 @@ export default function Plans() {
                 <TableHeader>Plan</TableHeader>
                 <TableHeader>Limits</TableHeader>
                 <TableHeader>Pricing</TableHeader>
+                <TableHeader>AI Mode</TableHeader>
                 <TableHeader>Clients</TableHeader>
                 <TableHeader>Status</TableHeader>
                 <TableHeader>Actions</TableHeader>
@@ -406,7 +438,9 @@ export default function Plans() {
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-gray-900">{plan.display_name}</span>
                         {plan.is_default && (
-                          <Badge variant="primary" size="sm">Default</Badge>
+                          <Badge variant="primary" size="sm">
+                            Default
+                          </Badge>
                         )}
                       </div>
                       <div className="text-sm text-gray-500">{plan.name}</div>
@@ -425,13 +459,20 @@ export default function Plans() {
                   </TableCell>
                   <TableCell>
                     <div className="text-sm">
-                      <div className="font-medium">${parseFloat(plan.base_cost || 0).toFixed(2)}/mo</div>
+                      <div className="font-medium">
+                        ${parseFloat(plan.base_cost || 0).toFixed(2)}/mo
+                      </div>
                       {plan.usage_multiplier > 0 && (
                         <div className="text-xs text-gray-500">
                           +${plan.usage_multiplier}/token over
                         </div>
                       )}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={plan.ai_mode === 'adaptive' ? 'primary' : 'default'} size="sm">
+                      {plan.ai_mode === 'adaptive' ? 'Adaptive' : 'Standard'}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <span className="font-medium">{plan.clients_count || 0}</span>
@@ -443,20 +484,12 @@ export default function Plans() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEditPlan(plan)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => handleEditPlan(plan)}>
                         Edit
                       </Button>
                       {!plan.is_default && (
                         <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleSetDefault(plan)}
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => handleSetDefault(plan)}>
                             Set Default
                           </Button>
                           <Button
@@ -468,7 +501,9 @@ export default function Plans() {
                               setIsDeleteModalOpen(true);
                             }}
                             disabled={plan.clients_count > 0}
-                            title={plan.clients_count > 0 ? 'Cannot delete plan with active clients' : ''}
+                            title={
+                              plan.clients_count > 0 ? 'Cannot delete plan with active clients' : ''
+                            }
                           >
                             Delete
                           </Button>
@@ -519,9 +554,7 @@ export default function Plans() {
           <p className="text-gray-600">
             Are you sure you want to delete the plan <strong>{deletingPlan?.display_name}</strong>?
           </p>
-          <p className="text-sm text-red-600">
-            This action cannot be undone.
-          </p>
+          <p className="text-sm text-red-600">This action cannot be undone.</p>
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
               variant="secondary"
@@ -532,10 +565,7 @@ export default function Plans() {
             >
               Cancel
             </Button>
-            <Button
-              variant="danger"
-              onClick={handleDeletePlan}
-            >
+            <Button variant="danger" onClick={handleDeletePlan}>
               Delete Plan
             </Button>
           </div>
@@ -544,4 +574,3 @@ export default function Plans() {
     </div>
   );
 }
-

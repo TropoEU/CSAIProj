@@ -23,6 +23,10 @@ function getMessageTypeStyles(messageType) {
       return 'bg-cyan-50 border-l-4 border-cyan-500';
     case 'internal':
       return 'bg-gray-100 border-l-4 border-gray-400';
+    case 'assessment':
+      return 'bg-indigo-50 border-l-4 border-indigo-500';
+    case 'critique':
+      return 'bg-orange-50 border-l-4 border-orange-500';
     default:
       return '';
   }
@@ -41,6 +45,10 @@ function getMessageTypeLabel(messageType) {
       return { text: 'TOOL RESULT', color: 'bg-cyan-100 text-cyan-800' };
     case 'internal':
       return { text: 'INTERNAL', color: 'bg-gray-200 text-gray-700' };
+    case 'assessment':
+      return { text: 'REASONING', color: 'bg-indigo-100 text-indigo-800' };
+    case 'critique':
+      return { text: 'CRITIQUE', color: 'bg-orange-100 text-orange-800' };
     default:
       return null;
   }
@@ -53,6 +61,8 @@ function getAvatarStyles(messageType, role) {
   if (messageType === 'system') return 'bg-purple-200 text-purple-700';
   if (messageType === 'tool_call') return 'bg-amber-200 text-amber-700';
   if (messageType === 'tool_result') return 'bg-cyan-200 text-cyan-700';
+  if (messageType === 'assessment') return 'bg-indigo-200 text-indigo-700';
+  if (messageType === 'critique') return 'bg-orange-200 text-orange-700';
   if (role === 'user') return 'bg-primary-100 text-primary-600';
   if (role === 'tool') return 'bg-cyan-100 text-cyan-600';
   return 'bg-gray-200 text-gray-600';
@@ -65,6 +75,8 @@ function getSenderName(messageType, role) {
   if (messageType === 'system') return 'System';
   if (messageType === 'tool_call') return 'AI → Tool';
   if (messageType === 'tool_result') return 'Tool → AI';
+  if (messageType === 'assessment') return 'AI Reasoning';
+  if (messageType === 'critique') return 'AI Critique';
   if (role === 'user') return 'Customer';
   if (role === 'tool') return 'Tool Response';
   return 'AI Assistant';
@@ -74,8 +86,18 @@ function getSenderName(messageType, role) {
 function SystemIcon() {
   return (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+      />
     </svg>
   );
 }
@@ -83,7 +105,12 @@ function SystemIcon() {
 function ToolIcon() {
   return (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+      />
     </svg>
   );
 }
@@ -91,7 +118,12 @@ function ToolIcon() {
 function UserIcon() {
   return (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+      />
     </svg>
   );
 }
@@ -99,7 +131,12 @@ function UserIcon() {
 function AssistantIcon() {
   return (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+      />
     </svg>
   );
 }
@@ -121,7 +158,14 @@ function MessageIcon({ messageType, role }) {
  */
 export default function MessageItem({ message, debugMode }) {
   const messageType = message.message_type || 'visible';
-  const isDebugMessage = messageType !== 'visible';
+  const isDebugMessage = [
+    'system',
+    'tool_call',
+    'tool_result',
+    'internal',
+    'assessment',
+    'critique',
+  ].includes(messageType);
   const typeLabel = getMessageTypeLabel(messageType);
 
   const containerStyles = `p-4 ${

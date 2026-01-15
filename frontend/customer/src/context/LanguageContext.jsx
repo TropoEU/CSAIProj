@@ -1,5 +1,13 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { t, isRTL, formatNumber, formatDate, formatCurrency, getTranslations } from '../i18n/translations';
+import {
+  t,
+  isRTL,
+  formatNumber,
+  formatDate,
+  formatCurrency,
+  getTranslations,
+} from '../i18n/translations';
 import { useAuth } from './AuthContext';
 import { settings } from '../services/api';
 
@@ -31,32 +39,41 @@ export function LanguageProvider({ children }) {
   }, [language]);
 
   // Update language preference on server
-  const setLanguage = useCallback(async (newLang) => {
-    if (newLang === language) return;
+  const setLanguage = useCallback(
+    async (newLang) => {
+      if (newLang === language) return;
 
-    setLoading(true);
-    try {
-      if (isAuthenticated) {
-        await settings.update({ language: newLang });
+      setLoading(true);
+      try {
+        if (isAuthenticated) {
+          await settings.update({ language: newLang });
+        }
+        setLanguageState(newLang);
+      } catch (error) {
+        console.error('Failed to save language preference:', error);
+        throw error;
+      } finally {
+        setLoading(false);
       }
-      setLanguageState(newLang);
-    } catch (error) {
-      console.error('Failed to save language preference:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  }, [language, isAuthenticated]);
+    },
+    [language, isAuthenticated]
+  );
 
   // Translation helper
-  const translate = useCallback((path, fallback) => {
-    return t(language, path, fallback);
-  }, [language]);
+  const translate = useCallback(
+    (path, fallback) => {
+      return t(language, path, fallback);
+    },
+    [language]
+  );
 
   // Format helpers
   const fmtNumber = useCallback((num) => formatNumber(num, language), [language]);
   const fmtDate = useCallback((date, options) => formatDate(date, language, options), [language]);
-  const fmtCurrency = useCallback((amount, currency) => formatCurrency(amount, language, currency), [language]);
+  const fmtCurrency = useCallback(
+    (amount, currency) => formatCurrency(amount, language, currency),
+    [language]
+  );
 
   const value = {
     language,
@@ -70,11 +87,7 @@ export function LanguageProvider({ children }) {
     formatCurrency: fmtCurrency,
   };
 
-  return (
-    <LanguageContext.Provider value={value}>
-      {children}
-    </LanguageContext.Provider>
-  );
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }
 
 export function useLanguage() {

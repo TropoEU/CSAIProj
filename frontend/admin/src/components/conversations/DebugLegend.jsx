@@ -4,10 +4,11 @@
 export default function DebugLegend() {
   const legendItems = [
     { color: 'bg-purple-500', label: 'System Prompt' },
+    { color: 'bg-indigo-500', label: 'AI Reasoning (combined)' },
+    { color: 'bg-orange-500', label: 'AI Critique' },
     { color: 'bg-amber-500', label: 'Tool Call' },
     { color: 'bg-cyan-500', label: 'Tool Result' },
-    { color: 'bg-gray-400', label: 'Internal' },
-    { color: 'bg-white border border-gray-300', label: 'User/Assistant (visible)' },
+    { color: 'bg-white border border-gray-300', label: 'User/Assistant' },
   ];
 
   return (

@@ -73,13 +73,17 @@ router.post('/', async (req, res) => {
     } = req.body;
 
     if (!name || !displayName) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Name and display name are required' });
+      return res
+        .status(HTTP_STATUS.BAD_REQUEST)
+        .json({ error: 'Name and display name are required' });
     }
 
     // Check if plan name already exists
     const existing = await Plan.findByName(name);
     if (existing) {
-      return res.status(HTTP_STATUS.CONFLICT).json({ error: 'A plan with this name already exists' });
+      return res
+        .status(HTTP_STATUS.CONFLICT)
+        .json({ error: 'A plan with this name already exists' });
     }
 
     const plan = await Plan.create({
@@ -125,7 +129,9 @@ router.put('/:id', async (req, res) => {
     if (req.body.name && req.body.name.toLowerCase() !== plan.name.toLowerCase()) {
       const existing = await Plan.findByName(req.body.name);
       if (existing) {
-        return res.status(HTTP_STATUS.CONFLICT).json({ error: 'A plan with this name already exists' });
+        return res
+          .status(HTTP_STATUS.CONFLICT)
+          .json({ error: 'A plan with this name already exists' });
       }
     }
 

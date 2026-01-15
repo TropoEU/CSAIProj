@@ -72,7 +72,7 @@ export class UsageTracker {
       [clientId]
     );
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       period: row.period,
       value: parseFloat(row.value) || 0,
     }));
@@ -96,6 +96,9 @@ export class UsageTracker {
         SUM(tokens_input + tokens_output) as tokens_total,
         SUM(tool_calls_count) as tool_calls,
         SUM(cost_estimate) as cost,
+        SUM(adaptive_count) as adaptive_count,
+        SUM(critique_count) as critique_count,
+        SUM(context_fetch_count) as context_fetch_count,
         COUNT(DISTINCT date) as active_days
        FROM api_usage
        WHERE client_id = $1
@@ -115,6 +118,11 @@ export class UsageTracker {
       },
       toolCalls: parseInt(usage.tool_calls, 10) || 0,
       cost: parseFloat(usage.cost) || 0,
+      reasoning: {
+        adaptiveMessages: parseInt(usage.adaptive_count, 10) || 0,
+        critiqueTriggers: parseInt(usage.critique_count, 10) || 0,
+        contextFetches: parseInt(usage.context_fetch_count, 10) || 0,
+      },
       activeDays: parseInt(usage.active_days, 10) || 0,
       period,
     };
@@ -143,7 +151,7 @@ export class UsageTracker {
       [clientId]
     );
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       toolName: row.tool_name,
       count: parseInt(row.count, 10),
       avgTime: Math.round(parseFloat(row.avg_time) || 0),
@@ -196,7 +204,7 @@ export class UsageTracker {
       [clientId]
     );
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       date: row.date.toISOString().split('T')[0],
       conversations: parseInt(row.conversations, 10) || 0,
       messages: parseInt(row.messages, 10) || 0,
@@ -306,7 +314,7 @@ export class UsageTracker {
     const headers = 'Date,Conversations,Messages,Tokens Input,Tokens Output,Tool Calls,Cost\n';
     const rows = result.rows
       .map(
-        row =>
+        (row) =>
           `${row.date.toISOString().split('T')[0]},${row.conversation_count},${row.message_count},${row.tokens_input},${row.tokens_output},${row.tool_calls_count},${row.cost_estimate}`
       )
       .join('\n');
@@ -350,7 +358,7 @@ export class UsageTracker {
       [limit]
     );
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       clientId: row.id,
       clientName: row.name,
       domain: row.domain,

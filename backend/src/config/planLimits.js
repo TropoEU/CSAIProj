@@ -24,7 +24,7 @@ export const FALLBACK_PLANS = {
   // Unlimited plan - no restrictions (default for all clients)
   unlimited: {
     limits: {
-      conversationsPerMonth: null,    // null = unlimited
+      conversationsPerMonth: null, // null = unlimited
       messagesPerMonth: null,
       tokensPerMonth: null,
       toolCallsPerMonth: null,
@@ -170,7 +170,10 @@ export async function loadPlansFromDatabase() {
     cacheLoadedAt = Date.now();
     return configs;
   } catch (error) {
-    console.warn('[PlanLimits] Failed to load plans from database, using fallbacks:', error.message);
+    console.warn(
+      '[PlanLimits] Failed to load plans from database, using fallbacks:',
+      error.message
+    );
     return null;
   }
 }
@@ -190,17 +193,17 @@ export function clearPlanCache() {
  */
 export function getPlanConfig(planType) {
   const planKey = planType?.toLowerCase();
-  
+
   // Try database cache first
   if (isCacheValid() && dbPlanCache) {
     const dbPlan = dbPlanCache[planKey];
     if (dbPlan) return dbPlan;
   }
-  
+
   // Fall back to hardcoded plans
   const fallbackPlan = FALLBACK_PLANS[planKey];
   if (fallbackPlan) return fallbackPlan;
-  
+
   // Default to unlimited for unknown plan types
   return FALLBACK_PLANS.unlimited;
 }
@@ -212,22 +215,22 @@ export function getPlanConfig(planType) {
  */
 export async function getPlanConfigAsync(planType) {
   const planKey = planType?.toLowerCase();
-  
+
   // Refresh cache if needed
   if (!isCacheValid()) {
     await loadPlansFromDatabase();
   }
-  
+
   // Try database cache first
   if (dbPlanCache) {
     const dbPlan = dbPlanCache[planKey];
     if (dbPlan) return dbPlan;
   }
-  
+
   // Fall back to hardcoded plans
   const fallbackPlan = FALLBACK_PLANS[planKey];
   if (fallbackPlan) return fallbackPlan;
-  
+
   // Default to unlimited
   return FALLBACK_PLANS.unlimited;
 }
@@ -324,7 +327,7 @@ export async function getAvailablePlansAsync() {
   if (!isCacheValid()) {
     await loadPlansFromDatabase();
   }
-  
+
   if (dbPlanCache) {
     return Object.keys(dbPlanCache);
   }
@@ -344,16 +347,14 @@ export function checkMultipleLimits(planType, usage) {
     results[limitType] = checkLimit(planType, limitType, currentUsage);
   }
 
-  const anyExceeded = Object.values(results).some(r => r.exceeded);
-  const allAllowed = Object.values(results).every(r => r.allowed);
+  const anyExceeded = Object.values(results).some((r) => r.exceeded);
+  const allAllowed = Object.values(results).every((r) => r.allowed);
 
   return {
     results,
     anyExceeded,
     allAllowed,
-    message: anyExceeded
-      ? 'One or more limits exceeded'
-      : 'All limits within range',
+    message: anyExceeded ? 'One or more limits exceeded' : 'All limits within range',
   };
 }
 
@@ -365,12 +366,7 @@ export function checkMultipleLimits(planType, usage) {
  * @param {number} warningThreshold - Percentage threshold (0-1), default 0.8
  * @returns {Object} Warning status
  */
-export function getLimitWarning(
-  planType,
-  limitType,
-  currentUsage,
-  warningThreshold = 0.8
-) {
+export function getLimitWarning(planType, limitType, currentUsage, warningThreshold = 0.8) {
   const limitCheck = checkLimit(planType, limitType, currentUsage);
 
   if (limitCheck.limit === null) {

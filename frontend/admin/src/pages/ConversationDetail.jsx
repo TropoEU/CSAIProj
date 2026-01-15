@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { conversations } from '../services/api';
 import { Card, CardBody, CardHeader, Button, LoadingSpinner, Badge } from '../components/common';
@@ -6,6 +6,11 @@ import ExportBar from '../components/conversations/ExportBar';
 import DebugLegend from '../components/conversations/DebugLegend';
 import MessageItem from '../components/conversations/MessageItem';
 import ToolExecutionItem from '../components/conversations/ToolExecutionItem';
+import {
+  GroupedReasoningItem,
+  StandaloneCritiqueItem,
+} from '../components/conversations/GroupedReasoningItem';
+import { groupReasoningMessages } from '../utils/messageGrouping';
 
 /**
  * Format token count for display
@@ -73,7 +78,9 @@ export default function ConversationDetail() {
       const response = await conversations.exportSingle(id, format, debugMode);
 
       if (format === 'json') {
-        const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
+        const blob = new Blob([JSON.stringify(response.data, null, 2)], {
+          type: 'application/json',
+        });
         downloadBlob(blob, `conversation-${conversation.session_id}.json`);
       } else {
         const extension = format === 'text' ? 'txt' : 'csv';
@@ -109,6 +116,15 @@ export default function ConversationDetail() {
     }
   };
 
+  // Group reasoning messages when in debug mode for cleaner display
+  // Must be called before early returns to satisfy React hooks rules
+  const processedMessages = useMemo(() => {
+    if (!debugMode || !conversation?.messages) {
+      return null; // Will use regular rendering
+    }
+    return groupReasoningMessages(conversation.messages);
+  }, [debugMode, conversation?.messages]);
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -127,6 +143,20 @@ export default function ConversationDetail() {
       </div>
     );
   }
+
+  /**
+   * Render a single item from the processed messages array
+   */
+  const renderProcessedItem = (item, index) => {
+    if (item.type === 'reasoning_group') {
+      return <GroupedReasoningItem key={`group-${index}`} group={item} debugMode={debugMode} />;
+    }
+    if (item.type === 'standalone_critique') {
+      return <StandaloneCritiqueItem key={`critique-${index}`} item={item} debugMode={debugMode} />;
+    }
+    // Regular message
+    return <MessageItem key={`msg-${index}`} message={item.message} debugMode={debugMode} />;
+  };
 
   return (
     <div className="space-y-6">
@@ -160,14 +190,15 @@ export default function ConversationDetail() {
         </CardHeader>
         <CardBody className="p-0">
           <div className="divide-y divide-gray-200">
-            {conversation.messages?.map((message, index) => (
-              <MessageItem key={index} message={message} debugMode={debugMode} />
-            ))}
+            {/* Use grouped messages in debug mode, regular messages otherwise */}
+            {debugMode && processedMessages
+              ? processedMessages.map((item, index) => renderProcessedItem(item, index))
+              : conversation.messages?.map((message, index) => (
+                  <MessageItem key={index} message={message} debugMode={debugMode} />
+                ))}
 
             {(!conversation.messages || conversation.messages.length === 0) && (
-              <div className="p-8 text-center text-gray-500">
-                No messages in this conversation
-              </div>
+              <div className="p-8 text-center text-gray-500">No messages in this conversation</div>
             )}
           </div>
         </CardBody>
@@ -210,7 +241,12 @@ function ConversationHeader({
       <div className="flex items-center gap-4">
         <button onClick={onBack} className="p-2 rounded-lg hover:bg-gray-100">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
         </button>
         <div>
@@ -252,7 +288,12 @@ function DebugToggle({ debugMode, setDebugMode }) {
       }`}
     >
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+        />
       </svg>
       {debugMode ? 'Debug ON' : 'Debug OFF'}
     </button>
@@ -271,8 +312,8 @@ function AutoRefreshToggle({ autoRefresh, setAutoRefresh, isActive }) {
         !isActive
           ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
           : autoRefresh
-          ? 'bg-green-100 text-green-700 hover:bg-green-200'
-          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
       }`}
       title={!isActive ? 'Auto-refresh only available for active conversations' : ''}
     >
@@ -282,7 +323,12 @@ function AutoRefreshToggle({ autoRefresh, setAutoRefresh, isActive }) {
         stroke="currentColor"
         viewBox="0 0 24 24"
       >
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+        />
       </svg>
       {autoRefresh ? 'Auto ON' : 'Auto OFF'}
     </button>
@@ -299,7 +345,12 @@ function RefreshButton({ onRefresh }) {
       className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
     >
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+        />
       </svg>
       Refresh
     </button>
@@ -310,6 +361,16 @@ function RefreshButton({ onRefresh }) {
  * Metadata cards grid
  */
 function MetadataCards({ conversation, formatTokenCount }) {
+  // Use counts from API (always accurate) or fallback to calculating from messages
+  const visibleCount =
+    conversation.visible_message_count ??
+    (conversation.messages || []).filter((m) => !m.message_type || m.message_type === 'visible')
+      .length;
+  const debugCount =
+    conversation.debug_message_count ??
+    (conversation.messages || []).filter((m) => m.message_type && m.message_type !== 'visible')
+      .length;
+
   const cards = [
     { label: 'Client', value: conversation.client_name || 'Unknown' },
     {
@@ -319,7 +380,8 @@ function MetadataCards({ conversation, formatTokenCount }) {
           {conversation.llm_provider || 'ollama'}
           {conversation.model_name && (
             <span className="ml-1 text-gray-500">
-              - {conversation.model_name.length > 20
+              -{' '}
+              {conversation.model_name.length > 20
                 ? conversation.model_name.substring(0, 17) + '...'
                 : conversation.model_name}
             </span>
@@ -327,7 +389,8 @@ function MetadataCards({ conversation, formatTokenCount }) {
         </Badge>
       ),
     },
-    { label: 'Messages', value: conversation.messages?.length || 0 },
+    { label: 'Messages', value: visibleCount, title: 'User and AI visible messages' },
+    { label: 'Debug Messages', value: debugCount, title: 'System, reasoning, tool calls, etc.' },
     { label: 'Tool Calls', value: conversation.tool_executions?.length || 0 },
     {
       label: 'Tokens',
@@ -339,18 +402,18 @@ function MetadataCards({ conversation, formatTokenCount }) {
     },
     {
       label: 'Started',
-      value: conversation.started_at
-        ? new Date(conversation.started_at).toLocaleString()
-        : 'N/A',
+      value: conversation.started_at ? new Date(conversation.started_at).toLocaleString() : 'N/A',
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
       {cards.map((card, index) => (
         <Card key={index}>
           <CardBody className="p-4">
-            <p className="text-sm text-gray-500">{card.label}</p>
+            <p className="text-sm text-gray-500" title={card.title}>
+              {card.label}
+            </p>
             <p className="font-medium text-gray-900">{card.value}</p>
           </CardBody>
         </Card>

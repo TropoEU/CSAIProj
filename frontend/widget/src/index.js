@@ -41,7 +41,7 @@ function getConfigFromScript() {
   };
 
   // Remove null/undefined values
-  Object.keys(config).forEach(key => {
+  Object.keys(config).forEach((key) => {
     if (config[key] === null || config[key] === undefined) {
       delete config[key];
     }

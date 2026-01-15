@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
       SELECT c.*, cl.name as client_name,
         COALESCE(c.llm_provider, cl.llm_provider, 'ollama') as llm_provider,
         COALESCE(c.model_name, cl.model_name) as model_name,
-        (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count,
+        (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND (message_type IS NULL OR message_type = 'visible')) as message_count,
         (SELECT COUNT(*) FROM tool_executions WHERE conversation_id = c.id) as tool_call_count,
         CASE WHEN c.ended_at IS NULL THEN 'active' ELSE 'ended' END as status
       FROM conversations c
@@ -136,6 +136,15 @@ router.get('/:id', async (req, res) => {
       ? await Message.getAllWithDebug(conversation.id, true)
       : await Message.getAll(conversation.id);
 
+    // Always get full message counts for the metadata cards (regardless of debug mode)
+    const allMessages = await Message.getAllWithDebug(conversation.id, true);
+    conversation.visible_message_count = allMessages.filter(
+      (m) => !m.message_type || m.message_type === 'visible'
+    ).length;
+    conversation.debug_message_count = allMessages.filter(
+      (m) => m.message_type && m.message_type !== 'visible'
+    ).length;
+
     let cumulativeTokens = 0;
     conversation.messages = messages.map((msg) => {
       cumulativeTokens += msg.tokens_used || 0;
@@ -249,24 +258,46 @@ router.get('/:id/export', async (req, res) => {
 
       for (const msg of messages) {
         const msgType = msg.message_type || 'visible';
-        const typeLabel = {
-          'visible': '',
-          'system': '[SYSTEM PROMPT]',
-          'tool_call': '[TOOL CALL]',
-          'tool_result': '[TOOL RESULT]',
-          'internal': '[INTERNAL]',
-        }[msgType] || `[${msgType.toUpperCase()}]`;
+        const typeLabel =
+          {
+            visible: '[VISIBLE]',
+            system: '[SYSTEM PROMPT]',
+            tool_call: '[TOOL CALL]',
+            tool_result: '[TOOL RESULT]',
+            internal: '[INTERNAL]',
+            assessment: '[REASONING]',
+            critique: '[CRITIQUE]',
+          }[msgType] || `[${msgType.toUpperCase()}]`;
 
         const roleLabel = msg.role.toUpperCase();
         const timestamp = new Date(msg.timestamp || msg.created_at).toISOString();
 
         text += `--- ${roleLabel} ${typeLabel} (${timestamp}) ---\n`;
 
-        if (msg.metadata) {
-          text += `Metadata: ${JSON.stringify(msg.metadata, null, 2)}\n`;
+        const content = msg.content || '(no content)';
+
+        // For exports, always include full content (including JSON)
+        // Try to pretty-print JSON for readability
+        let displayContent = content;
+        if (content.startsWith('{') || content.startsWith('[')) {
+          try {
+            const parsed = JSON.parse(content);
+            displayContent = JSON.stringify(parsed, null, 2);
+          } catch {
+            // Not valid JSON, show as-is
+          }
         }
 
-        text += `${msg.content || '(no content)'}\n`;
+        // Include metadata if present and different from content
+        if (msg.metadata) {
+          const metadataStr = JSON.stringify(msg.metadata, null, 2);
+          // Only show metadata if it adds information not already in content
+          if (metadataStr !== displayContent && metadataStr !== '{}') {
+            text += `Metadata: ${metadataStr}\n`;
+          }
+        }
+
+        text += `${displayContent}\n`;
         text += `Tokens: ${msg.tokens_used || 0}\n`;
         text += '\n';
       }
@@ -290,23 +321,29 @@ router.get('/:id/export', async (req, res) => {
       }
 
       res.set('Content-Type', 'text/plain; charset=utf-8');
-      res.set('Content-Disposition', `attachment; filename="conversation-${conversation.session_id}.txt"`);
+      res.set(
+        'Content-Disposition',
+        `attachment; filename="conversation-${conversation.session_id}.txt"`
+      );
       res.send(text);
-
     } else if (format === 'csv') {
       // CSV format
       const headers = 'timestamp,role,message_type,content,tokens,metadata\n';
-      const rows = messages.map(msg => {
-        const timestamp = new Date(msg.timestamp || msg.created_at).toISOString();
-        const content = (msg.content || '').replace(/"/g, '""').replace(/\n/g, '\\n');
-        const metadata = msg.metadata ? JSON.stringify(msg.metadata).replace(/"/g, '""') : '';
-        return `"${timestamp}","${msg.role}","${msg.message_type || 'visible'}","${content}",${msg.tokens_used || 0},"${metadata}"`;
-      }).join('\n');
+      const rows = messages
+        .map((msg) => {
+          const timestamp = new Date(msg.timestamp || msg.created_at).toISOString();
+          const content = (msg.content || '').replace(/"/g, '""').replace(/\n/g, '\\n');
+          const metadata = msg.metadata ? JSON.stringify(msg.metadata).replace(/"/g, '""') : '';
+          return `"${timestamp}","${msg.role}","${msg.message_type || 'visible'}","${content}",${msg.tokens_used || 0},"${metadata}"`;
+        })
+        .join('\n');
 
       res.set('Content-Type', 'text/csv; charset=utf-8');
-      res.set('Content-Disposition', `attachment; filename="conversation-${conversation.session_id}.csv"`);
+      res.set(
+        'Content-Disposition',
+        `attachment; filename="conversation-${conversation.session_id}.csv"`
+      );
       res.send(headers + rows);
-
     } else {
       // JSON format (default)
       const response = {
@@ -320,7 +357,7 @@ router.get('/:id/export', async (req, res) => {
           ended_at: conversation.ended_at,
           debug_mode: includeDebug,
         },
-        messages: messages.map(msg => ({
+        messages: messages.map((msg) => ({
           timestamp: msg.timestamp || msg.created_at,
           role: msg.role,
           message_type: msg.message_type || 'visible',
@@ -333,7 +370,7 @@ router.get('/:id/export', async (req, res) => {
 
       // Only include separate tool_executions in non-debug mode (debug mode has inline tool data)
       if (!includeDebug) {
-        response.tool_executions = toolExecutions.map(exec => ({
+        response.tool_executions = toolExecutions.map((exec) => ({
           tool_name: exec.tool_name,
           status: exec.status,
           timestamp: exec.timestamp,

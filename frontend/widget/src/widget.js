@@ -191,7 +191,7 @@ export class ChatWidget {
     const r = clamp((num >> 16) + amount);
     const g = clamp(((num >> 8) & 0x00ff) + amount);
     const b = clamp((num & 0x0000ff) + amount);
-    return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`;
+    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
   }
 
   /**
@@ -203,7 +203,7 @@ export class ChatWidget {
       ...this.config,
       language: this.language,
       translations: this.translations,
-      isRTL: isRTL(this.language)
+      isRTL: isRTL(this.language),
     };
 
     // Create chat bubble
@@ -252,8 +252,8 @@ export class ChatWidget {
       const cachedMessages = this.storage.getMessages();
       if (cachedMessages && cachedMessages.length > 0) {
         // Filter out system messages from cache (safety check)
-        const filteredMessages = cachedMessages.filter(msg => 
-          msg.role === 'user' || msg.role === 'assistant'
+        const filteredMessages = cachedMessages.filter(
+          (msg) => msg.role === 'user' || msg.role === 'assistant'
         );
         if (filteredMessages.length > 0) {
           this.window.loadMessages(filteredMessages);
@@ -266,7 +266,7 @@ export class ChatWidget {
 
       // If no cached messages, try to fetch from API
       const historyData = await this.api.getHistory(this.sessionId);
-      
+
       // Check if conversation has ended
       if (historyData.conversationEnded) {
         console.log('ChatWidget: Previous conversation has ended, starting new session');
@@ -279,12 +279,12 @@ export class ChatWidget {
       const messages = historyData.messages || [];
       if (messages && messages.length > 0) {
         // Filter out system and tool messages (safety check)
-        const filteredMessages = messages.filter(msg => 
-          msg.role === 'user' || msg.role === 'assistant'
+        const filteredMessages = messages.filter(
+          (msg) => msg.role === 'user' || msg.role === 'assistant'
         );
-        
+
         // Convert API format to widget format
-        const formattedMessages = filteredMessages.map(msg => ({
+        const formattedMessages = filteredMessages.map((msg) => ({
           role: msg.role,
           content: msg.content,
           timestamp: new Date(msg.created_at),
@@ -387,20 +387,21 @@ export class ChatWidget {
     try {
       await this.api.endSession(this.sessionId);
       console.log('ChatWidget: Conversation ended successfully');
-      
+
       // Mark conversation as ended visually
       this.markConversationEnded();
-      
+
       // Start a new session for future messages (but don't clear current messages)
       const oldSessionId = this.sessionId;
       this.sessionId = this.storage.generateSessionId();
       this.storage.set('sessionId', this.sessionId);
       this.endedSessionId = oldSessionId;
-      
+
       // Show a message to the user
       const endMessage = {
         role: 'assistant',
-        content: this.translations.conversationEnded || 'Conversation ended. How can I help you today?',
+        content:
+          this.translations.conversationEnded || 'Conversation ended. How can I help you today?',
         timestamp: new Date(),
       };
       this.window.addMessage(endMessage);
@@ -485,7 +486,6 @@ export class ChatWidget {
 
       // Clear pending message
       this.pendingMessage = null;
-
     } catch (error) {
       console.error('ChatWidget: Failed to send message', error);
 
@@ -495,8 +495,14 @@ export class ChatWidget {
       // Check if error indicates conversation ended (e.g., 404 or specific error message)
       // If so, start a new session and retry
       const errorMessage = error.message?.toLowerCase() || '';
-      if (errorMessage.includes('conversation ended') || errorMessage.includes('not found') || errorMessage.includes('404')) {
-        console.log('ChatWidget: Conversation appears to have ended, starting new session and retrying');
+      if (
+        errorMessage.includes('conversation ended') ||
+        errorMessage.includes('not found') ||
+        errorMessage.includes('404')
+      ) {
+        console.log(
+          'ChatWidget: Conversation appears to have ended, starting new session and retrying'
+        );
         this.startNewSession();
         // Retry sending the message with new session
         try {
@@ -518,10 +524,7 @@ export class ChatWidget {
 
       // Show error with retry option
       const errorMsg = this.translations.errorSend || 'Failed to send message. Please try again.';
-      this.window.showError(
-        errorMsg,
-        () => this.retryLastMessage()
-      );
+      this.window.showError(errorMsg, () => this.retryLastMessage());
     } finally {
       // Re-enable input
       this.window.enableInput();

@@ -58,7 +58,9 @@ class EscalationService {
         triggerMessageId
       );
 
-      console.log(`[Escalation] Created escalation ${escalation.id} for conversation ${conversationId}, reason: ${reason}`);
+      console.log(
+        `[Escalation] Created escalation ${escalation.id} for conversation ${conversationId}, reason: ${reason}`
+      );
 
       // Send notifications
       await this.sendNotifications(escalation, client, conversation);
@@ -82,7 +84,9 @@ class EscalationService {
     const escalationConfig = client.escalation_config || {};
     const notificationMethod = escalationConfig.notification_method || 'email';
 
-    console.log(`[Escalation] Sending ${notificationMethod} notification for escalation ${escalation.id}`);
+    console.log(
+      `[Escalation] Sending ${notificationMethod} notification for escalation ${escalation.id}`
+    );
 
     try {
       if (notificationMethod === 'email' || notificationMethod === 'both') {
@@ -97,7 +101,10 @@ class EscalationService {
         await this.sendSMSNotification(escalation, client, conversation, escalationConfig);
       }
     } catch (error) {
-      console.error(`[Escalation] Error sending notifications for escalation ${escalation.id}:`, error);
+      console.error(
+        `[Escalation] Error sending notifications for escalation ${escalation.id}:`,
+        error
+      );
       // Don't throw - escalation is created even if notification fails
     }
   }
@@ -122,7 +129,7 @@ class EscalationService {
     console.log('[Escalation] Email notification content:', {
       to: email,
       subject: `Customer Needs Help - ${client.name}`,
-      body: emailContent
+      body: emailContent,
     });
 
     // Note: Escalation remains in 'pending' status until manually acknowledged
@@ -147,7 +154,7 @@ class EscalationService {
 
     console.log('[Escalation] WhatsApp notification content:', {
       to: phone,
-      message
+      message,
     });
   }
 
@@ -169,7 +176,7 @@ class EscalationService {
 
     console.log('[Escalation] SMS notification content:', {
       to: phone,
-      message
+      message,
     });
   }
 
@@ -182,7 +189,7 @@ class EscalationService {
       user_requested: 'Customer requested human assistance',
       ai_stuck: 'AI unable to help customer',
       low_confidence: 'AI confidence too low',
-      explicit_trigger: 'Explicit escalation trigger'
+      explicit_trigger: 'Explicit escalation trigger',
     };
 
     const reason = reasonText[escalation.reason] || 'Unknown reason';
@@ -285,7 +292,9 @@ This is an automated notification from your AI Customer Service platform.
 
       // Check for explicit user request
       if (this.detectExplicitRequest(userMessage, language)) {
-        console.log(`[Escalation] Explicit escalation request detected in conversation ${conversationId}`);
+        console.log(
+          `[Escalation] Explicit escalation request detected in conversation ${conversationId}`
+        );
         return await this.escalate(conversationId, 'user_requested');
       }
 

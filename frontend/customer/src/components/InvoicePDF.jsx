@@ -137,7 +137,13 @@ export const InvoicePDF = ({ invoice, clientName }) => {
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+            }}
+          >
             <View>
               <Text style={styles.title}>INVOICE</Text>
               <Text style={styles.subtitle}>Invoice #{invoice.invoiceNumber}</Text>
@@ -193,12 +199,14 @@ export const InvoicePDF = ({ invoice, clientName }) => {
         {/* Payment Status */}
         {invoice.status === 'paid' && invoice.paidAt && (
           <View style={styles.section}>
-            <View style={{
-              backgroundColor: '#e8f5e9',
-              padding: 12,
-              borderRadius: 4,
-              border: '1 solid #4CAF50',
-            }}>
+            <View
+              style={{
+                backgroundColor: '#e8f5e9',
+                padding: 12,
+                borderRadius: 4,
+                border: '1 solid #4CAF50',
+              }}
+            >
               <Text style={{ color: '#2e7d32', fontSize: 11, fontWeight: 'bold' }}>
                 ✓ Payment Received
               </Text>
@@ -211,12 +219,14 @@ export const InvoicePDF = ({ invoice, clientName }) => {
 
         {invoice.status === 'pending' && (
           <View style={styles.section}>
-            <View style={{
-              backgroundColor: '#fff3e0',
-              padding: 12,
-              borderRadius: 4,
-              border: '1 solid #FF9800',
-            }}>
+            <View
+              style={{
+                backgroundColor: '#fff3e0',
+                padding: 12,
+                borderRadius: 4,
+                border: '1 solid #FF9800',
+              }}
+            >
               <Text style={{ color: '#e65100', fontSize: 11, fontWeight: 'bold' }}>
                 Payment Pending
               </Text>
@@ -234,12 +244,13 @@ export const InvoicePDF = ({ invoice, clientName }) => {
             For questions or support, please contact your account administrator.
           </Text>
           <Text style={{ marginTop: 8 }}>
-            Generated on {new Date().toLocaleDateString('en-US', {
+            Generated on{' '}
+            {new Date().toLocaleDateString('en-US', {
               year: 'numeric',
               month: 'long',
               day: 'numeric',
               hour: '2-digit',
-              minute: '2-digit'
+              minute: '2-digit',
             })}
           </Text>
         </View>

@@ -13,29 +13,29 @@ const DANGEROUS_PROPS = ['__proto__', 'constructor', 'prototype'];
  * @returns {*} A new cleaned object
  */
 function cleanObject(obj) {
-    // Handle primitives and null
-    if (obj === null || typeof obj !== 'object') {
-        return obj;
-    }
+  // Handle primitives and null
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
 
-    // Handle arrays
-    if (Array.isArray(obj)) {
-        return obj.map(item => cleanObject(item));
-    }
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    return obj.map((item) => cleanObject(item));
+  }
 
-    // Handle objects - create a new clean object with normal prototype
-    const cleaned = {};
-    for (const key in obj) {
-        // Only copy own properties, not inherited ones
-        if (Object.prototype.hasOwnProperty.call(obj, key)) {
-            // Skip dangerous properties to prevent prototype pollution
-            if (!DANGEROUS_PROPS.includes(key)) {
-                cleaned[key] = cleanObject(obj[key]);
-            }
-        }
+  // Handle objects - create a new clean object with normal prototype
+  const cleaned = {};
+  for (const key in obj) {
+    // Only copy own properties, not inherited ones
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      // Skip dangerous properties to prevent prototype pollution
+      if (!DANGEROUS_PROPS.includes(key)) {
+        cleaned[key] = cleanObject(obj[key]);
+      }
     }
+  }
 
-    return cleaned;
+  return cleaned;
 }
 
 /**
@@ -45,27 +45,27 @@ function cleanObject(obj) {
  * @returns {*} Parsed object or fallback
  */
 export function safeJsonParse(value, fallback = null) {
-    if (value === null || value === undefined) {
-        return fallback;
-    }
+  if (value === null || value === undefined) {
+    return fallback;
+  }
 
-    // If already an object, clean and return it
-    if (typeof value === 'object') {
-        return cleanObject(value);
-    }
+  // If already an object, clean and return it
+  if (typeof value === 'object') {
+    return cleanObject(value);
+  }
 
-    // If not a string, return fallback
-    if (typeof value !== 'string') {
-        return fallback;
-    }
+  // If not a string, return fallback
+  if (typeof value !== 'string') {
+    return fallback;
+  }
 
-    try {
-        const parsed = JSON.parse(value);
-        // Prevent prototype pollution attacks by cleaning the parsed object
-        return cleanObject(parsed);
-    } catch {
-        return fallback;
-    }
+  try {
+    const parsed = JSON.parse(value);
+    // Prevent prototype pollution attacks by cleaning the parsed object
+    return cleanObject(parsed);
+  } catch {
+    return fallback;
+  }
 }
 
 /**
@@ -76,14 +76,14 @@ export function safeJsonParse(value, fallback = null) {
  * @returns {*} The value at the key or fallback
  */
 export function safeJsonGet(value, key, fallback = null) {
-    // Don't allow extraction of dangerous properties
-    if (DANGEROUS_PROPS.includes(key)) {
-        return fallback;
-    }
+  // Don't allow extraction of dangerous properties
+  if (DANGEROUS_PROPS.includes(key)) {
+    return fallback;
+  }
 
-    const parsed = safeJsonParse(value, null);
-    if (parsed === null || typeof parsed !== 'object') {
-        return fallback;
-    }
-    return parsed[key] !== undefined ? parsed[key] : fallback;
+  const parsed = safeJsonParse(value, null);
+  if (parsed === null || typeof parsed !== 'object') {
+    return fallback;
+  }
+  return parsed[key] !== undefined ? parsed[key] : fallback;
 }

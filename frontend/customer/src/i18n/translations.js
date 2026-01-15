@@ -38,7 +38,7 @@ export const translations = {
     dashboard: {
       title: 'Dashboard',
       welcome: 'Welcome back',
-      overview: 'Here\'s an overview of your account activity',
+      overview: "Here's an overview of your account activity",
       accountInfo: 'Account Information',
       accountName: 'Account Name',
       conversations: 'Conversations',
@@ -52,7 +52,7 @@ export const translations = {
       status: 'Account Status',
       active: 'Active',
       inactive: 'Inactive',
-      todayActivity: 'Today\'s Activity',
+      todayActivity: "Today's Activity",
       messages: 'Messages',
       recentActivity: 'Recent Activity (Last 60 Days)',
       recentConversations: 'Recent Conversations',
@@ -183,6 +183,10 @@ export const translations = {
       successRate: 'Success Rate',
       avgTime: 'Avg Time',
       noToolUsage: 'No tool usage data available',
+      aiReasoningMetrics: 'AI Reasoning Metrics (Adaptive Mode)',
+      adaptiveMessages: 'Adaptive Mode Messages',
+      critiqueTriggers: 'Critique Triggers',
+      contextFetches: 'Context Fetches',
     },
 
     // Settings page
@@ -510,6 +514,10 @@ export const translations = {
       successRate: 'אחוז הצלחה',
       avgTime: 'זמן ממוצע',
       noToolUsage: 'אין נתוני שימוש בכלים',
+      aiReasoningMetrics: 'מדדי חשיבה של AI (מצב אדפטיבי)',
+      adaptiveMessages: 'הודעות במצב אדפטיבי',
+      critiqueTriggers: 'הפעלות ביקורת',
+      contextFetches: 'שליפות הקשר',
     },
 
     // Settings page
@@ -519,7 +527,7 @@ export const translations = {
       languageTab: 'שפה',
       aiTab: 'התנהגות AI',
       language: 'שפה',
-      languageDesc: 'בחר את השפה המועדפת עליך ללוח הבקרה ולווידג\'ט הצ\'אט',
+      languageDesc: "בחר את השפה המועדפת עליך ללוח הבקרה ולווידג'ט הצ'אט",
       english: 'English',
       hebrew: 'עברית',
       save: 'שמור הגדרות',
@@ -544,12 +552,12 @@ export const translations = {
       toneOptions: {
         friendly: 'ידידותי',
         professional: 'מקצועי',
-        casual: 'קז\'ואלי',
+        casual: "קז'ואלי",
       },
       maxSentences: 'מקסימום משפטים',
       formality: 'פורמליות',
       formalityOptions: {
-        casual: 'קז\'ואלי',
+        casual: "קז'ואלי",
         neutral: 'ניטרלי',
         formal: 'פורמלי',
       },

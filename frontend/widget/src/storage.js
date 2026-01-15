@@ -152,6 +152,6 @@ export class WidgetStorage {
     if (!this.isAvailable) return;
 
     const keys = ['sessionId', 'messages', 'widgetOpen', 'unreadCount'];
-    keys.forEach(key => this.remove(key));
+    keys.forEach((key) => this.remove(key));
   }
 }

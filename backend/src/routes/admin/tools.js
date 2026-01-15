@@ -28,12 +28,29 @@ router.get('/', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
-    const { toolName, description, parametersSchema, category, requiredIntegrations, capabilities } =
-      req.body;
+    const {
+      toolName,
+      description,
+      parametersSchema,
+      category,
+      requiredIntegrations,
+      capabilities,
+      isDestructive,
+      requiresConfirmation,
+      maxConfidence,
+    } = req.body;
 
     if (!toolName || !description) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Tool name and description are required' });
+      return res
+        .status(HTTP_STATUS.BAD_REQUEST)
+        .json({ error: 'Tool name and description are required' });
     }
+
+    const riskSettings = {
+      isDestructive: isDestructive ?? false,
+      requiresConfirmation: requiresConfirmation ?? false,
+      maxConfidence: maxConfidence ?? 7,
+    };
 
     const tool = await Tool.create(
       toolName,
@@ -41,7 +58,8 @@ router.post('/', async (req, res) => {
       parametersSchema || {},
       category || null,
       requiredIntegrations || [],
-      capabilities || null
+      capabilities || null,
+      riskSettings
     );
     res.status(HTTP_STATUS.CREATED).json(tool);
   } catch (error) {
@@ -56,8 +74,17 @@ router.post('/', async (req, res) => {
  */
 router.put('/:id', async (req, res) => {
   try {
-    const { toolName, description, parametersSchema, category, requiredIntegrations, capabilities } =
-      req.body;
+    const {
+      toolName,
+      description,
+      parametersSchema,
+      category,
+      requiredIntegrations,
+      capabilities,
+      isDestructive,
+      requiresConfirmation,
+      maxConfidence,
+    } = req.body;
     const updates = {};
 
     // Use !== undefined to allow empty strings and null values
@@ -67,10 +94,15 @@ router.put('/:id', async (req, res) => {
     if (category !== undefined) updates.category = category;
     if (requiredIntegrations !== undefined) updates.required_integrations = requiredIntegrations;
     if (capabilities !== undefined) updates.capabilities = capabilities;
+    if (isDestructive !== undefined) updates.is_destructive = isDestructive;
+    if (requiresConfirmation !== undefined) updates.requires_confirmation = requiresConfirmation;
+    if (maxConfidence !== undefined) updates.max_confidence = maxConfidence;
 
     // Check if there are any updates to make
     if (Object.keys(updates).length === 0) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'No valid fields provided for update' });
+      return res
+        .status(HTTP_STATUS.BAD_REQUEST)
+        .json({ error: 'No valid fields provided for update' });
     }
 
     const tool = await Tool.update(req.params.id, updates);
@@ -89,7 +121,9 @@ router.put('/:id', async (req, res) => {
     res.json(tool);
   } catch (error) {
     console.error('[Admin] Update tool error:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: error.message || 'Failed to update tool' });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: error.message || 'Failed to update tool' });
   }
 });
 
@@ -142,7 +176,9 @@ router.post('/:id/test', async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('[Admin] Test tool error:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Tool test failed', message: error.message });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Tool test failed', message: error.message });
   }
 });
 
@@ -173,7 +209,9 @@ router.post('/clients/:clientId/tools', async (req, res) => {
     const { toolId, webhookUrl, integrationMapping } = req.body;
 
     if (!toolId || !webhookUrl) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Tool ID and webhook URL are required' });
+      return res
+        .status(HTTP_STATUS.BAD_REQUEST)
+        .json({ error: 'Tool ID and webhook URL are required' });
     }
 
     const clientTool = await ClientTool.enable(
@@ -247,7 +285,9 @@ router.post('/clients/:clientId/tools/:id/test', async (req, res) => {
     }
 
     if (!clientTool.n8n_webhook_url) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Tool has no webhook URL configured' });
+      return res
+        .status(HTTP_STATUS.BAD_REQUEST)
+        .json({ error: 'Tool has no webhook URL configured' });
     }
 
     const tool = await Tool.findById(toolId);
@@ -274,7 +314,9 @@ router.post('/clients/:clientId/tools/:id/test', async (req, res) => {
           integrationMapping,
           requiredIntegrations
         );
-        console.log(`[Admin] Loaded ${Object.keys(integrations).length} integrations for tool test`);
+        console.log(
+          `[Admin] Loaded ${Object.keys(integrations).length} integrations for tool test`
+        );
       } catch (intError) {
         return res.status(HTTP_STATUS.BAD_REQUEST).json({
           success: false,

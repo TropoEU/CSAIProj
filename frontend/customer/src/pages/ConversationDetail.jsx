@@ -38,12 +38,13 @@ export default function ConversationDetail() {
   if (error) {
     return (
       <div className="space-y-4">
-        <Link to="/conversations" className="text-primary-600 hover:text-primary-700 text-sm font-medium inline-flex items-center gap-1">
+        <Link
+          to="/conversations"
+          className="text-primary-600 hover:text-primary-700 text-sm font-medium inline-flex items-center gap-1"
+        >
           {isRTL ? '→' : '←'} {t('conversationDetail.backToConversations')}
         </Link>
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-          {error}
-        </div>
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{error}</div>
       </div>
     );
   }
@@ -54,7 +55,10 @@ export default function ConversationDetail() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <Link to="/conversations" className="text-primary-600 hover:text-primary-700 text-sm font-medium mb-4 inline-flex items-center gap-1">
+        <Link
+          to="/conversations"
+          className="text-primary-600 hover:text-primary-700 text-sm font-medium mb-4 inline-flex items-center gap-1"
+        >
           {isRTL ? '→' : '←'} {t('conversationDetail.backToConversations')}
         </Link>
         <h1 className="text-3xl font-bold text-gray-900">{t('conversationDetail.title')}</h1>
@@ -70,24 +74,28 @@ export default function ConversationDetail() {
           </div>
           <div>
             <p className="text-sm text-gray-600">{t('conversationDetail.status')}</p>
-            <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-              conversation?.endedAt
-                ? 'bg-gray-200 text-gray-700'
-                : 'bg-green-100 text-green-700'
-            }`}>
+            <span
+              className={`inline-block px-2 py-1 text-xs rounded-full ${
+                conversation?.endedAt ? 'bg-gray-200 text-gray-700' : 'bg-green-100 text-green-700'
+              }`}
+            >
               {conversation?.endedAt ? t('conversations.ended') : t('conversations.active')}
             </span>
           </div>
           <div>
             <p className="text-sm text-gray-600">{t('conversationDetail.started')}</p>
             <p className="text-sm text-gray-900">
-              {conversation?.startedAt ? formatDate(conversation.startedAt, { hour: 'numeric', minute: 'numeric' }) : 'N/A'}
+              {conversation?.startedAt
+                ? formatDate(conversation.startedAt, { hour: 'numeric', minute: 'numeric' })
+                : 'N/A'}
             </p>
           </div>
           <div>
             <p className="text-sm text-gray-600">{t('conversationDetail.ended')}</p>
             <p className="text-sm text-gray-900">
-              {conversation?.endedAt ? formatDate(conversation.endedAt, { hour: 'numeric', minute: 'numeric' }) : t('conversationDetail.stillActive')}
+              {conversation?.endedAt
+                ? formatDate(conversation.endedAt, { hour: 'numeric', minute: 'numeric' })
+                : t('conversationDetail.stillActive')}
             </p>
           </div>
           <div>
@@ -114,37 +122,51 @@ export default function ConversationDetail() {
         <h2 className="text-lg font-semibold mb-4">{t('conversations.messages')}</h2>
         <div className="space-y-4">
           {messages && messages.length > 0 ? (
-            messages.map((msg, idx) => (
+            messages.map((msg) => (
               <div
                 key={msg.id}
                 className={`p-4 rounded-lg ${
                   msg.role === 'user'
                     ? 'bg-primary-50 border border-primary-200'
                     : msg.role === 'assistant'
-                    ? 'bg-gray-50 border border-gray-200'
-                    : 'bg-yellow-50 border border-yellow-200'
+                      ? 'bg-gray-50 border border-gray-200'
+                      : 'bg-yellow-50 border border-yellow-200'
                 }`}
               >
                 <div className="flex items-start justify-between mb-2">
                   <span className="text-xs font-medium uppercase text-gray-600">
-                    {msg.role === 'user' ? t('conversationDetail.user') : msg.role === 'assistant' ? t('conversationDetail.assistant') : msg.role}
+                    {msg.role === 'user'
+                      ? t('conversationDetail.user')
+                      : msg.role === 'assistant'
+                        ? t('conversationDetail.assistant')
+                        : msg.role}
                   </span>
                   <span className="text-xs text-gray-500">
-                    {formatDate(msg.timestamp, { hour: 'numeric', minute: 'numeric', second: 'numeric' })}
+                    {formatDate(msg.timestamp, {
+                      hour: 'numeric',
+                      minute: 'numeric',
+                      second: 'numeric',
+                    })}
                   </span>
                 </div>
                 <p className="text-sm text-gray-900 whitespace-pre-wrap">{msg.content}</p>
                 {msg.tokens > 0 && (
                   <div className="mt-2 text-xs text-gray-500">
-                    {t('conversationDetail.tokens')}: {formatNumber(msg.tokens)} | {t('conversationDetail.cumulative')}: {formatNumber(msg.tokensCumulative)}
+                    {t('conversationDetail.tokens')}: {formatNumber(msg.tokens)} |{' '}
+                    {t('conversationDetail.cumulative')}: {formatNumber(msg.tokensCumulative)}
                   </div>
                 )}
                 {msg.toolsCalled && msg.toolsCalled.length > 0 && (
                   <div className="mt-2">
-                    <p className="text-xs font-medium text-gray-600 mb-1">{t('conversationDetail.toolsCalled')}:</p>
+                    <p className="text-xs font-medium text-gray-600 mb-1">
+                      {t('conversationDetail.toolsCalled')}:
+                    </p>
                     <div className="flex flex-wrap gap-1">
                       {msg.toolsCalled.map((tool, i) => (
-                        <span key={i} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
+                        <span
+                          key={i}
+                          className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs"
+                        >
                           {tool}
                         </span>
                       ))}
@@ -169,28 +191,44 @@ export default function ConversationDetail() {
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <p className="font-medium text-gray-900">{te.toolName}</p>
-                    <p className="text-xs text-gray-500">{formatDate(te.executedAt, { hour: 'numeric', minute: 'numeric' })}</p>
+                    <p className="text-xs text-gray-500">
+                      {formatDate(te.executedAt, { hour: 'numeric', minute: 'numeric' })}
+                    </p>
                   </div>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    te.status === 'success'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-red-100 text-red-700'
-                  }`}>
-                    {te.status === 'success' ? t('conversationDetail.success') : t('conversationDetail.failed')}
+                  <span
+                    className={`px-2 py-1 text-xs rounded-full ${
+                      te.status === 'success'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-red-100 text-red-700'
+                    }`}
+                  >
+                    {te.status === 'success'
+                      ? t('conversationDetail.success')
+                      : t('conversationDetail.failed')}
                   </span>
                 </div>
 
                 <div className="mt-3 space-y-2">
                   <div>
-                    <p className="text-xs font-medium text-gray-600 mb-1">{t('conversationDetail.input')}:</p>
-                    <pre className="text-xs bg-white p-2 rounded border border-gray-200 overflow-x-auto" dir="ltr">
+                    <p className="text-xs font-medium text-gray-600 mb-1">
+                      {t('conversationDetail.input')}:
+                    </p>
+                    <pre
+                      className="text-xs bg-white p-2 rounded border border-gray-200 overflow-x-auto"
+                      dir="ltr"
+                    >
                       {JSON.stringify(te.inputParams, null, 2)}
                     </pre>
                   </div>
 
                   <div>
-                    <p className="text-xs font-medium text-gray-600 mb-1">{t('conversationDetail.result')}:</p>
-                    <pre className="text-xs bg-white p-2 rounded border border-gray-200 overflow-x-auto max-h-40" dir="ltr">
+                    <p className="text-xs font-medium text-gray-600 mb-1">
+                      {t('conversationDetail.result')}:
+                    </p>
+                    <pre
+                      className="text-xs bg-white p-2 rounded border border-gray-200 overflow-x-auto max-h-40"
+                      dir="ltr"
+                    >
                       {JSON.stringify(te.result, null, 2)}
                     </pre>
                   </div>

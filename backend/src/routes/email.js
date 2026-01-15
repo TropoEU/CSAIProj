@@ -20,11 +20,12 @@ const router = express.Router();
  * This is a ONE-TIME setup to get tokens for transactional emails
  */
 router.get('/platform/authorize', (req, res) => {
-    const authUrl = gmailService.getAuthorizationUrl('platform');
-    res.json({
-        authUrl,
-        instructions: 'Visit this URL to authorize the platform email account. After authorization, copy the tokens from the callback response.'
-    });
+  const authUrl = gmailService.getAuthorizationUrl('platform');
+  res.json({
+    authUrl,
+    instructions:
+      'Visit this URL to authorize the platform email account. After authorization, copy the tokens from the callback response.',
+  });
 });
 
 /**
@@ -33,41 +34,41 @@ router.get('/platform/authorize', (req, res) => {
  * Returns the tokens that need to be added to .env
  */
 router.get('/platform/callback', async (req, res) => {
-    try {
-        const { code, error } = req.query;
+  try {
+    const { code, error } = req.query;
 
-        if (error) {
-            return res.status(HTTP_STATUS.BAD_REQUEST).json({ error });
-        }
+    if (error) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error });
+    }
 
-        if (!code) {
-            return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'No authorization code provided' });
-        }
+    if (!code) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'No authorization code provided' });
+    }
 
-        // Exchange code for tokens
-        const tokens = await gmailService.getTokensFromCode(code);
-        const email = await gmailService.getEmailAddress(tokens);
+    // Exchange code for tokens
+    const tokens = await gmailService.getTokensFromCode(code);
+    const email = await gmailService.getEmailAddress(tokens);
 
-        // Return the tokens to be added to .env
-        res.json({
-            success: true,
-            message: 'Add these to your backend/.env file:',
-            env_variables: {
-                PLATFORM_EMAIL: email,
-                PLATFORM_EMAIL_ACCESS_TOKEN: tokens.access_token,
-                PLATFORM_EMAIL_REFRESH_TOKEN: tokens.refresh_token,
-            },
-            copy_paste: `
+    // Return the tokens to be added to .env
+    res.json({
+      success: true,
+      message: 'Add these to your backend/.env file:',
+      env_variables: {
+        PLATFORM_EMAIL: email,
+        PLATFORM_EMAIL_ACCESS_TOKEN: tokens.access_token,
+        PLATFORM_EMAIL_REFRESH_TOKEN: tokens.refresh_token,
+      },
+      copy_paste: `
 # Platform Email Configuration (add to backend/.env)
 PLATFORM_EMAIL=${email}
 PLATFORM_EMAIL_ACCESS_TOKEN=${tokens.access_token}
 PLATFORM_EMAIL_REFRESH_TOKEN=${tokens.refresh_token}
-            `.trim()
-        });
-    } catch (error) {
-        console.error('[Platform Email] OAuth callback error:', error);
-        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: error.message });
-    }
+            `.trim(),
+    });
+  } catch (error) {
+    console.error('[Platform Email] OAuth callback error:', error);
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: error.message });
+  }
 });
 
 /**
@@ -76,89 +77,99 @@ PLATFORM_EMAIL_REFRESH_TOKEN=${tokens.refresh_token}
  * Body: { to, type: 'access_code' | 'welcome' | 'custom', clientId?, subject?, body? }
  */
 router.post('/platform/test', authenticateAdmin, async (req, res) => {
-    try {
-        const { to, type, clientId, subject, body } = req.body;
+  try {
+    const { to, type, clientId, subject, body } = req.body;
 
-        if (!to) {
-            return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Recipient email (to) is required' });
-        }
-
-        let result;
-
-        if (type === 'access_code' && clientId) {
-            // Send access code email
-            const client = await Client.findById(clientId);
-            if (!client) {
-                return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
-            }
-            result = await transactionalEmailService.sendAccessCode(
-                to,
-                client.name,
-                client.access_code || 'TEST123'
-            );
-        } else if (type === 'welcome' && clientId) {
-            // Send welcome email
-            const client = await Client.findById(clientId);
-            if (!client) {
-                return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
-            }
-            result = await transactionalEmailService.sendWelcomeEmail(
-                to,
-                client.name,
-                client.api_key
-            );
-        } else if (type === 'custom' && subject && body) {
-            // Send custom email
-            result = await transactionalEmailService.sendEmail(to, subject, body);
-        } else if (type === 'invoice') {
-            // Send invoice email
-            const { invoiceId } = req.body;
-            if (!invoiceId) {
-                return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'invoiceId is required for invoice emails' });
-            }
-
-            const invoice = await Invoice.findById(invoiceId);
-            if (!invoice) {
-                return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Invoice not found' });
-            }
-
-            const client = await Client.findById(invoice.client_id);
-            if (!client) {
-                return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
-            }
-
-            // Format invoice data for email template
-            const invoiceData = {
-                invoice_number: `INV-${invoice.id.toString().padStart(6, '0')}`,
-                billing_period_start: invoice.billing_period ? `${invoice.billing_period}-01` : invoice.created_at,
-                billing_period_end: invoice.billing_period ? new Date(new Date(`${invoice.billing_period}-01`).setMonth(new Date(`${invoice.billing_period}-01`).getMonth() + 1) - 1) : invoice.created_at,
-                due_date: invoice.due_date || invoice.created_at,
-                status: invoice.status,
-                total_amount: invoice.total_cost || 0
-            };
-
-            result = await transactionalEmailService.sendInvoice(
-                to,
-                client.name,
-                invoiceData
-            );
-        } else {
-            return res.status(HTTP_STATUS.BAD_REQUEST).json({
-                error: 'Invalid request. Provide: type (access_code/welcome/invoice/custom) with required fields',
-                examples: {
-                    access_code: { to: 'email@example.com', type: 'access_code', clientId: 1 },
-                    welcome: { to: 'email@example.com', type: 'welcome', clientId: 1 },
-                    invoice: { to: 'email@example.com', type: 'invoice', invoiceId: 1 },
-                    custom: { to: 'email@example.com', type: 'custom', subject: 'Test', body: '<p>Hello</p>' }
-                }
-            });
-        }
-
-        res.json(result);
-    } catch (error) {
-        console.error('[Platform Email] Test error:', error);
-        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: error.message });
+    if (!to) {
+      return res
+        .status(HTTP_STATUS.BAD_REQUEST)
+        .json({ error: 'Recipient email (to) is required' });
     }
+
+    let result;
+
+    if (type === 'access_code' && clientId) {
+      // Send access code email
+      const client = await Client.findById(clientId);
+      if (!client) {
+        return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
+      }
+      result = await transactionalEmailService.sendAccessCode(
+        to,
+        client.name,
+        client.access_code || 'TEST123'
+      );
+    } else if (type === 'welcome' && clientId) {
+      // Send welcome email
+      const client = await Client.findById(clientId);
+      if (!client) {
+        return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
+      }
+      result = await transactionalEmailService.sendWelcomeEmail(to, client.name, client.api_key);
+    } else if (type === 'custom' && subject && body) {
+      // Send custom email
+      result = await transactionalEmailService.sendEmail(to, subject, body);
+    } else if (type === 'invoice') {
+      // Send invoice email
+      const { invoiceId } = req.body;
+      if (!invoiceId) {
+        return res
+          .status(HTTP_STATUS.BAD_REQUEST)
+          .json({ error: 'invoiceId is required for invoice emails' });
+      }
+
+      const invoice = await Invoice.findById(invoiceId);
+      if (!invoice) {
+        return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Invoice not found' });
+      }
+
+      const client = await Client.findById(invoice.client_id);
+      if (!client) {
+        return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Client not found' });
+      }
+
+      // Format invoice data for email template
+      const invoiceData = {
+        invoice_number: `INV-${invoice.id.toString().padStart(6, '0')}`,
+        billing_period_start: invoice.billing_period
+          ? `${invoice.billing_period}-01`
+          : invoice.created_at,
+        billing_period_end: invoice.billing_period
+          ? new Date(
+              new Date(`${invoice.billing_period}-01`).setMonth(
+                new Date(`${invoice.billing_period}-01`).getMonth() + 1
+              ) - 1
+            )
+          : invoice.created_at,
+        due_date: invoice.due_date || invoice.created_at,
+        status: invoice.status,
+        total_amount: invoice.total_cost || 0,
+      };
+
+      result = await transactionalEmailService.sendInvoice(to, client.name, invoiceData);
+    } else {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        error:
+          'Invalid request. Provide: type (access_code/welcome/invoice/custom) with required fields',
+        examples: {
+          access_code: { to: 'email@example.com', type: 'access_code', clientId: 1 },
+          welcome: { to: 'email@example.com', type: 'welcome', clientId: 1 },
+          invoice: { to: 'email@example.com', type: 'invoice', invoiceId: 1 },
+          custom: {
+            to: 'email@example.com',
+            type: 'custom',
+            subject: 'Test',
+            body: '<p>Hello</p>',
+          },
+        },
+      });
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('[Platform Email] Test error:', error);
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: error.message });
+  }
 });
 
 /**
@@ -166,22 +177,24 @@ router.post('/platform/test', authenticateAdmin, async (req, res) => {
  * Check if platform email is configured
  */
 router.get('/platform/status', authenticateAdmin, async (req, res) => {
-    try {
-        const config = await PlatformConfig.getPlatformEmail();
-        const isConfigured = config && config.email && config.accessToken;
+  try {
+    const config = await PlatformConfig.getPlatformEmail();
+    const isConfigured = config && config.email && config.accessToken;
 
-        res.json({
-            configured: isConfigured,
-            email: config?.email || null,
-            configuredAt: config?.configuredAt || null,
-            message: isConfigured
-                ? 'Platform email is configured and ready'
-                : 'Platform email not configured. Click "Connect Gmail Account" to set it up.'
-        });
-    } catch (error) {
-        console.error('[Platform Email] Status check error:', error);
-        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to check platform email status' });
-    }
+    res.json({
+      configured: isConfigured,
+      email: config?.email || null,
+      configuredAt: config?.configuredAt || null,
+      message: isConfigured
+        ? 'Platform email is configured and ready'
+        : 'Platform email not configured. Click "Connect Gmail Account" to set it up.',
+    });
+  } catch (error) {
+    console.error('[Platform Email] Status check error:', error);
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to check platform email status' });
+  }
 });
 
 /**
@@ -189,15 +202,17 @@ router.get('/platform/status', authenticateAdmin, async (req, res) => {
  * Disconnect the platform email
  */
 router.delete('/platform/disconnect', authenticateAdmin, async (req, res) => {
-    try {
-        await PlatformConfig.deletePlatformEmail();
-        await transactionalEmailService.refresh();
+  try {
+    await PlatformConfig.deletePlatformEmail();
+    await transactionalEmailService.refresh();
 
-        res.json({ success: true, message: 'Platform email disconnected' });
-    } catch (error) {
-        console.error('[Platform Email] Disconnect error:', error);
-        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to disconnect platform email' });
-    }
+    res.json({ success: true, message: 'Platform email disconnected' });
+  } catch (error) {
+    console.error('[Platform Email] Disconnect error:', error);
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to disconnect platform email' });
+  }
 });
 
 // =====================================================

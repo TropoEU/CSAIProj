@@ -28,7 +28,7 @@ export default function BusinessInfo() {
     return_policy: '',
     shipping_policy: '',
     payment_methods: '',
-    faq: []
+    faq: [],
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -87,32 +87,30 @@ export default function BusinessInfo() {
   };
 
   const handleInputChange = (field, value) => {
-    setBusinessInfo(prev => ({
+    setBusinessInfo((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
   const addFaq = () => {
-    setBusinessInfo(prev => ({
+    setBusinessInfo((prev) => ({
       ...prev,
-      faq: [...prev.faq, { question: '', answer: '' }]
+      faq: [...prev.faq, { question: '', answer: '' }],
     }));
   };
 
   const updateFaq = (index, field, value) => {
-    setBusinessInfo(prev => ({
+    setBusinessInfo((prev) => ({
       ...prev,
-      faq: prev.faq.map((item, i) =>
-        i === index ? { ...item, [field]: value } : item
-      )
+      faq: prev.faq.map((item, i) => (i === index ? { ...item, [field]: value } : item)),
     }));
   };
 
   const removeFaq = (index) => {
-    setBusinessInfo(prev => ({
+    setBusinessInfo((prev) => ({
       ...prev,
-      faq: prev.faq.filter((_, i) => i !== index)
+      faq: prev.faq.filter((_, i) => i !== index),
     }));
   };
 
@@ -121,7 +119,7 @@ export default function BusinessInfo() {
     { id: 'contact', label: 'Contact Info' },
     { id: 'policies', label: 'Policies' },
     { id: 'faq', label: 'FAQs' },
-    { id: 'ai', label: 'AI Instructions' }
+    { id: 'ai', label: 'AI Instructions' },
   ];
 
   if (loading) {
@@ -148,10 +146,7 @@ export default function BusinessInfo() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/clients')}
-            className="p-2 rounded-lg hover:bg-gray-100"
-          >
+          <button onClick={() => navigate('/clients')} className="p-2 rounded-lg hover:bg-gray-100">
             <ArrowLeftIcon className="h-5 w-5" />
           </button>
           <div>
@@ -163,16 +158,10 @@ export default function BusinessInfo() {
           </Badge>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => navigate(`/clients/${id}`)}
-          >
+          <Button variant="secondary" onClick={() => navigate(`/clients/${id}`)}>
             Cancel
           </Button>
-          <Button
-            onClick={handleSave}
-            disabled={saving}
-          >
+          <Button onClick={handleSave} disabled={saving}>
             {saving ? 'Saving...' : 'Save Changes'}
           </Button>
         </div>
@@ -203,23 +192,29 @@ export default function BusinessInfo() {
           </Link>
           <Link
             to={`/clients/${id}?tab=email`}
-            className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
-              'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              />
             </svg>
             Email Channels
           </Link>
           <Link
             to={`/clients/${id}?tab=ai`}
-            className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
-              'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+              />
             </svg>
             AI Behavior
           </Link>
@@ -243,23 +238,25 @@ export default function BusinessInfo() {
       {/* Info Banner */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-blue-800 text-sm">
-          <strong>Note:</strong> This information helps the AI provide accurate, contextual responses about your business.
-          The more details you provide, the better the AI can assist your customers.
+          <strong>Note:</strong> This information helps the AI provide accurate, contextual
+          responses about your business. The more details you provide, the better the AI can assist
+          your customers.
         </p>
       </div>
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
-          {tabs.map(tab => (
+          {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`
                 py-4 px-1 border-b-2 font-medium text-sm transition-colors
-                ${activeTab === tab.id
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ${
+                  activeTab === tab.id
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }
               `}
             >
@@ -450,11 +447,7 @@ export default function BusinessInfo() {
                     Add common questions and answers for the AI to reference
                   </p>
                 </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={addFaq}
-                >
+                <Button variant="secondary" size="sm" onClick={addFaq}>
                   <PlusIcon className="h-4 w-4 mr-1" />
                   Add FAQ
                 </Button>
@@ -465,15 +458,15 @@ export default function BusinessInfo() {
                 {businessInfo.faq.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <p>No FAQs added yet.</p>
-                    <p className="text-sm mt-2">Click "Add FAQ" to create your first question and answer.</p>
+                    <p className="text-sm mt-2">
+                      Click "Add FAQ" to create your first question and answer.
+                    </p>
                   </div>
                 ) : (
                   businessInfo.faq.map((item, index) => (
                     <div key={index} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex items-start justify-between mb-3">
-                        <span className="text-sm font-medium text-gray-700">
-                          FAQ #{index + 1}
-                        </span>
+                        <span className="text-sm font-medium text-gray-700">FAQ #{index + 1}</span>
                         <button
                           onClick={() => removeFaq(index)}
                           className="text-red-600 hover:text-red-800 transition-colors"
@@ -530,8 +523,9 @@ export default function BusinessInfo() {
               <div className="space-y-4">
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <p className="text-yellow-800 text-sm">
-                    <strong>Tip:</strong> Use this to define tone, style, priorities, and specific behaviors.
-                    For example: "Always mention our daily specials" or "Be enthusiastic about our signature product"
+                    <strong>Tip:</strong> Use this to define tone, style, priorities, and specific
+                    behaviors. For example: "Always mention our daily specials" or "Be enthusiastic
+                    about our signature product"
                   </p>
                 </div>
 
@@ -569,12 +563,7 @@ export default function BusinessInfo() {
 
       {/* Floating Save Button (mobile) */}
       <div className="lg:hidden fixed bottom-6 right-6">
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          size="lg"
-          className="shadow-lg"
-        >
+        <Button onClick={handleSave} disabled={saving} size="lg" className="shadow-lg">
           {saving ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>

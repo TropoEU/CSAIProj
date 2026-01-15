@@ -67,21 +67,24 @@ export const tools = {
   delete: (id) => api.delete(`/admin/tools/${id}`),
   getByClient: (clientId) => api.get(`/admin/clients/${clientId}/tools`),
   enableForClient: (clientId, data) => api.post(`/admin/clients/${clientId}/tools`, data),
-  updateForClient: (clientId, toolId, data) => api.put(`/admin/clients/${clientId}/tools/${toolId}`, data),
+  updateForClient: (clientId, toolId, data) =>
+    api.put(`/admin/clients/${clientId}/tools/${toolId}`, data),
   disableForClient: (clientId, toolId) => api.delete(`/admin/clients/${clientId}/tools/${toolId}`),
   test: (toolId, params) => api.post(`/admin/tools/${toolId}/test`, params),
-  testTool: (clientId, toolId, params) => api.post(`/admin/clients/${clientId}/tools/${toolId}/test`, params),
+  testTool: (clientId, toolId, params) =>
+    api.post(`/admin/clients/${clientId}/tools/${toolId}/test`, params),
 };
 
 // Conversation endpoints
 export const conversations = {
   getAll: (params) => api.get('/admin/conversations', { params }),
-  getById: (id, debug = false) => api.get(`/admin/conversations/${id}`, { params: { debug: debug.toString() } }),
+  getById: (id, debug = false) =>
+    api.get(`/admin/conversations/${id}`, { params: { debug: debug.toString() } }),
   export: (params) => api.get('/admin/conversations/export', { params, responseType: 'blob' }),
   exportSingle: (id, format = 'text', debug = true) =>
     api.get(`/admin/conversations/${id}/export`, {
       params: { format, debug: debug.toString() },
-      responseType: format === 'json' ? 'json' : 'blob'
+      responseType: format === 'json' ? 'json' : 'blob',
     }),
   getStats: () => api.get('/admin/stats/conversations'),
 };
@@ -115,7 +118,8 @@ export const testChat = {
 export const billing = {
   getInvoices: (params) => api.get('/admin/billing/invoices', { params }),
   getInvoiceById: (id) => api.get(`/admin/billing/invoices/${id}`),
-  getClientInvoices: (clientId, params) => api.get(`/admin/clients/${clientId}/invoices`, { params }),
+  getClientInvoices: (clientId, params) =>
+    api.get(`/admin/clients/${clientId}/invoices`, { params }),
   generateInvoice: (data) => api.post('/admin/billing/generate', data),
   markAsPaid: (id, data) => api.post(`/admin/billing/invoices/${id}/mark-paid`, data),
   cancelInvoice: (id, data) => api.post(`/admin/billing/invoices/${id}/cancel`, data),
@@ -204,7 +208,8 @@ export const email = {
   // Send a test email
   sendTestEmail: (channelId, data) => api.post(`/email/channel/${channelId}/send-test`, data),
   // Get unread emails (for debugging)
-  getUnreadEmails: (channelId, limit = 10) => api.get(`/email/channel/${channelId}/unread`, { params: { limit } }),
+  getUnreadEmails: (channelId, limit = 10) =>
+    api.get(`/email/channel/${channelId}/unread`, { params: { limit } }),
   // Get email statistics
   getStats: () => api.get('/email/stats'),
 };

@@ -182,15 +182,17 @@ export default function Billing() {
 
   const sendInvoiceEmail = async (invoice) => {
     // Find client to get their email
-    const client = clientList.find(c => c.id === invoice.client_id);
+    const client = clientList.find((c) => c.id === invoice.client_id);
     const clientEmail = client?.email || client?.business_info?.contact_email;
 
     if (!clientEmail) {
-      setError(`No contact email set for ${client?.name || 'this client'}. Add one in the client settings.`);
+      setError(
+        `No contact email set for ${client?.name || 'this client'}. Add one in the client settings.`
+      );
       return;
     }
 
-    setSendingInvoice(prev => ({ ...prev, [invoice.id]: true }));
+    setSendingInvoice((prev) => ({ ...prev, [invoice.id]: true }));
     try {
       await api.post('/email/platform/test', {
         to: clientEmail,
@@ -203,7 +205,7 @@ export default function Billing() {
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to send invoice email');
     } finally {
-      setSendingInvoice(prev => ({ ...prev, [invoice.id]: false }));
+      setSendingInvoice((prev) => ({ ...prev, [invoice.id]: false }));
     }
   };
 
@@ -265,8 +267,18 @@ export default function Billing() {
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            <svg className={`w-4 h-4 ${autoRefresh ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <svg
+              className={`w-4 h-4 ${autoRefresh ? 'animate-spin' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
             </svg>
             {autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
           </button>
@@ -275,13 +287,23 @@ export default function Billing() {
             className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
             </svg>
             Refresh Now
           </button>
           <Button onClick={() => setIsGenerateModalOpen(true)}>
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
             </svg>
             Generate Invoice
           </Button>
@@ -289,9 +311,7 @@ export default function Billing() {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-          {error}
-        </div>
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{error}</div>
       )}
 
       {successMessage && (
@@ -313,8 +333,18 @@ export default function Billing() {
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="w-6 h-6 text-green-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                 </div>
               </div>
@@ -331,8 +361,18 @@ export default function Billing() {
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="w-6 h-6 text-yellow-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                 </div>
               </div>
@@ -349,8 +389,18 @@ export default function Billing() {
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="w-6 h-6 text-red-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                 </div>
               </div>
@@ -367,8 +417,18 @@ export default function Billing() {
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  <svg
+                    className="w-6 h-6 text-blue-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
                   </svg>
                 </div>
               </div>
@@ -486,8 +546,18 @@ export default function Billing() {
                           {sendingInvoice[invoice.id] ? (
                             <div className="w-3 h-3 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent"></div>
                           ) : (
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            <svg
+                              className="w-3 h-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                              />
                             </svg>
                           )}
                           Send
@@ -625,9 +695,7 @@ export default function Billing() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Payment Method
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
               <Select {...registerMarkPaid('paymentMethod')}>
                 <option value="manual">Manual</option>
                 <option value="bank_transfer">Bank Transfer</option>
@@ -694,7 +762,8 @@ export default function Billing() {
                 <div className="text-right">
                   {getStatusBadge(selectedInvoice.status)}
                   <p className="text-sm text-gray-600 mt-1">
-                    Plan: <span className="capitalize font-medium">{selectedInvoice.plan_type}</span>
+                    Plan:{' '}
+                    <span className="capitalize font-medium">{selectedInvoice.plan_type}</span>
                   </p>
                 </div>
               </div>
@@ -705,7 +774,8 @@ export default function Billing() {
               <h4 className="text-sm font-semibold text-gray-900 mb-2">Client Information</h4>
               <div className="space-y-1 text-sm">
                 <p className="text-gray-600">
-                  Name: <span className="text-gray-900 font-medium">{selectedInvoice.client_name}</span>
+                  Name:{' '}
+                  <span className="text-gray-900 font-medium">{selectedInvoice.client_name}</span>
                 </p>
                 <p className="text-gray-600">
                   Client ID: <span className="text-gray-900">{selectedInvoice.client_id}</span>
@@ -770,7 +840,8 @@ export default function Billing() {
                 <h4 className="text-sm font-semibold text-green-900 mb-2">Payment Information</h4>
                 <div className="space-y-1 text-sm">
                   <p className="text-green-800">
-                    Provider: <span className="font-medium">{selectedInvoice.payment_provider}</span>
+                    Provider:{' '}
+                    <span className="font-medium">{selectedInvoice.payment_provider}</span>
                   </p>
                   {selectedInvoice.payment_method && (
                     <p className="text-green-800">
@@ -779,7 +850,10 @@ export default function Billing() {
                   )}
                   {selectedInvoice.payment_provider_id && (
                     <p className="text-green-800">
-                      Transaction ID: <span className="font-mono text-xs">{selectedInvoice.payment_provider_id}</span>
+                      Transaction ID:{' '}
+                      <span className="font-mono text-xs">
+                        {selectedInvoice.payment_provider_id}
+                      </span>
                     </p>
                   )}
                 </div>
@@ -818,7 +892,12 @@ export default function Billing() {
                 }}
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
                 </svg>
                 Export PDF
               </Button>

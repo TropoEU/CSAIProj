@@ -39,7 +39,7 @@ class ToolManager {
         // Redis is down - log warning and fall back to database
         log.warn('Redis unavailable for tool cache, falling back to database', {
           clientId,
-          error: redisError.message
+          error: redisError.message,
         });
       }
 
@@ -55,7 +55,7 @@ class ToolManager {
         // Redis write failed - just log, don't fail the request
         log.warn('Failed to cache tools in Redis', {
           clientId,
-          error: redisError.message
+          error: redisError.message,
         });
       }
 
@@ -117,12 +117,13 @@ class ToolManager {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowIso = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
 
-    return tools.map(tool => {
+    return tools.map((tool) => {
       let description = tool.description || `Execute ${tool.tool_name} action`;
 
       // Check if tool has date parameters and add context
-      const hasDateParam = tool.parameters_schema?.properties &&
-        Object.keys(tool.parameters_schema.properties).some(key =>
+      const hasDateParam =
+        tool.parameters_schema?.properties &&
+        Object.keys(tool.parameters_schema.properties).some((key) =>
           key.toLowerCase().includes('date')
         );
 
@@ -136,8 +137,8 @@ class ToolManager {
         parameters: tool.parameters_schema || {
           type: 'object',
           properties: {},
-          required: []
-        }
+          required: [],
+        },
       };
 
       // Add input_schema key for Claude (different from OpenAI)
@@ -145,7 +146,7 @@ class ToolManager {
         return {
           name: formatted.name,
           description: formatted.description,
-          input_schema: formatted.parameters
+          input_schema: formatted.parameters,
         };
       }
 
@@ -167,28 +168,32 @@ class ToolManager {
     }
 
     // Build detailed tool descriptions
-    const toolDescriptions = tools.map(tool => {
-      const params = tool.parameters_schema?.properties || {};
-      const required = tool.parameters_schema?.required || [];
+    const toolDescriptions = tools
+      .map((tool) => {
+        const params = tool.parameters_schema?.properties || {};
+        const required = tool.parameters_schema?.required || [];
 
-      // Build parameter list with types
-      const paramList = Object.entries(params).map(([name, schema]) => {
-        const isRequired = required.includes(name);
-        const type = schema.type || 'string';
-        return `  - ${name} (${type})${isRequired ? ' [REQUIRED]' : ''}`;
-      }).join('\n');
+        // Build parameter list with types
+        const paramList = Object.entries(params)
+          .map(([name, schema]) => {
+            const isRequired = required.includes(name);
+            const type = schema.type || 'string';
+            return `  - ${name} (${type})${isRequired ? ' [REQUIRED]' : ''}`;
+          })
+          .join('\n');
 
-      return `**${tool.tool_name}**
+        return `**${tool.tool_name}**
 ${tool.description || 'No description'}
 Parameters:
 ${paramList || '  (no parameters)'}`;
-    }).join('\n\n');
+      })
+      .join('\n\n');
 
     // Build example based on first tool
     const firstTool = tools[0];
     const exampleParams = {};
     const required = firstTool?.parameters_schema?.required || [];
-    required.forEach(key => {
+    required.forEach((key) => {
       exampleParams[key] = '<actual_value>';
     });
 
@@ -234,7 +239,7 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
           toolCalls.push({
             id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             name: name.toLowerCase(),
-            arguments: parameters
+            arguments: parameters,
           });
           return true;
         }
@@ -243,7 +248,8 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
 
       // Pattern 1: USE_TOOL: followed by PARAMETERS: (can be anywhere in text, same or next line)
       // This catches: "USE_TOOL: get_order_status PARAMETERS: {...}" embedded in prose
-      const useToolRegex = /USE_TOOL:\s*(\w+)\s*(?:\n\s*)?PARAMETERS:\s*(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})/gi;
+      const useToolRegex =
+        /USE_TOOL:\s*(\w+)\s*(?:\n\s*)?PARAMETERS:\s*(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})/gi;
       let match;
       while ((match = useToolRegex.exec(content)) !== null) {
         const toolName = match[1].trim();
@@ -270,7 +276,11 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
           log.debug('Parsed tool call', { toolName, parameters });
           addToolCall(toolName, parameters);
         } catch (e) {
-          log.warn('Failed to parse tool parameters', { toolName, rawParams: match[2], error: e.message });
+          log.warn('Failed to parse tool parameters', {
+            toolName,
+            rawParams: match[2],
+            error: e.message,
+          });
         }
       }
 
@@ -291,7 +301,10 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
               const parameters = JSON.parse(sameLineParams[1]);
               addToolCall(toolName, parameters);
             } catch {
-              log.warn('Failed to parse same-line parameters', { toolName, rawParams: sameLineParams[1] });
+              log.warn('Failed to parse same-line parameters', {
+                toolName,
+                rawParams: sameLineParams[1],
+              });
             }
             continue;
           }
@@ -305,7 +318,10 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
                 const parameters = JSON.parse(nextLineParams[1]);
                 addToolCall(toolName, parameters);
               } catch {
-                log.warn('Failed to parse next-line parameters', { toolName, rawParams: nextLineParams[1] });
+                log.warn('Failed to parse next-line parameters', {
+                  toolName,
+                  rawParams: nextLineParams[1],
+                });
               }
             }
           }
@@ -318,7 +334,12 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
       while ((match = toolNameColonRegex.exec(content)) !== null) {
         const toolName = match[1];
         // Check if this looks like a tool name (contains underscore or matches known tools)
-        if (toolName.includes('_') || ['book_appointment', 'get_order_status', 'check_inventory'].includes(toolName.toLowerCase())) {
+        if (
+          toolName.includes('_') ||
+          ['book_appointment', 'get_order_status', 'check_inventory'].includes(
+            toolName.toLowerCase()
+          )
+        ) {
           try {
             const parameters = JSON.parse(match[2]);
             addToolCall(toolName, parameters);
@@ -397,7 +418,7 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
   async getToolByName(clientId, toolName) {
     try {
       const tools = await this.getClientTools(clientId);
-      return tools.find(t => t.tool_name === toolName) || null;
+      return tools.find((t) => t.tool_name === toolName) || null;
     } catch (error) {
       log.error('Error getting tool', { toolName, error });
       return null;
@@ -447,14 +468,22 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
           if (!isNaN(num)) {
             args[paramName] = num; // Mutate the args object
             actualType = 'number';
-            log.debug('Coerced string to number', { paramName, original: paramValue, coerced: num });
+            log.debug('Coerced string to number', {
+              paramName,
+              original: paramValue,
+              coerced: num,
+            });
           }
         } else if (expectedType === 'integer' && actualType === 'string') {
           const num = parseInt(paramValue, 10);
           if (!isNaN(num)) {
             args[paramName] = num;
             actualType = 'number';
-            log.debug('Coerced string to number', { paramName, original: paramValue, coerced: num });
+            log.debug('Coerced string to number', {
+              paramName,
+              original: paramValue,
+              coerced: num,
+            });
           }
         } else if (expectedType === 'boolean' && actualType === 'string') {
           const lower = paramValue.toLowerCase();
@@ -470,13 +499,19 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
         // Type checking (after coercion)
         if (expectedType === 'string' && actualType !== 'string') {
           errors.push(`Parameter ${paramName} should be a string`);
-        } else if ((expectedType === 'number' || expectedType === 'integer') && actualType !== 'number') {
+        } else if (
+          (expectedType === 'number' || expectedType === 'integer') &&
+          actualType !== 'number'
+        ) {
           errors.push(`Parameter ${paramName} should be a number`);
         } else if (expectedType === 'boolean' && actualType !== 'boolean') {
           errors.push(`Parameter ${paramName} should be a boolean`);
         } else if (expectedType === 'array' && !Array.isArray(paramValue)) {
           errors.push(`Parameter ${paramName} should be an array`);
-        } else if (expectedType === 'object' && (actualType !== 'object' || Array.isArray(paramValue))) {
+        } else if (
+          expectedType === 'object' &&
+          (actualType !== 'object' || Array.isArray(paramValue))
+        ) {
           errors.push(`Parameter ${paramName} should be an object`);
         }
 
@@ -502,7 +537,7 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
     return {
       valid: errors.length === 0,
       errors,
-      coercedArgs: args
+      coercedArgs: args,
     };
   }
 
@@ -524,18 +559,73 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
 
     // Exact matches - common placeholder values
     const exactPlaceholders = [
-      'required', 'optional', 'string', 'number', 'boolean', 'value', 'example',
-      'placeholder', 'todo', 'tbd', 'null', 'undefined', 'none', 'n/a', 'na',
-      'test', 'testing', 'sample', 'dummy', 'fake', 'mock', 'default',
-      'your_value', 'your_name', 'your_email', 'your_phone', 'user_input',
-      'enter_value', 'insert_value', 'add_value', 'fill_in', 'replace_me',
-      'xxx', 'yyy', 'zzz', 'abc', 'aaa', 'bbb', 'ccc', 'asdf', 'qwerty',
-      'foo', 'bar', 'baz', 'foobar', 'lorem', 'ipsum',
+      'required',
+      'optional',
+      'string',
+      'number',
+      'boolean',
+      'value',
+      'example',
+      'placeholder',
+      'todo',
+      'tbd',
+      'null',
+      'undefined',
+      'none',
+      'n/a',
+      'na',
+      'test',
+      'testing',
+      'sample',
+      'dummy',
+      'fake',
+      'mock',
+      'default',
+      'your_value',
+      'your_name',
+      'your_email',
+      'your_phone',
+      'user_input',
+      'enter_value',
+      'insert_value',
+      'add_value',
+      'fill_in',
+      'replace_me',
+      'xxx',
+      'yyy',
+      'zzz',
+      'abc',
+      'aaa',
+      'bbb',
+      'ccc',
+      'asdf',
+      'qwerty',
+      'foo',
+      'bar',
+      'baz',
+      'foobar',
+      'lorem',
+      'ipsum',
       // AI-generated placeholders
-      'not provided', 'not_provided', 'notprovided', 'unknown', 'unspecified',
-      'not specified', 'not_specified', 'missing', 'empty', 'blank',
-      'to be provided', 'tba', 'to be announced', 'pending', 'awaiting',
-      'user', 'customer', 'guest', 'anonymous',
+      'not provided',
+      'not_provided',
+      'notprovided',
+      'unknown',
+      'unspecified',
+      'not specified',
+      'not_specified',
+      'missing',
+      'empty',
+      'blank',
+      'to be provided',
+      'tba',
+      'to be announced',
+      'pending',
+      'awaiting',
+      'user',
+      'customer',
+      'guest',
+      'anonymous',
     ];
 
     if (exactPlaceholders.includes(lowerValue)) {
@@ -544,16 +634,16 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
 
     // Pattern-based placeholder detection (catches creative AI variations)
     const placeholderPhrasePatterns = [
-      /^not\s+\w+$/i,           // "not given", "not provided", "not specified", "not available"
-      /^no\s+\w+$/i,            // "no name", "no email", "no data"
-      /^needs?\s+\w+$/i,        // "need info", "needs input"
-      /^requires?\s+\w+$/i,     // "require input", "requires data"
-      /^waiting\s+(for\s+)?\w+$/i,  // "waiting for input", "waiting input"
-      /^will\s+(be\s+)?\w+$/i,  // "will provide", "will be provided"
-      /^to\s+be\s+\w+$/i,       // "to be provided", "to be specified"
-      /^\[.+\]$/,               // [any bracketed text]
-      /^<.+>$/,                 // <any angle bracket text>
-      /^\{.+\}$/,               // {any curly brace text}
+      /^not\s+\w+$/i, // "not given", "not provided", "not specified", "not available"
+      /^no\s+\w+$/i, // "no name", "no email", "no data"
+      /^needs?\s+\w+$/i, // "need info", "needs input"
+      /^requires?\s+\w+$/i, // "require input", "requires data"
+      /^waiting\s+(for\s+)?\w+$/i, // "waiting for input", "waiting input"
+      /^will\s+(be\s+)?\w+$/i, // "will provide", "will be provided"
+      /^to\s+be\s+\w+$/i, // "to be provided", "to be specified"
+      /^\[.+\]$/, // [any bracketed text]
+      /^<.+>$/, // <any angle bracket text>
+      /^\{.+\}$/, // {any curly brace text}
     ];
 
     for (const pattern of placeholderPhrasePatterns) {
@@ -564,15 +654,15 @@ IMPORTANT: Replace placeholder values with REAL data from the user. Never use "v
 
     // Pattern matches - template-style placeholders
     const placeholderPatterns = [
-      /^<.*>$/,           // <value>, <name>, <actual_value>
-      /^\[.*\]$/,         // [value], [required]
-      /^\{.*\}$/,         // {value}, {name}
-      /^{{.*}}$/,         // {{value}}, {{name}}
-      /^\$\{.*\}$/,       // ${value}
-      /^%.*%$/,           // %value%
-      /^_+$/,             // ___, ____
-      /^\*+$/,            // ***, ****
-      /^\.{3,}$/,         // ..., ....
+      /^<.*>$/, // <value>, <name>, <actual_value>
+      /^\[.*\]$/, // [value], [required]
+      /^\{.*\}$/, // {value}, {name}
+      /^{{.*}}$/, // {{value}}, {{name}}
+      /^\$\{.*\}$/, // ${value}
+      /^%.*%$/, // %value%
+      /^_+$/, // ___, ____
+      /^\*+$/, // ***, ****
+      /^\.{3,}$/, // ..., ....
     ];
 
     for (const pattern of placeholderPatterns) {

@@ -11,182 +11,180 @@ import { PlatformConfig } from '../models/PlatformConfig.js';
  * so changes take effect immediately without restart.
  */
 class TransactionalEmailService {
-    constructor() {
-        this.platformName = process.env.PLATFORM_NAME || 'CS AI Platform';
+  constructor() {
+    this.platformName = process.env.PLATFORM_NAME || 'CS AI Platform';
+    this.oauth2Client = null;
+    this.platformEmail = null;
+    this.initialized = false;
+    this.lastConfigCheck = null;
+    this.configCheckInterval = 60000; // Re-check config every 60 seconds
+  }
+
+  /**
+   * Initialize/refresh the service from database config
+   * Called automatically when needed
+   */
+  async initialize() {
+    try {
+      const config = await PlatformConfig.getPlatformEmail();
+
+      if (!config || !config.accessToken || !config.refreshToken) {
+        this.initialized = false;
         this.oauth2Client = null;
         this.platformEmail = null;
-        this.initialized = false;
-        this.lastConfigCheck = null;
-        this.configCheckInterval = 60000; // Re-check config every 60 seconds
+        return false;
+      }
+
+      this.oauth2Client = new google.auth.OAuth2(
+        process.env.GMAIL_CLIENT_ID,
+        process.env.GMAIL_CLIENT_SECRET,
+        process.env.GMAIL_REDIRECT_URI
+      );
+
+      this.oauth2Client.setCredentials({
+        access_token: config.accessToken,
+        refresh_token: config.refreshToken,
+        token_type: 'Bearer',
+      });
+
+      // Handle token refresh
+      this.oauth2Client.on('tokens', async (tokens) => {
+        console.log('[TransactionalEmail] Tokens refreshed');
+        await PlatformConfig.updatePlatformEmailTokens(tokens.access_token, tokens.refresh_token);
+      });
+
+      this.platformEmail = config.email;
+      this.initialized = true;
+      this.lastConfigCheck = Date.now();
+
+      console.log(`[TransactionalEmail] Initialized with ${config.email}`);
+      return true;
+    } catch (error) {
+      console.error('[TransactionalEmail] Failed to initialize:', error);
+      this.initialized = false;
+      return false;
+    }
+  }
+
+  /**
+   * Ensure service is ready, re-checking config if stale
+   */
+  async ensureReady() {
+    const configStale =
+      !this.lastConfigCheck || Date.now() - this.lastConfigCheck > this.configCheckInterval;
+
+    if (!this.initialized || configStale) {
+      await this.initialize();
     }
 
-    /**
-     * Initialize/refresh the service from database config
-     * Called automatically when needed
-     */
-    async initialize() {
-        try {
-            const config = await PlatformConfig.getPlatformEmail();
+    return this.initialized && this.oauth2Client !== null;
+  }
 
-            if (!config || !config.accessToken || !config.refreshToken) {
-                this.initialized = false;
-                this.oauth2Client = null;
-                this.platformEmail = null;
-                return false;
-            }
+  /**
+   * Check if service is ready to send emails
+   * Use ensureReady() for async check with config refresh
+   */
+  isReady() {
+    return this.initialized && this.oauth2Client !== null;
+  }
 
-            this.oauth2Client = new google.auth.OAuth2(
-                process.env.GMAIL_CLIENT_ID,
-                process.env.GMAIL_CLIENT_SECRET,
-                process.env.GMAIL_REDIRECT_URI
-            );
+  /**
+   * Force refresh configuration from database
+   */
+  async refresh() {
+    this.initialized = false;
+    return await this.initialize();
+  }
 
-            this.oauth2Client.setCredentials({
-                access_token: config.accessToken,
-                refresh_token: config.refreshToken,
-                token_type: 'Bearer'
-            });
+  /**
+   * Send email via Gmail API
+   * @param {string} to - Recipient email
+   * @param {string} subject - Email subject
+   * @param {string} htmlBody - HTML email body
+   * @param {string} textBody - Plain text email body (fallback)
+   */
+  async sendEmail(to, subject, htmlBody, textBody = null) {
+    // Ensure service is ready (checks/refreshes config from DB)
+    const ready = await this.ensureReady();
 
-            // Handle token refresh
-            this.oauth2Client.on('tokens', async (tokens) => {
-                console.log('[TransactionalEmail] Tokens refreshed');
-                await PlatformConfig.updatePlatformEmailTokens(
-                    tokens.access_token,
-                    tokens.refresh_token
-                );
-            });
-
-            this.platformEmail = config.email;
-            this.initialized = true;
-            this.lastConfigCheck = Date.now();
-
-            console.log(`[TransactionalEmail] Initialized with ${config.email}`);
-            return true;
-        } catch (error) {
-            console.error('[TransactionalEmail] Failed to initialize:', error);
-            this.initialized = false;
-            return false;
-        }
+    if (!ready) {
+      console.log(`[TransactionalEmail] Not configured. Would send email to ${to}: ${subject}`);
+      return { success: false, error: 'Platform email not configured' };
     }
 
-    /**
-     * Ensure service is ready, re-checking config if stale
-     */
-    async ensureReady() {
-        const configStale = !this.lastConfigCheck ||
-            (Date.now() - this.lastConfigCheck > this.configCheckInterval);
+    const gmail = google.gmail({ version: 'v1', auth: this.oauth2Client });
 
-        if (!this.initialized || configStale) {
-            await this.initialize();
-        }
+    // Create MIME message
+    const boundary = '----=_Part_' + Date.now();
+    const emailLines = [
+      `From: ${this.platformName} <${this.platformEmail}>`,
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      'MIME-Version: 1.0',
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      '',
+      `--${boundary}`,
+      'Content-Type: text/plain; charset=utf-8',
+      '',
+      textBody || this.htmlToText(htmlBody),
+      '',
+      `--${boundary}`,
+      'Content-Type: text/html; charset=utf-8',
+      '',
+      htmlBody,
+      '',
+      `--${boundary}--`,
+    ];
 
-        return this.initialized && this.oauth2Client !== null;
+    const email = emailLines.join('\r\n');
+    const encodedEmail = Buffer.from(email)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    try {
+      const response = await gmail.users.messages.send({
+        userId: 'me',
+        requestBody: {
+          raw: encodedEmail,
+        },
+      });
+
+      console.log(`[TransactionalEmail] Email sent to ${to}: ${response.data.id}`);
+      return { success: true, messageId: response.data.id };
+    } catch (error) {
+      console.error('[TransactionalEmail] Send error:', error);
+      return { success: false, error: error.message };
     }
+  }
 
-    /**
-     * Check if service is ready to send emails
-     * Use ensureReady() for async check with config refresh
-     */
-    isReady() {
-        return this.initialized && this.oauth2Client !== null;
-    }
+  /**
+   * Simple HTML to text conversion
+   */
+  htmlToText(html) {
+    return html
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/div>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .trim();
+  }
 
-    /**
-     * Force refresh configuration from database
-     */
-    async refresh() {
-        this.initialized = false;
-        return await this.initialize();
-    }
-
-    /**
-     * Send email via Gmail API
-     * @param {string} to - Recipient email
-     * @param {string} subject - Email subject
-     * @param {string} htmlBody - HTML email body
-     * @param {string} textBody - Plain text email body (fallback)
-     */
-    async sendEmail(to, subject, htmlBody, textBody = null) {
-        // Ensure service is ready (checks/refreshes config from DB)
-        const ready = await this.ensureReady();
-
-        if (!ready) {
-            console.log(`[TransactionalEmail] Not configured. Would send email to ${to}: ${subject}`);
-            return { success: false, error: 'Platform email not configured' };
-        }
-
-        const gmail = google.gmail({ version: 'v1', auth: this.oauth2Client });
-
-        // Create MIME message
-        const boundary = '----=_Part_' + Date.now();
-        const emailLines = [
-            `From: ${this.platformName} <${this.platformEmail}>`,
-            `To: ${to}`,
-            `Subject: ${subject}`,
-            'MIME-Version: 1.0',
-            `Content-Type: multipart/alternative; boundary="${boundary}"`,
-            '',
-            `--${boundary}`,
-            'Content-Type: text/plain; charset=utf-8',
-            '',
-            textBody || this.htmlToText(htmlBody),
-            '',
-            `--${boundary}`,
-            'Content-Type: text/html; charset=utf-8',
-            '',
-            htmlBody,
-            '',
-            `--${boundary}--`
-        ];
-
-        const email = emailLines.join('\r\n');
-        const encodedEmail = Buffer.from(email).toString('base64')
-            .replace(/\+/g, '-')
-            .replace(/\//g, '_')
-            .replace(/=+$/, '');
-
-        try {
-            const response = await gmail.users.messages.send({
-                userId: 'me',
-                requestBody: {
-                    raw: encodedEmail
-                }
-            });
-
-            console.log(`[TransactionalEmail] Email sent to ${to}: ${response.data.id}`);
-            return { success: true, messageId: response.data.id };
-        } catch (error) {
-            console.error('[TransactionalEmail] Send error:', error);
-            return { success: false, error: error.message };
-        }
-    }
-
-    /**
-     * Simple HTML to text conversion
-     */
-    htmlToText(html) {
-        return html
-            .replace(/<br\s*\/?>/gi, '\n')
-            .replace(/<\/p>/gi, '\n\n')
-            .replace(/<\/div>/gi, '\n')
-            .replace(/<[^>]+>/g, '')
-            .replace(/&nbsp;/g, ' ')
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"')
-            .trim();
-    }
-
-    /**
-     * Send access code email to client
-     * @param {string} to - Client email
-     * @param {string} clientName - Client business name
-     * @param {string} accessCode - The access code
-     */
-    async sendAccessCode(to, clientName, accessCode) {
-        const subject = 'Your Customer Dashboard Access Code';
-        const htmlBody = `
+  /**
+   * Send access code email to client
+   * @param {string} to - Client email
+   * @param {string} clientName - Client business name
+   * @param {string} accessCode - The access code
+   */
+  async sendAccessCode(to, clientName, accessCode) {
+    const subject = 'Your Customer Dashboard Access Code';
+    const htmlBody = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -223,7 +221,7 @@ class TransactionalEmailService {
 </html>
         `;
 
-        const textBody = `
+    const textBody = `
 Hello ${clientName},
 
 Welcome to your Customer Dashboard!
@@ -238,18 +236,18 @@ Best regards,
 ${this.platformName}
         `;
 
-        return this.sendEmail(to, subject, htmlBody, textBody);
-    }
+    return this.sendEmail(to, subject, htmlBody, textBody);
+  }
 
-    /**
-     * Send invoice email
-     * @param {string} to - Client email
-     * @param {string} clientName - Client name
-     * @param {object} invoice - Invoice details
-     */
-    async sendInvoice(to, clientName, invoice) {
-        const subject = `Invoice #${invoice.invoice_number} - ${this.platformName}`;
-        const htmlBody = `
+  /**
+   * Send invoice email
+   * @param {string} to - Client email
+   * @param {string} clientName - Client name
+   * @param {object} invoice - Invoice details
+   */
+  async sendInvoice(to, clientName, invoice) {
+    const subject = `Invoice #${invoice.invoice_number} - ${this.platformName}`;
+    const htmlBody = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -310,7 +308,7 @@ ${this.platformName}
 </html>
         `;
 
-        const textBody = `
+    const textBody = `
 Hello ${clientName},
 
 Here's your invoice for the billing period.
@@ -328,18 +326,18 @@ Best regards,
 ${this.platformName}
         `;
 
-        return this.sendEmail(to, subject, htmlBody, textBody);
-    }
+    return this.sendEmail(to, subject, htmlBody, textBody);
+  }
 
-    /**
-     * Send payment confirmation email
-     * @param {string} to - Client email
-     * @param {string} clientName - Client name
-     * @param {object} payment - Payment details
-     */
-    async sendPaymentConfirmation(to, clientName, payment) {
-        const subject = 'Payment Received - Thank You!';
-        const htmlBody = `
+  /**
+   * Send payment confirmation email
+   * @param {string} to - Client email
+   * @param {string} clientName - Client name
+   * @param {object} payment - Payment details
+   */
+  async sendPaymentConfirmation(to, clientName, payment) {
+    const subject = 'Payment Received - Thank You!';
+    const htmlBody = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -374,18 +372,18 @@ ${this.platformName}
 </html>
         `;
 
-        return this.sendEmail(to, subject, htmlBody);
-    }
+    return this.sendEmail(to, subject, htmlBody);
+  }
 
-    /**
-     * Send escalation notification to client
-     * @param {string} to - Client notification email
-     * @param {string} clientName - Client name
-     * @param {object} escalation - Escalation details
-     */
-    async sendEscalationNotification(to, clientName, escalation) {
-        const subject = `[Action Required] Customer Escalation - ${escalation.reason}`;
-        const htmlBody = `
+  /**
+   * Send escalation notification to client
+   * @param {string} to - Client notification email
+   * @param {string} clientName - Client name
+   * @param {object} escalation - Escalation details
+   */
+  async sendEscalationNotification(to, clientName, escalation) {
+    const subject = `[Action Required] Customer Escalation - ${escalation.reason}`;
+    const htmlBody = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -422,18 +420,18 @@ ${this.platformName}
 </html>
         `;
 
-        return this.sendEmail(to, subject, htmlBody);
-    }
+    return this.sendEmail(to, subject, htmlBody);
+  }
 
-    /**
-     * Send welcome email to new client
-     * @param {string} to - Client email
-     * @param {string} clientName - Client name
-     * @param {string} apiKey - Client's API key
-     */
-    async sendWelcomeEmail(to, clientName, apiKey) {
-        const subject = `Welcome to ${this.platformName}!`;
-        const htmlBody = `
+  /**
+   * Send welcome email to new client
+   * @param {string} to - Client email
+   * @param {string} clientName - Client name
+   * @param {string} apiKey - Client's API key
+   */
+  async sendWelcomeEmail(to, clientName, apiKey) {
+    const subject = `Welcome to ${this.platformName}!`;
+    const htmlBody = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -498,8 +496,8 @@ ${this.platformName}
 </html>
         `;
 
-        return this.sendEmail(to, subject, htmlBody);
-    }
+    return this.sendEmail(to, subject, htmlBody);
+  }
 }
 
 // Export singleton instance

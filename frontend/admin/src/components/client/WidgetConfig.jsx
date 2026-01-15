@@ -55,11 +55,7 @@ export default function WidgetConfig({
       <CardHeader className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Widget Customization</h3>
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={onTogglePreview}
-          >
+          <Button size="sm" variant="secondary" onClick={onTogglePreview}>
             {showPreview ? 'Hide' : 'Show'} Preview
           </Button>
           <Button size="sm" onClick={onSave}>
@@ -92,9 +88,7 @@ export default function WidgetConfig({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Chat Title
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Chat Title</label>
                   <input
                     type="text"
                     value={widgetConfig.title}
@@ -149,8 +143,14 @@ export default function WidgetConfig({
                     setWidgetConfig({
                       ...widgetConfig,
                       backgroundColor: val,
-                      bodyBgColor: widgetConfig.bodyBgColor === widgetConfig.backgroundColor ? val : widgetConfig.bodyBgColor,
-                      footerBgColor: widgetConfig.footerBgColor === widgetConfig.backgroundColor ? val : widgetConfig.footerBgColor
+                      bodyBgColor:
+                        widgetConfig.bodyBgColor === widgetConfig.backgroundColor
+                          ? val
+                          : widgetConfig.bodyBgColor,
+                      footerBgColor:
+                        widgetConfig.footerBgColor === widgetConfig.backgroundColor
+                          ? val
+                          : widgetConfig.footerBgColor,
                     });
                   }}
                 />
@@ -232,9 +232,7 @@ export default function WidgetConfig({
           {/* Embed Code */}
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Embed Code
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Embed Code</label>
               <div className="relative">
                 <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg text-xs overflow-x-auto font-mono">
                   {getWidgetEmbedCode()}
@@ -245,12 +243,32 @@ export default function WidgetConfig({
                   title="Copy to clipboard"
                 >
                   {copiedEmbed ? (
-                    <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="w-4 h-4 text-green-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   ) : (
-                    <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    <svg
+                      className="w-4 h-4 text-gray-300"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
                     </svg>
                   )}
                 </button>
@@ -269,7 +287,8 @@ export default function WidgetConfig({
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <p className="text-xs text-blue-800">
-                <strong>Tip:</strong> Click "Show Preview" to see a floating widget preview that appears like it would on your client's website!
+                <strong>Tip:</strong> Click "Show Preview" to see a floating widget preview that
+                appears like it would on your client's website!
               </p>
             </div>
           </div>
@@ -285,9 +304,7 @@ export default function WidgetConfig({
 function ColorInput({ label, value, onChange }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-700 mb-1">
-        {label}
-      </label>
+      <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>
       <div className="flex gap-2">
         <input
           type="color"

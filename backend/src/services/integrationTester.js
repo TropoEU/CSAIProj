@@ -46,7 +46,7 @@ class IntegrationTester {
           authMethod: config.auth_method || config.authMethod || 'none',
           endpointTests: [],
           capturedSchema: {},
-          responseTime: 0
+          responseTime: 0,
         };
       }
 
@@ -79,7 +79,7 @@ class IntegrationTester {
         endpointTests: [],
         capturedSchema: {},
         responseTime: 0,
-        error: null
+        error: null,
       };
 
       // Determine endpoints to test
@@ -100,7 +100,7 @@ class IntegrationTester {
           { path: '/health', method: 'GET', description: 'Health check endpoint' },
           { path: '/ping', method: 'GET', description: 'Ping endpoint' },
           { path: '/', method: 'GET', description: 'Root endpoint' },
-          { path: '', method: 'GET', description: 'Base URL' }
+          { path: '', method: 'GET', description: 'Base URL' },
         ];
       }
 
@@ -109,7 +109,7 @@ class IntegrationTester {
 
       for (const endpoint of endpointsToTest) {
         const endpointResult = await this.testEndpoint(
-          testBaseUrl,  // Use extracted base URL (origin) for testing
+          testBaseUrl, // Use extracted base URL (origin) for testing
           endpoint,
           headers,
           testConfig?.captureSchema !== false
@@ -137,7 +137,9 @@ class IntegrationTester {
 
       // For smart discovery, success if ANY endpoint worked
       // For explicit tests, ALL must pass
-      testResults.success = isSmartDiscovery ? anyTestPassed : testResults.endpointTests.every(t => t.success);
+      testResults.success = isSmartDiscovery
+        ? anyTestPassed
+        : testResults.endpointTests.every((t) => t.success);
 
       // If smart discovery found a working endpoint, add suggestion
       if (isSmartDiscovery && anyTestPassed && testResults.discoveredEndpoint) {
@@ -147,7 +149,8 @@ class IntegrationTester {
       // If nothing worked, give helpful error
       if (!anyTestPassed) {
         testResults.error = 'No API endpoints responded successfully';
-        testResults.suggestion = 'Configure a valid test endpoint in the integration settings, or ensure your API has a /health or root endpoint.';
+        testResults.suggestion =
+          'Configure a valid test endpoint in the integration settings, or ensure your API has a /health or root endpoint.';
       }
 
       // Generate recommendations based on test results
@@ -159,7 +162,7 @@ class IntegrationTester {
       // If schema was captured, update the integration's api_schema
       if (Object.keys(testResults.capturedSchema).length > 0) {
         await ClientIntegration.update(integrationId, {
-          api_schema: testResults.capturedSchema
+          api_schema: testResults.capturedSchema,
         });
       }
 
@@ -169,7 +172,7 @@ class IntegrationTester {
       return {
         success: false,
         error: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
       };
     }
   }
@@ -189,7 +192,7 @@ class IntegrationTester {
       statusCode: null,
       responseTime: 0,
       responseSchema: null,
-      error: null
+      error: null,
     };
 
     const startTime = Date.now();
@@ -198,7 +201,7 @@ class IntegrationTester {
       const fetchOptions = {
         method,
         headers,
-        signal: AbortSignal.timeout(15000) // 15 second timeout
+        signal: AbortSignal.timeout(15000), // 15 second timeout
       };
 
       if (endpoint.body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
@@ -316,7 +319,7 @@ class IntegrationTester {
       // Sample first item to determine array item type
       return {
         type: 'array',
-        items: this.captureResponseSchema(data[0], depth + 1, maxDepth)
+        items: this.captureResponseSchema(data[0], depth + 1, maxDepth),
       };
     }
 
@@ -327,7 +330,7 @@ class IntegrationTester {
       }
       return {
         type: 'object',
-        properties
+        properties,
       };
     }
 
@@ -340,12 +343,16 @@ class IntegrationTester {
    */
   sanitizeSampleResponse(data, maxSize = 1000) {
     const sensitiveKeys = ['password', 'token', 'secret', 'key', 'apikey', 'api_key'];
-    const jsonStr = JSON.stringify(data, (key, value) => {
-      if (sensitiveKeys.some(sk => key.toLowerCase().includes(sk))) {
-        return '[REDACTED]';
-      }
-      return value;
-    }, 2);
+    const jsonStr = JSON.stringify(
+      data,
+      (key, value) => {
+        if (sensitiveKeys.some((sk) => key.toLowerCase().includes(sk))) {
+          return '[REDACTED]';
+        }
+        return value;
+      },
+      2
+    );
 
     if (jsonStr.length > maxSize) {
       return JSON.parse(jsonStr.substring(0, maxSize) + '...');
@@ -363,17 +370,17 @@ class IntegrationTester {
     if (!testResults.success) {
       recommendations.push({
         type: 'error',
-        message: 'API testing failed - check endpoint URLs and authentication'
+        message: 'API testing failed - check endpoint URLs and authentication',
       });
     }
 
-    const failedTests = testResults.endpointTests.filter(t => !t.success);
+    const failedTests = testResults.endpointTests.filter((t) => !t.success);
     if (failedTests.length > 0) {
-      failedTests.forEach(test => {
+      failedTests.forEach((test) => {
         recommendations.push({
           type: 'warning',
           endpoint: test.endpoint,
-          message: test.error || 'Endpoint test failed'
+          message: test.error || 'Endpoint test failed',
         });
       });
     }
@@ -381,14 +388,14 @@ class IntegrationTester {
     if (testResults.responseTime > 5000) {
       recommendations.push({
         type: 'warning',
-        message: `Slow API response (${testResults.responseTime}ms) - may impact user experience`
+        message: `Slow API response (${testResults.responseTime}ms) - may impact user experience`,
       });
     }
 
     if (Object.keys(testResults.capturedSchema).length === 0 && testResults.success) {
       recommendations.push({
         type: 'info',
-        message: 'Configure test endpoints to capture API schema for better tool integration'
+        message: 'Configure test endpoints to capture API schema for better tool integration',
       });
     }
 
@@ -401,7 +408,7 @@ class IntegrationTester {
   async quickTest(integrationId) {
     return this.testIntegration(integrationId, {
       endpoints: [{ path: '', method: 'GET', description: 'Connectivity test' }],
-      captureSchema: false
+      captureSchema: false,
     });
   }
 }

@@ -69,9 +69,7 @@ router.get('/overview', async (req, res) => {
 
     const conversationsTrend =
       conversationsYesterday > 0
-        ? Math.round(
-            ((conversationsToday - conversationsYesterday) / conversationsYesterday) * 100
-          )
+        ? Math.round(((conversationsToday - conversationsYesterday) / conversationsYesterday) * 100)
         : 0;
 
     const toolCallsTrend =
@@ -136,7 +134,9 @@ router.get('/tools', async (req, res) => {
   } catch (error) {
     console.error('[Admin] Get tool stats error:', error);
     console.error('[Admin] Error details:', error.message, error.stack);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get tool stats', details: error.message });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to get tool stats', details: error.message });
   }
 });
 
@@ -162,7 +162,9 @@ router.get('/conversations', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Get conversation stats error:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get conversation stats' });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to get conversation stats' });
   }
 });
 

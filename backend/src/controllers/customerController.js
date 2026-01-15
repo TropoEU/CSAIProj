@@ -34,7 +34,7 @@ class CustomerController {
       if (!accessCode) {
         return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'Access code required',
-          message: 'Please provide your access code'
+          message: 'Please provide your access code',
         });
       }
 
@@ -43,11 +43,14 @@ class CustomerController {
 
       if (!client) {
         // Log failed attempt (security)
-        console.warn('[CustomerAuth] Failed login attempt with code:', accessCode.substring(0, 4) + '***');
+        console.warn(
+          '[CustomerAuth] Failed login attempt with code:',
+          accessCode.substring(0, 4) + '***'
+        );
 
         return res.status(HTTP_STATUS.UNAUTHORIZED).json({
           error: 'Invalid access code',
-          message: 'The access code you entered is not valid'
+          message: 'The access code you entered is not valid',
         });
       }
 
@@ -55,17 +58,15 @@ class CustomerController {
       if (client.status !== 'active') {
         return res.status(HTTP_STATUS.FORBIDDEN).json({
           error: 'Account inactive',
-          message: 'Your account is currently inactive. Please contact support.'
+          message: 'Your account is currently inactive. Please contact support.',
         });
       }
 
       // Generate JWT token
       const expiresIn = rememberMe ? '30d' : '7d';
-      const token = jwt.sign(
-        { clientId: client.id, type: 'customer' },
-        process.env.JWT_SECRET,
-        { expiresIn }
-      );
+      const token = jwt.sign({ clientId: client.id, type: 'customer' }, process.env.JWT_SECRET, {
+        expiresIn,
+      });
 
       // Log successful login
       console.log(`[CustomerAuth] Client ${client.id} (${client.name}) logged in`);
@@ -80,14 +81,15 @@ class CustomerController {
           status: client.status,
           language: client.language || 'en',
           // Mask access code for security
-          accessCode: accessCode.substring(0, 3) + '***' + accessCode.substring(accessCode.length - 3)
-        }
+          accessCode:
+            accessCode.substring(0, 3) + '***' + accessCode.substring(accessCode.length - 3),
+        },
       });
     } catch (error) {
       console.error('[CustomerController] Login error:', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Login failed',
-        message: 'An error occurred during login'
+        message: 'An error occurred during login',
       });
     }
   }
@@ -108,7 +110,7 @@ class CustomerController {
       const limits = {
         conversations: client.max_conversations_per_month || null,
         tokens: client.max_tokens_per_month || null,
-        toolCalls: null // Unlimited for now
+        toolCalls: null, // Unlimited for now
       };
 
       // Get recent activity (last 60 days)
@@ -167,20 +169,22 @@ class CustomerController {
           name: client.name,
           plan: client.plan_type,
           status: client.status,
-          language: client.language || 'en'
+          language: client.language || 'en',
         },
         usage: {
           conversations: parseInt(usage?.total_conversations, 10) || 0,
-          tokens: (parseInt(usage?.total_tokens_input, 10) || 0) + (parseInt(usage?.total_tokens_output, 10) || 0),
-          toolCalls: parseInt(usage?.total_tool_calls, 10) || 0
+          tokens:
+            (parseInt(usage?.total_tokens_input, 10) || 0) +
+            (parseInt(usage?.total_tokens_output, 10) || 0),
+          toolCalls: parseInt(usage?.total_tool_calls, 10) || 0,
         },
         limits,
         stats: {
           conversationsToday: parseInt(todayStats.rows[0]?.conversation_count, 10) || 0,
           tokensToday: parseInt(todayStats.rows[0]?.tokens_used, 10) || 0,
-          topTool: topTool.rows[0] || null
+          topTool: topTool.rows[0] || null,
         },
-        recentConversations: recentConversations.rows.map(conv => ({
+        recentConversations: recentConversations.rows.map((conv) => ({
           id: conv.id,
           sessionId: conv.session_id,
           startedAt: conv.started_at,
@@ -188,14 +192,14 @@ class CustomerController {
           messageCount: conv.message_count,
           tokensTotal: conv.tokens_total,
           firstMessage: conv.first_message || 'No messages',
-          preview: conv.first_message ? conv.first_message.substring(0, 100) : 'No messages'
-        }))
+          preview: conv.first_message ? conv.first_message.substring(0, 100) : 'No messages',
+        })),
       });
     } catch (error) {
       console.error('[CustomerController] Overview error:', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load overview',
-        message: 'An error occurred while loading your dashboard'
+        message: 'An error occurred while loading your dashboard',
       });
     }
   }
@@ -222,13 +226,13 @@ class CustomerController {
         [clientId]
       );
 
-      const tools = result.rows.map(tool => {
+      const tools = result.rows.map((tool) => {
         const capabilities = this.getToolCapabilities(tool.tool_name, tool.capabilities);
         return {
           name: tool.tool_name,
           description: tool.description || 'No description available',
           category: tool.category || 'general',
-          capabilities
+          capabilities,
         };
       });
 
@@ -239,7 +243,7 @@ class CustomerController {
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load actions',
         message: 'An error occurred while loading available actions',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       });
     }
   }
@@ -255,26 +259,26 @@ class CustomerController {
     if (dbCapabilities && Array.isArray(dbCapabilities) && dbCapabilities.length > 0) {
       return dbCapabilities;
     }
-    
+
     // Fallback to hardcoded capabilities for backward compatibility
     const capabilities = {
       get_order_status: [
         'Get real-time tracking information',
         'View driver details and contact info',
         'See estimated delivery time',
-        'Check order items and total'
+        'Check order items and total',
       ],
       book_appointment: [
         'Schedule pickup times',
         'Book table reservations',
         'Automatic confirmation',
-        'Receive booking reference number'
+        'Receive booking reference number',
       ],
       check_inventory: [
         'Check product availability',
         'View real-time stock levels',
-        'Get product information'
-      ]
+        'Get product information',
+      ],
     };
 
     return capabilities[toolName] || ['Perform ' + toolName.replace(/_/g, ' ')];
@@ -292,7 +296,7 @@ class CustomerController {
         limit = 20,
         search = '',
         status = 'all',
-        days = 60 // Default to 60 days
+        days = 60, // Default to 60 days
       } = req.query;
 
       const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
@@ -350,7 +354,7 @@ class CustomerController {
       );
 
       res.json({
-        conversations: result.rows.map(conv => ({
+        conversations: result.rows.map((conv) => ({
           id: conv.id,
           sessionId: conv.session_id,
           startedAt: conv.started_at,
@@ -363,20 +367,20 @@ class CustomerController {
           toolCallCount: parseInt(conv.tool_call_count, 10) || 0,
           status: conv.ended_at ? 'ended' : 'active',
           provider: conv.llm_provider,
-          model: conv.model_name
+          model: conv.model_name,
         })),
         pagination: {
           page: parseInt(page, 10),
           limit: parseInt(limit, 10),
           totalPages,
-          totalConversations
-        }
+          totalConversations,
+        },
       });
     } catch (error) {
       console.error('[CustomerController] Conversations error:', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load conversations',
-        message: 'An error occurred while loading your conversations'
+        message: 'An error occurred while loading your conversations',
       });
     }
   }
@@ -396,7 +400,7 @@ class CustomerController {
       if (!conversation) {
         return res.status(HTTP_STATUS.NOT_FOUND).json({
           error: 'Conversation not found',
-          message: 'The requested conversation could not be found'
+          message: 'The requested conversation could not be found',
         });
       }
 
@@ -404,7 +408,7 @@ class CustomerController {
       if (conversation.client_id !== clientId) {
         return res.status(HTTP_STATUS.FORBIDDEN).json({
           error: 'Access denied',
-          message: 'You do not have permission to view this conversation'
+          message: 'You do not have permission to view this conversation',
         });
       }
 
@@ -424,32 +428,32 @@ class CustomerController {
           tokensTotal: conversation.tokens_total,
           provider: conversation.llm_provider,
           model: conversation.model_name,
-          status: conversation.ended_at ? 'ended' : 'active'
+          status: conversation.ended_at ? 'ended' : 'active',
         },
-        messages: messages.map(msg => ({
+        messages: messages.map((msg) => ({
           id: msg.id,
           role: msg.role,
           content: msg.content,
           timestamp: msg.timestamp,
           tokens: msg.tokens,
           tokensCumulative: msg.tokens_cumulative,
-          toolsCalled: safeJsonGet(msg.metadata, 'tools_called', null)
+          toolsCalled: safeJsonGet(msg.metadata, 'tools_called', null),
         })),
-        toolExecutions: toolExecutions.map(te => ({
+        toolExecutions: toolExecutions.map((te) => ({
           id: te.id,
           toolName: te.tool_name,
           inputParams: te.parameters,
           result: te.n8n_response,
           status: te.success ? 'success' : 'error',
           executionTime: te.execution_time_ms,
-          executedAt: te.timestamp
-        }))
+          executedAt: te.timestamp,
+        })),
       });
     } catch (error) {
       console.error('[CustomerController] Conversation detail error:', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load conversation',
-        message: 'An error occurred while loading the conversation details'
+        message: 'An error occurred while loading the conversation details',
       });
     }
   }
@@ -465,7 +469,7 @@ class CustomerController {
       const invoices = await Invoice.findByClientId(clientId);
 
       res.json({
-        invoices: invoices.map(inv => ({
+        invoices: invoices.map((inv) => ({
           id: inv.id,
           invoiceNumber: `INV-${inv.id.toString().padStart(6, '0')}`, // Generate invoice number from ID
           period: inv.billing_period,
@@ -473,14 +477,14 @@ class CustomerController {
           status: inv.status,
           dueDate: inv.due_date,
           paidAt: inv.paid_at,
-          createdAt: inv.created_at
-        }))
+          createdAt: inv.created_at,
+        })),
       });
     } catch (error) {
       console.error('[CustomerController] Invoices error:', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load invoices',
-        message: 'An error occurred while loading your invoices'
+        message: 'An error occurred while loading your invoices',
       });
     }
   }
@@ -509,23 +513,23 @@ class CustomerController {
       const limits = {
         conversations: client.max_conversations_per_month || null,
         tokens: client.max_tokens_per_month || null,
-        toolCalls: null
+        toolCalls: null,
       };
 
       res.json({
         usage: {
           conversations: summary.conversations,
           tokens: summary.tokens.total,
-          toolCalls: summary.toolCalls
+          toolCalls: summary.toolCalls,
         },
         limits,
-        period
+        period,
       });
     } catch (error) {
       console.error('[CustomerController] Current usage error:', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load usage',
-        message: 'An error occurred while loading your usage data'
+        message: 'An error occurred while loading your usage data',
       });
     }
   }
@@ -557,17 +561,17 @@ class CustomerController {
       );
 
       res.json({
-        daily: result.rows.map(row => ({
+        daily: result.rows.map((row) => ({
           date: row.date,
           conversations: parseInt(row.conversations, 10),
-          tokens: parseInt(row.tokens, 10)
-        }))
+          tokens: parseInt(row.tokens, 10),
+        })),
       });
     } catch (error) {
       console.error('[CustomerController] Usage trends error:', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load trends',
-        message: 'An error occurred while loading usage trends'
+        message: 'An error occurred while loading usage trends',
       });
     }
   }
@@ -595,20 +599,18 @@ class CustomerController {
       );
 
       res.json({
-        tools: result.rows.map(row => {
+        tools: result.rows.map((row) => {
           const callCount = parseInt(row.call_count, 10) || 0;
           const successCount = parseInt(row.success_count, 10) || 0;
-          const successRate = callCount > 0 
-            ? Math.round((successCount / callCount) * 100) 
-            : 0;
-          
+          const successRate = callCount > 0 ? Math.round((successCount / callCount) * 100) : 0;
+
           return {
             name: row.tool_name,
             callCount,
             successRate,
-            avgExecutionTime: parseFloat(row.avg_execution_time) || 0
+            avgExecutionTime: parseFloat(row.avg_execution_time) || 0,
           };
-        })
+        }),
       });
     } catch (error) {
       console.error('[CustomerController] Tool usage error:', error);
@@ -616,7 +618,7 @@ class CustomerController {
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load tool usage',
         message: 'An error occurred while loading tool usage data',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       });
     }
   }
@@ -632,13 +634,13 @@ class CustomerController {
       res.json({
         language: client.language || 'en',
         name: client.name,
-        email: client.email
+        email: client.email,
       });
     } catch (error) {
       console.error('[CustomerController] Get settings error:', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load settings',
-        message: 'An error occurred while loading your settings'
+        message: 'An error occurred while loading your settings',
       });
     }
   }
@@ -657,7 +659,7 @@ class CustomerController {
         log.warn('Rate limit exceeded for customer settings update', { clientId });
         return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
           error: 'Rate limit exceeded',
-          retryAfter: rateLimit.resetIn
+          retryAfter: rateLimit.resetIn,
         });
       }
 
@@ -668,7 +670,7 @@ class CustomerController {
       if (language && !validLanguages.includes(language)) {
         return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'Invalid language',
-          message: 'Language must be one of: ' + validLanguages.join(', ')
+          message: 'Language must be one of: ' + validLanguages.join(', '),
         });
       }
 
@@ -679,7 +681,7 @@ class CustomerController {
       if (Object.keys(updates).length === 0) {
         return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'No updates provided',
-          message: 'Please provide at least one field to update'
+          message: 'Please provide at least one field to update',
         });
       }
 
@@ -692,14 +694,14 @@ class CustomerController {
       res.json({
         success: true,
         settings: {
-          language: updatedClient.language || 'en'
-        }
+          language: updatedClient.language || 'en',
+        },
       });
     } catch (error) {
       console.error('[CustomerController] Update settings error:', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to update settings',
-        message: 'An error occurred while updating your settings'
+        message: 'An error occurred while updating your settings',
       });
     }
   }
@@ -745,13 +747,13 @@ class CustomerController {
           reasoning_steps: defaults.reasoning_steps || [],
           response_style: defaults.response_style || {},
           tool_rules: defaults.tool_rules || [],
-        }
+        },
       });
     } catch (error) {
       console.error('[CustomerController] Get AI behavior error:', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load AI behavior settings',
-        message: 'An error occurred while loading your AI settings'
+        message: 'An error occurred while loading your AI settings',
       });
     }
   }
@@ -770,7 +772,7 @@ class CustomerController {
         log.warn('Rate limit exceeded for customer AI behavior update', { clientId });
         return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
           error: 'Rate limit exceeded',
-          retryAfter: rateLimit.resetIn
+          retryAfter: rateLimit.resetIn,
         });
       }
 
@@ -779,7 +781,7 @@ class CustomerController {
         reasoning_steps,
         response_style,
         tool_rules,
-        custom_instructions
+        custom_instructions,
       } = req.body;
 
       // Validate total payload size to prevent DoS attacks
@@ -787,7 +789,7 @@ class CustomerController {
       if (payloadSize > LIMITS.MAX_PAYLOAD_SIZE) {
         return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'Payload too large',
-          message: `Request body exceeds maximum size of ${LIMITS.MAX_PAYLOAD_SIZE} bytes`
+          message: `Request body exceeds maximum size of ${LIMITS.MAX_PAYLOAD_SIZE} bytes`,
         });
       }
 
@@ -796,9 +798,7 @@ class CustomerController {
       const getObjectDepth = (obj, currentDepth = 0) => {
         if (currentDepth > MAX_RECURSION_DEPTH) return currentDepth; // Early exit if too deep
         if (obj === null || typeof obj !== 'object') return currentDepth;
-        const depths = Object.values(obj).map(value =>
-          getObjectDepth(value, currentDepth + 1)
-        );
+        const depths = Object.values(obj).map((value) => getObjectDepth(value, currentDepth + 1));
         return depths.length > 0 ? Math.max(...depths) : currentDepth;
       };
 
@@ -807,7 +807,7 @@ class CustomerController {
       if (response_style && getObjectDepth(response_style) > MAX_OBJECT_DEPTH) {
         return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'Invalid response_style',
-          message: `Object nesting depth exceeds maximum of ${MAX_OBJECT_DEPTH} levels`
+          message: `Object nesting depth exceeds maximum of ${MAX_OBJECT_DEPTH} levels`,
         });
       }
 
@@ -823,7 +823,7 @@ class CustomerController {
         if (!Array.isArray(reasoning_steps)) {
           return res.status(HTTP_STATUS.BAD_REQUEST).json({
             error: 'Invalid reasoning_steps',
-            message: 'Reasoning steps must be an array'
+            message: 'Reasoning steps must be an array',
           });
         }
 
@@ -832,13 +832,13 @@ class CustomerController {
         if (reasoning_steps.length > MAX_REASONING_STEPS) {
           return res.status(HTTP_STATUS.BAD_REQUEST).json({
             error: 'Invalid reasoning_steps',
-            message: `Maximum ${MAX_REASONING_STEPS} reasoning steps allowed`
+            message: `Maximum ${MAX_REASONING_STEPS} reasoning steps allowed`,
           });
         }
 
-        configUpdate.reasoning_steps = reasoning_steps.map(step => ({
+        configUpdate.reasoning_steps = reasoning_steps.map((step) => ({
           title: String(step.title || '').substring(0, 50),
-          instruction: String(step.instruction || '').substring(0, 500)
+          instruction: String(step.instruction || '').substring(0, 500),
         }));
       }
 
@@ -866,13 +866,13 @@ class CustomerController {
         if (!Array.isArray(tool_rules)) {
           return res.status(HTTP_STATUS.BAD_REQUEST).json({
             error: 'Invalid tool_rules',
-            message: 'Tool rules must be an array'
+            message: 'Tool rules must be an array',
           });
         }
         // Limit to 10 rules, max 200 chars each
         configUpdate.tool_rules = tool_rules
           .slice(0, 10)
-          .map(rule => String(rule).substring(0, 200));
+          .map((rule) => String(rule).substring(0, 200));
       }
 
       if (custom_instructions !== undefined) {
@@ -895,13 +895,13 @@ class CustomerController {
 
       res.json({
         success: true,
-        message: 'AI behavior settings updated successfully'
+        message: 'AI behavior settings updated successfully',
       });
     } catch (error) {
       console.error('[CustomerController] Update AI behavior error:', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to update AI behavior settings',
-        message: 'An error occurred while saving your AI settings'
+        message: 'An error occurred while saving your AI settings',
       });
     }
   }
@@ -920,14 +920,14 @@ class CustomerController {
         log.warn('Rate limit exceeded for customer AI behavior preview', { clientId: client.id });
         return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
           error: 'Rate limit exceeded',
-          retryAfter: rateLimit.resetIn
+          retryAfter: rateLimit.resetIn,
         });
       }
 
       const { config } = req.body;
 
       // Use provided config or get current config
-      const previewConfig = config || await promptService.getClientConfig(client);
+      const previewConfig = config || (await promptService.getClientConfig(client));
       const prompt = await promptService.buildSystemPrompt(client, previewConfig);
 
       res.json({ prompt });
@@ -935,7 +935,7 @@ class CustomerController {
       log.error('Preview AI behavior error', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to generate preview',
-        message: 'An error occurred while generating the prompt preview'
+        message: 'An error occurred while generating the prompt preview',
       });
     }
   }
@@ -954,7 +954,7 @@ class CustomerController {
         log.warn('Rate limit exceeded for customer AI behavior reset', { clientId });
         return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
           error: 'Rate limit exceeded',
-          retryAfter: rateLimit.resetIn
+          retryAfter: rateLimit.resetIn,
         });
       }
 
@@ -977,14 +977,14 @@ class CustomerController {
           reasoning_steps: defaultConfig.reasoning_steps || [],
           response_style: defaultConfig.response_style || {},
           tool_rules: defaultConfig.tool_rules || [],
-          custom_instructions: null
-        }
+          custom_instructions: null,
+        },
       });
     } catch (error) {
       log.error('Reset AI behavior error', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to reset AI behavior settings',
-        message: 'An error occurred while resetting your AI settings'
+        message: 'An error occurred while resetting your AI settings',
       });
     }
   }
@@ -1001,17 +1001,17 @@ class CustomerController {
       const { status, limit = 50, offset = 0 } = req.query;
 
       // Parse limit and offset to integers (like admin route does)
-      const escalations = await Escalation.getByClient(clientId, { 
-        status, 
-        limit: parseInt(limit, 10), 
-        offset: parseInt(offset, 10) 
+      const escalations = await Escalation.getByClient(clientId, {
+        status,
+        limit: parseInt(limit, 10),
+        offset: parseInt(offset, 10),
       });
 
       // Get pending count for notification badge
-      const pendingCount = escalations.filter(e => e.status === 'pending').length;
+      const pendingCount = escalations.filter((e) => e.status === 'pending').length;
 
       res.json({
-        escalations: escalations.map(e => ({
+        escalations: escalations.map((e) => ({
           id: e.id,
           conversationId: e.conversation_id,
           sessionId: e.session_id,
@@ -1021,15 +1021,15 @@ class CustomerController {
           acknowledgedAt: e.acknowledged_at,
           resolvedAt: e.resolved_at,
           assignedTo: e.assigned_to,
-          notes: e.notes
+          notes: e.notes,
         })),
-        pendingCount
+        pendingCount,
       });
     } catch (error) {
       console.error('[CustomerController] Get escalations error:', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load escalations',
-        message: 'An error occurred while loading escalations'
+        message: 'An error occurred while loading escalations',
       });
     }
   }
@@ -1049,14 +1049,14 @@ class CustomerController {
       if (!escalation) {
         return res.status(HTTP_STATUS.NOT_FOUND).json({
           error: 'Escalation not found',
-          message: 'The requested escalation could not be found'
+          message: 'The requested escalation could not be found',
         });
       }
 
       if (escalation.client_id !== clientId) {
         return res.status(HTTP_STATUS.FORBIDDEN).json({
           error: 'Access denied',
-          message: 'You do not have permission to view this escalation'
+          message: 'You do not have permission to view this escalation',
         });
       }
 
@@ -1072,21 +1072,21 @@ class CustomerController {
       // Get the trigger message if available
       let triggerMessage = null;
       if (escalation.trigger_message_id) {
-        const triggerMsg = messages.find(m => m.id === escalation.trigger_message_id);
+        const triggerMsg = messages.find((m) => m.id === escalation.trigger_message_id);
         if (triggerMsg) {
           triggerMessage = {
             content: triggerMsg.content,
             timestamp: triggerMsg.timestamp,
-            role: triggerMsg.role
+            role: triggerMsg.role,
           };
         }
       }
 
       // Get recent messages for context (last 10)
-      const recentMessages = messages.slice(-10).map(m => ({
+      const recentMessages = messages.slice(-10).map((m) => ({
         role: m.role,
         content: m.content,
-        timestamp: m.timestamp
+        timestamp: m.timestamp,
       }));
 
       res.json({
@@ -1099,7 +1099,7 @@ class CustomerController {
           acknowledgedAt: escalation.acknowledged_at,
           resolvedAt: escalation.resolved_at,
           assignedTo: escalation.assigned_to,
-          notes: escalation.notes
+          notes: escalation.notes,
         },
         conversation: {
           id: conversation.id,
@@ -1107,17 +1107,17 @@ class CustomerController {
           channel: conversation.channel,
           startedAt: conversation.started_at,
           endedAt: conversation.ended_at,
-          messageCount: conversation.message_count
+          messageCount: conversation.message_count,
         },
         customerInfo,
         triggerMessage,
-        recentMessages
+        recentMessages,
       });
     } catch (error) {
       console.error('[CustomerController] Get escalation detail error:', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load escalation',
-        message: 'An error occurred while loading the escalation details'
+        message: 'An error occurred while loading the escalation details',
       });
     }
   }
@@ -1132,7 +1132,7 @@ class CustomerController {
       phone: null,
       name: null,
       channel: conversation?.channel || 'widget',
-      identifier: conversation?.user_identifier || null
+      identifier: conversation?.user_identifier || null,
     };
 
     // Extract from channel metadata (email channel has sender info)
@@ -1192,7 +1192,7 @@ class CustomerController {
         log.warn('Rate limit exceeded for escalation acknowledge', { clientId });
         return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
           error: 'Rate limit exceeded',
-          retryAfter: rateLimit.resetIn
+          retryAfter: rateLimit.resetIn,
         });
       }
 
@@ -1217,14 +1217,14 @@ class CustomerController {
         escalation: {
           id: updated.id,
           status: updated.status,
-          acknowledgedAt: updated.acknowledged_at
-        }
+          acknowledgedAt: updated.acknowledged_at,
+        },
       });
     } catch (error) {
       console.error('[CustomerController] Acknowledge escalation error:', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to acknowledge escalation',
-        message: 'An error occurred while acknowledging the escalation'
+        message: 'An error occurred while acknowledging the escalation',
       });
     }
   }
@@ -1243,7 +1243,7 @@ class CustomerController {
         log.warn('Rate limit exceeded for escalation resolve', { clientId });
         return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
           error: 'Rate limit exceeded',
-          retryAfter: rateLimit.resetIn
+          retryAfter: rateLimit.resetIn,
         });
       }
 
@@ -1259,7 +1259,9 @@ class CustomerController {
         return res.status(HTTP_STATUS.FORBIDDEN).json({ error: 'Access denied' });
       }
       if (escalation.status === 'resolved' || escalation.status === 'cancelled') {
-        return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Escalation is already resolved or cancelled' });
+        return res
+          .status(HTTP_STATUS.BAD_REQUEST)
+          .json({ error: 'Escalation is already resolved or cancelled' });
       }
 
       const updated = await Escalation.updateStatus(escalationId, 'resolved', { notes });
@@ -1270,14 +1272,14 @@ class CustomerController {
           id: updated.id,
           status: updated.status,
           resolvedAt: updated.resolved_at,
-          notes: updated.notes
-        }
+          notes: updated.notes,
+        },
       });
     } catch (error) {
       console.error('[CustomerController] Resolve escalation error:', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to resolve escalation',
-        message: 'An error occurred while resolving the escalation'
+        message: 'An error occurred while resolving the escalation',
       });
     }
   }
@@ -1299,17 +1301,17 @@ class CustomerController {
         byReason: {
           userRequested: parseInt(stats.user_requested_count, 10) || 0,
           aiStuck: parseInt(stats.ai_stuck_count, 10) || 0,
-          lowConfidence: parseInt(stats.low_confidence_count, 10) || 0
+          lowConfidence: parseInt(stats.low_confidence_count, 10) || 0,
         },
         avgResolutionTimeMinutes: stats.avg_resolution_time_seconds
           ? Math.round(parseFloat(stats.avg_resolution_time_seconds) / 60)
-          : null
+          : null,
       });
     } catch (error) {
       console.error('[CustomerController] Escalation stats error:', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to load escalation stats',
-        message: 'An error occurred while loading escalation statistics'
+        message: 'An error occurred while loading escalation statistics',
       });
     }
   }
@@ -1328,7 +1330,7 @@ class CustomerController {
         log.warn('Rate limit exceeded for escalation cancel', { clientId });
         return res.status(HTTP_STATUS.RATE_LIMIT_EXCEEDED).json({
           error: 'Rate limit exceeded',
-          retryAfter: rateLimit.resetIn
+          retryAfter: rateLimit.resetIn,
         });
       }
 
@@ -1340,40 +1342,42 @@ class CustomerController {
       if (!escalation) {
         return res.status(HTTP_STATUS.NOT_FOUND).json({
           error: 'Escalation not found',
-          message: 'The requested escalation does not exist'
+          message: 'The requested escalation does not exist',
         });
       }
 
       if (escalation.client_id !== clientId) {
         return res.status(HTTP_STATUS.FORBIDDEN).json({
           error: 'Access denied',
-          message: 'You do not have permission to cancel this escalation'
+          message: 'You do not have permission to cancel this escalation',
         });
       }
 
       if (escalation.status === 'resolved' || escalation.status === 'cancelled') {
         return res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'Invalid action',
-          message: `Cannot cancel an escalation that is already ${escalation.status}`
+          message: `Cannot cancel an escalation that is already ${escalation.status}`,
         });
       }
 
       // Update status to cancelled
       const updated = await Escalation.updateStatus(escalationId, 'cancelled', {
-        notes: req.body.notes || 'Cancelled by customer'
+        notes: req.body.notes || 'Cancelled by customer',
       });
 
-      console.log(`[CustomerController] Escalation ${escalationId} cancelled by client ${clientId}`);
+      console.log(
+        `[CustomerController] Escalation ${escalationId} cancelled by client ${clientId}`
+      );
 
       res.json({
         success: true,
-        escalation: updated
+        escalation: updated,
       });
     } catch (error) {
       console.error('[CustomerController] Cancel escalation error:', error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to cancel escalation',
-        message: 'An error occurred while cancelling the escalation'
+        message: 'An error occurred while cancelling the escalation',
       });
     }
   }

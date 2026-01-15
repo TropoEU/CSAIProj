@@ -133,7 +133,9 @@ router.put('/:id', async (req, res) => {
   } catch (error) {
     console.error('[Admin] Update client error:', error);
     console.error('[Admin] Error stack:', error.stack);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to update client', message: error.message });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to update client', message: error.message });
   }
 });
 
@@ -179,7 +181,9 @@ router.put('/:id/api-key', async (req, res) => {
   try {
     const { api_key } = req.body;
     if (!api_key || api_key.trim().length < 10) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'API key must be at least 10 characters' });
+      return res
+        .status(HTTP_STATUS.BAD_REQUEST)
+        .json({ error: 'API key must be at least 10 characters' });
     }
     const client = await Client.updateApiKey(req.params.id, api_key.trim());
     if (!client) {
@@ -223,7 +227,9 @@ router.get('/:id/business-info', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Get business info error:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get business information' });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to get business information' });
   }
 });
 
@@ -246,7 +252,9 @@ router.put('/:id/business-info', async (req, res) => {
     if (business_info.faq) {
       for (const item of business_info.faq) {
         if (!item.question || !item.answer) {
-          return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Each FAQ item must have question and answer' });
+          return res
+            .status(HTTP_STATUS.BAD_REQUEST)
+            .json({ error: 'Each FAQ item must have question and answer' });
         }
       }
     }
@@ -262,7 +270,9 @@ router.put('/:id/business-info', async (req, res) => {
     });
   } catch (error) {
     console.error('[Admin] Update business info error:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to update business information' });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to update business information' });
   }
 });
 
@@ -279,7 +289,9 @@ router.post('/:id/access-code', async (req, res) => {
     res.json(client);
   } catch (error) {
     console.error('[Admin] Regenerate access code error:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to regenerate access code' });
+    res
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to regenerate access code' });
   }
 });
 
@@ -411,7 +423,11 @@ router.get('/:id/stats', async (req, res) => {
 router.get('/:id/invoices', async (req, res) => {
   try {
     const { limit = 100, offset = 0 } = req.query;
-    const invoices = await Invoice.findByClientId(req.params.id, parseInt(limit, 10), parseInt(offset, 10));
+    const invoices = await Invoice.findByClientId(
+      req.params.id,
+      parseInt(limit, 10),
+      parseInt(offset, 10)
+    );
     res.json(invoices);
   } catch (error) {
     console.error('[Admin] Get client invoices error:', error);

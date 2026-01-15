@@ -113,7 +113,7 @@ export function checkPlanLimits(options = {}) {
             planType,
             violations,
             message: 'Please upgrade your plan or contact support',
-            upgradeUrl: '/admin/clients', // TODO: Add client-facing upgrade URL
+            upgradeUrl: '/billing', // Customer dashboard billing page
           });
         } else {
           // Non-strict mode: log warning but allow request
@@ -170,7 +170,9 @@ export function requireFeature(featureName) {
     } catch (error) {
       console.error('[Plan Features] Error checking feature:', error);
       // Fail closed for features (deny access on error)
-      return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: 'Failed to check feature access' });
+      return res
+        .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+        .json({ error: 'Failed to check feature access' });
     }
   };
 }
@@ -238,7 +240,7 @@ export function logPlanViolations() {
     // Execute after response is sent
     res.on('finish', () => {
       if (req.planViolations && req.planViolations.length > 0) {
-        // TODO: Log to analytics/monitoring system
+        // Log violations for analytics (extend with external services as needed)
         console.log('[Plan Violations]', {
           clientId: req.client?.id,
           clientName: req.client?.name,
@@ -268,11 +270,7 @@ export function logPlanViolations() {
  * @returns {Array<Function>} Array of middleware functions
  */
 export function enforcePlanLimits(options = {}) {
-  return [
-    checkPlanLimits(options),
-    addUsageHeaders(),
-    logPlanViolations(),
-  ];
+  return [checkPlanLimits(options), addUsageHeaders(), logPlanViolations()];
 }
 
 /**

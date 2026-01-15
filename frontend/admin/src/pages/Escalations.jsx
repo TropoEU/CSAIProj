@@ -129,9 +129,7 @@ export default function Escalations() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Escalations</h1>
-          <p className="text-gray-600 mt-1">
-            Conversations that need human attention
-          </p>
+          <p className="text-gray-600 mt-1">Conversations that need human attention</p>
         </div>
         <Button onClick={loadEscalations} variant="secondary">
           Refresh
@@ -147,14 +145,9 @@ export default function Escalations() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">
-              All Escalations ({escalations.length})
-            </h2>
+            <h2 className="text-lg font-semibold">All Escalations ({escalations.length})</h2>
             <div className="flex items-center space-x-4">
-              <Select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
+              <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <option value="all">All Statuses</option>
                 <option value="pending">Pending</option>
                 <option value="acknowledged">Acknowledged</option>
@@ -169,9 +162,7 @@ export default function Escalations() {
             <div className="text-center py-8 text-gray-500">
               <p>No escalations found</p>
               {statusFilter !== 'all' && (
-                <p className="text-sm mt-2">
-                  Try changing the filter to see more results
-                </p>
+                <p className="text-sm mt-2">Try changing the filter to see more results</p>
               )}
             </div>
           ) : (

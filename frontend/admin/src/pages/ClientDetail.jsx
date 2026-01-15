@@ -66,7 +66,7 @@ export default function ClientDetail() {
     buttonTextColor: '#ffffff',
     greeting: 'Hi! How can I help you today?',
     title: 'Chat Support',
-    subtitle: 'We typically reply instantly'
+    subtitle: 'We typically reply instantly',
   });
   const [showWidgetPreview, setShowWidgetPreview] = useState(false);
   const [availablePlans, setAvailablePlans] = useState([]);
@@ -115,7 +115,7 @@ export default function ClientDetail() {
   useEffect(() => {
     if (selectedProvider && selectedProvider !== 'ollama' && AVAILABLE_MODELS[selectedProvider]) {
       const currentModel = watch('model_name');
-      const availableModels = AVAILABLE_MODELS[selectedProvider].map(m => m.value);
+      const availableModels = AVAILABLE_MODELS[selectedProvider].map((m) => m.value);
 
       // If current model is not valid for this provider, set to default
       if (!availableModels.includes(currentModel)) {
@@ -154,9 +154,12 @@ export default function ClientDetail() {
         position: client.widget_config.position || 'bottom-right',
         primaryColor: client.widget_config.primaryColor || '#667eea',
         backgroundColor: client.widget_config.backgroundColor || '#ffffff',
-        headerBgColor: client.widget_config.headerBgColor || client.widget_config.primaryColor || '#667eea',
-        bodyBgColor: client.widget_config.bodyBgColor || client.widget_config.backgroundColor || '#ffffff',
-        footerBgColor: client.widget_config.footerBgColor || client.widget_config.backgroundColor || '#ffffff',
+        headerBgColor:
+          client.widget_config.headerBgColor || client.widget_config.primaryColor || '#667eea',
+        bodyBgColor:
+          client.widget_config.bodyBgColor || client.widget_config.backgroundColor || '#ffffff',
+        footerBgColor:
+          client.widget_config.footerBgColor || client.widget_config.backgroundColor || '#ffffff',
         aiBubbleColor: client.widget_config.aiBubbleColor || '#f3f4f6',
         userBubbleColor: client.widget_config.userBubbleColor || '#667eea',
         headerTextColor: client.widget_config.headerTextColor || '#111827',
@@ -167,7 +170,7 @@ export default function ClientDetail() {
         buttonTextColor: client.widget_config.buttonTextColor || '#ffffff',
         greeting: client.widget_config.greeting || 'Hi! How can I help you today?',
         title: client.widget_config.title || 'Chat Support',
-        subtitle: client.widget_config.subtitle || 'We typically reply instantly'
+        subtitle: client.widget_config.subtitle || 'We typically reply instantly',
       });
     }
   }, [client]);
@@ -243,7 +246,9 @@ export default function ClientDetail() {
   };
 
   const handleRegenerateAccessCode = async () => {
-    if (!confirm('Are you sure? This will generate a new access code for the customer dashboard.')) {
+    if (
+      !confirm('Are you sure? This will generate a new access code for the customer dashboard.')
+    ) {
       return;
     }
     setIsRegeneratingAccessCode(true);
@@ -289,11 +294,14 @@ export default function ClientDetail() {
   const sendAccessCodeEmail = async () => {
     const clientEmail = getClientEmail();
     if (!clientEmail) {
-      setEmailMessage({ type: 'error', text: 'No contact email set for this client. Add one in the Edit dialog.' });
+      setEmailMessage({
+        type: 'error',
+        text: 'No contact email set for this client. Add one in the Edit dialog.',
+      });
       return;
     }
 
-    setSendingEmail(prev => ({ ...prev, accessCode: true }));
+    setSendingEmail((prev) => ({ ...prev, accessCode: true }));
     try {
       await api.post('/email/platform/test', {
         to: clientEmail,
@@ -302,20 +310,26 @@ export default function ClientDetail() {
       });
       setEmailMessage({ type: 'success', text: `Access code sent to ${clientEmail}` });
     } catch (error) {
-      setEmailMessage({ type: 'error', text: error.response?.data?.error || 'Failed to send email' });
+      setEmailMessage({
+        type: 'error',
+        text: error.response?.data?.error || 'Failed to send email',
+      });
     } finally {
-      setSendingEmail(prev => ({ ...prev, accessCode: false }));
+      setSendingEmail((prev) => ({ ...prev, accessCode: false }));
     }
   };
 
   const sendWelcomeEmail = async () => {
     const clientEmail = getClientEmail();
     if (!clientEmail) {
-      setEmailMessage({ type: 'error', text: 'No contact email set for this client. Add one in the Edit dialog.' });
+      setEmailMessage({
+        type: 'error',
+        text: 'No contact email set for this client. Add one in the Edit dialog.',
+      });
       return;
     }
 
-    setSendingEmail(prev => ({ ...prev, welcome: true }));
+    setSendingEmail((prev) => ({ ...prev, welcome: true }));
     try {
       await api.post('/email/platform/test', {
         to: clientEmail,
@@ -324,9 +338,12 @@ export default function ClientDetail() {
       });
       setEmailMessage({ type: 'success', text: `Welcome email sent to ${clientEmail}` });
     } catch (error) {
-      setEmailMessage({ type: 'error', text: error.response?.data?.error || 'Failed to send email' });
+      setEmailMessage({
+        type: 'error',
+        text: error.response?.data?.error || 'Failed to send email',
+      });
     } finally {
-      setSendingEmail(prev => ({ ...prev, welcome: false }));
+      setSendingEmail((prev) => ({ ...prev, welcome: false }));
     }
   };
 
@@ -336,7 +353,11 @@ export default function ClientDetail() {
       fetchClientData();
       alert('Widget configuration saved!');
     } catch (err) {
-      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to save widget configuration';
+      const errorMessage =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        'Failed to save widget configuration';
       setError(errorMessage);
     }
   };
@@ -365,21 +386,21 @@ export default function ClientDetail() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/clients')}
-            className="p-2 rounded-lg hover:bg-gray-100"
-          >
+          <button onClick={() => navigate('/clients')} className="p-2 rounded-lg hover:bg-gray-100">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{client.name}</h1>
             <p className="text-gray-600">{client.domain || 'No domain set'}</p>
           </div>
-          <Badge variant={client.status === 'active' ? 'success' : 'danger'}>
-            {client.status}
-          </Badge>
+          <Badge variant={client.status === 'active' ? 'success' : 'danger'}>{client.status}</Badge>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => setIsEditModalOpen(true)}>
@@ -429,7 +450,12 @@ export default function ClientDetail() {
             }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              />
             </svg>
             Email Channels
           </button>
@@ -442,7 +468,12 @@ export default function ClientDetail() {
             }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+              />
             </svg>
             AI Behavior
           </button>
@@ -450,230 +481,420 @@ export default function ClientDetail() {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-          {error}
-        </div>
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{error}</div>
       )}
 
       {/* Email Tab Content */}
-      {activeTab === 'email' && (
-        <EmailChannels clientId={id} />
-      )}
+      {activeTab === 'email' && <EmailChannels clientId={id} />}
 
       {/* AI Behavior Tab Content */}
-      {activeTab === 'ai' && client && (
-        <ClientAIBehavior clientId={id} clientName={client.name} />
-      )}
+      {activeTab === 'ai' && client && <ClientAIBehavior clientId={id} clientName={client.name} />}
 
       {/* Overview Tab Content */}
       {activeTab === 'overview' && (
         <>
-      {/* Quick Links */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Link to={`/usage?client=${id}`} className="block">
-          <div className="bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg p-4 transition-colors">
-            <div className="flex items-center gap-3">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              <div>
-                <p className="font-semibold text-gray-900">View Usage Reports</p>
-                <p className="text-sm text-gray-600">See API consumption & costs</p>
-              </div>
-            </div>
-          </div>
-        </Link>
-
-        <Link to={`/billing?client=${id}`} className="block">
-          <div className="bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg p-4 transition-colors">
-            <div className="flex items-center gap-3">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-              </svg>
-              <div>
-                <p className="font-semibold text-gray-900">View Billing History</p>
-                <p className="text-sm text-gray-600">Invoices & payment status</p>
-              </div>
-            </div>
-          </div>
-        </Link>
-
-        <Link to={`/integrations?client=${id}`} className="block">
-          <div className="bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg p-4 transition-colors">
-            <div className="flex items-center gap-3">
-              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
-              </svg>
-              <div>
-                <p className="font-semibold text-gray-900">Manage Integrations</p>
-                <p className="text-sm text-gray-600">External system connections</p>
-              </div>
-            </div>
-          </div>
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Client Info */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <h3 className="text-lg font-semibold">Client Information</h3>
-          </CardHeader>
-          <CardBody>
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Business Name</dt>
-                <dd className="mt-1 text-gray-900">{client.name}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Email</dt>
-                <dd className="mt-1 text-gray-900">{client.email || '-'}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Domain</dt>
-                <dd className="mt-1 text-gray-900">{client.domain || '-'}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Plan Type</dt>
-                <dd className="mt-1">
-                  <Badge
-                    variant={
-                      client.plan_type === 'pro'
-                        ? 'primary'
-                        : client.plan_type === 'starter'
-                        ? 'info'
-                        : 'default'
-                    }
+          {/* Quick Links */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Link to={`/usage?client=${id}`} className="block">
+              <div className="bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg p-4 transition-colors">
+                <div className="flex items-center gap-3">
+                  <svg
+                    className="w-6 h-6 text-blue-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    {client.plan_type}
-                  </Badge>
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">LLM Provider</dt>
-                <dd className="mt-1">
-                  <Badge variant="info">
-                    {client.llm_provider || 'ollama'}
-                  </Badge>
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Model Name</dt>
-                <dd className="mt-1 text-gray-900 font-mono text-sm">
-                  {client.model_name || 'Default'}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Language</dt>
-                <dd className="mt-1">
-                  <Badge variant="info">
-                    {client.language === 'he' ? 'Hebrew (עברית)' : 'English'}
-                  </Badge>
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Created</dt>
-                <dd className="mt-1 text-gray-900">
-                  {new Date(client.created_at).toLocaleString()}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
-                <dd className="mt-1 text-gray-900">
-                  {new Date(client.updated_at).toLocaleString()}
-                </dd>
-              </div>
-              {client.system_prompt && (
-                <div className="col-span-2">
-                  <dt className="text-sm font-medium text-gray-500">System Prompt</dt>
-                  <dd className="mt-1 text-gray-900 text-sm bg-gray-50 p-3 rounded-lg">
-                    {client.system_prompt}
-                  </dd>
-                </div>
-              )}
-            </dl>
-          </CardBody>
-        </Card>
-
-        {/* API Key */}
-        <Card>
-          <CardHeader>
-            <h3 className="text-lg font-semibold">API Key</h3>
-          </CardHeader>
-          <CardBody>
-            <div className="space-y-4">
-              {isEditingApiKey ? (
-                /* Edit Mode */
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Enter new API key
-                    </label>
-                    <input
-                      type="text"
-                      value={editApiKeyValue}
-                      onChange={(e) => setEditApiKeyValue(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent font-mono text-sm"
-                      placeholder="Enter API key (min 10 characters)"
-                      autoFocus
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Must be at least 10 characters
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      className="flex-1"
-                      onClick={handleSaveApiKey}
-                      loading={isSavingApiKey}
-                      disabled={editApiKeyValue.trim().length < 10}
-                    >
-                      Save
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => {
-                        setIsEditingApiKey(false);
-                        setEditApiKeyValue('');
-                      }}
-                      disabled={isSavingApiKey}
-                    >
-                      Cancel
-                    </Button>
+                  </svg>
+                  <div>
+                    <p className="font-semibold text-gray-900">View Usage Reports</p>
+                    <p className="text-sm text-gray-600">See API consumption & costs</p>
                   </div>
                 </div>
-              ) : (
-                /* View Mode */
-                <>
+              </div>
+            </Link>
+
+            <Link to={`/billing?client=${id}`} className="block">
+              <div className="bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg p-4 transition-colors">
+                <div className="flex items-center gap-3">
+                  <svg
+                    className="w-6 h-6 text-green-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <div>
+                    <p className="font-semibold text-gray-900">View Billing History</p>
+                    <p className="text-sm text-gray-600">Invoices & payment status</p>
+                  </div>
+                </div>
+              </div>
+            </Link>
+
+            <Link to={`/integrations?client=${id}`} className="block">
+              <div className="bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg p-4 transition-colors">
+                <div className="flex items-center gap-3">
+                  <svg
+                    className="w-6 h-6 text-purple-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"
+                    />
+                  </svg>
+                  <div>
+                    <p className="font-semibold text-gray-900">Manage Integrations</p>
+                    <p className="text-sm text-gray-600">External system connections</p>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Client Info */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <h3 className="text-lg font-semibold">Client Information</h3>
+              </CardHeader>
+              <CardBody>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Business Name</dt>
+                    <dd className="mt-1 text-gray-900">{client.name}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Email</dt>
+                    <dd className="mt-1 text-gray-900">{client.email || '-'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Domain</dt>
+                    <dd className="mt-1 text-gray-900">{client.domain || '-'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Plan Type</dt>
+                    <dd className="mt-1">
+                      <Badge
+                        variant={
+                          client.plan_type === 'pro'
+                            ? 'primary'
+                            : client.plan_type === 'starter'
+                              ? 'info'
+                              : 'default'
+                        }
+                      >
+                        {client.plan_type}
+                      </Badge>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">LLM Provider</dt>
+                    <dd className="mt-1">
+                      <Badge variant="info">{client.llm_provider || 'ollama'}</Badge>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Model Name</dt>
+                    <dd className="mt-1 text-gray-900 font-mono text-sm">
+                      {client.model_name || 'Default'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Language</dt>
+                    <dd className="mt-1">
+                      <Badge variant="info">
+                        {client.language === 'he' ? 'Hebrew (עברית)' : 'English'}
+                      </Badge>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Created</dt>
+                    <dd className="mt-1 text-gray-900">
+                      {new Date(client.created_at).toLocaleString()}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
+                    <dd className="mt-1 text-gray-900">
+                      {new Date(client.updated_at).toLocaleString()}
+                    </dd>
+                  </div>
+                  {client.system_prompt && (
+                    <div className="col-span-2">
+                      <dt className="text-sm font-medium text-gray-500">System Prompt</dt>
+                      <dd className="mt-1 text-gray-900 text-sm bg-gray-50 p-3 rounded-lg">
+                        {client.system_prompt}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              </CardBody>
+            </Card>
+
+            {/* API Key */}
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-semibold">API Key</h3>
+              </CardHeader>
+              <CardBody>
+                <div className="space-y-4">
+                  {isEditingApiKey ? (
+                    /* Edit Mode */
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Enter new API key
+                        </label>
+                        <input
+                          type="text"
+                          value={editApiKeyValue}
+                          onChange={(e) => setEditApiKeyValue(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent font-mono text-sm"
+                          placeholder="Enter API key (min 10 characters)"
+                          autoFocus
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Must be at least 10 characters</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          className="flex-1"
+                          onClick={handleSaveApiKey}
+                          loading={isSavingApiKey}
+                          disabled={editApiKeyValue.trim().length < 10}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => {
+                            setIsEditingApiKey(false);
+                            setEditApiKeyValue('');
+                          }}
+                          disabled={isSavingApiKey}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* View Mode */
+                    <>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-sm font-mono overflow-hidden text-ellipsis">
+                          {showApiKey ? client.api_key : '••••••••••••••••'}
+                        </code>
+                        <button
+                          onClick={() => setShowApiKey(!showApiKey)}
+                          className="p-2 rounded-lg hover:bg-gray-100"
+                          title={showApiKey ? 'Hide' : 'Show'}
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            {showApiKey ? (
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                              />
+                            ) : (
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                              />
+                            )}
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => copyToClipboard(client.api_key)}
+                          className="p-2 rounded-lg hover:bg-gray-100"
+                          title="Copy to clipboard"
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => {
+                            setEditApiKeyValue(client.api_key || '');
+                            setIsEditingApiKey(true);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="flex-1"
+                          onClick={handleRegenerateApiKey}
+                          loading={isRegeneratingKey}
+                        >
+                          Regenerate
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </CardBody>
+            </Card>
+
+            {/* Access Code for Customer Dashboard */}
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-semibold">Customer Dashboard Access</h3>
+              </CardHeader>
+              <CardBody>
+                <div className="space-y-4">
+                  {emailMessage && (
+                    <div
+                      className={`p-3 rounded-lg text-sm ${
+                        emailMessage.type === 'success'
+                          ? 'bg-green-50 text-green-800 border border-green-200'
+                          : 'bg-red-50 text-red-800 border border-red-200'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <span>{emailMessage.text}</span>
+                        <button
+                          onClick={() => setEmailMessage(null)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-sm text-gray-600">
+                    Share this code with your client for customer dashboard login
+                  </p>
                   <div className="flex items-center gap-2">
-                    <code className="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-sm font-mono overflow-hidden text-ellipsis">
-                      {showApiKey ? client.api_key : '••••••••••••••••'}
+                    <code className="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-lg font-mono font-bold text-center tracking-widest">
+                      {showAccessCode ? client.access_code || 'Not generated' : '•••-•••'}
                     </code>
                     <button
-                      onClick={() => setShowApiKey(!showApiKey)}
+                      onClick={() => setShowAccessCode(!showAccessCode)}
                       className="p-2 rounded-lg hover:bg-gray-100"
-                      title={showApiKey ? 'Hide' : 'Show'}
+                      title={showAccessCode ? 'Hide' : 'Show'}
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        {showApiKey ? (
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        {showAccessCode ? (
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                          />
                         ) : (
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
                         )}
                       </svg>
                     </button>
                     <button
-                      onClick={() => copyToClipboard(client.api_key)}
+                      onClick={() => copyToClipboard(client.access_code)}
                       className="p-2 rounded-lg hover:bg-gray-100"
                       title="Copy to clipboard"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        />
                       </svg>
+                    </button>
+                    <button
+                      onClick={sendAccessCodeEmail}
+                      disabled={sendingEmail.accessCode}
+                      className="p-2 rounded-lg hover:bg-blue-50 text-blue-600 disabled:opacity-50"
+                      title="Send access code via email"
+                    >
+                      {sendingEmail.accessCode ? (
+                        <div className="w-5 h-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
+                      ) : (
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                          />
+                        </svg>
+                      )}
                     </button>
                   </div>
                   <div className="flex gap-2">
@@ -681,143 +902,58 @@ export default function ClientDetail() {
                       variant="secondary"
                       size="sm"
                       className="flex-1"
-                      onClick={() => {
-                        setEditApiKeyValue(client.api_key || '');
-                        setIsEditingApiKey(true);
-                      }}
+                      onClick={handleRegenerateAccessCode}
+                      loading={isRegeneratingAccessCode}
                     >
-                      Edit
+                      Regenerate Code
                     </Button>
                     <Button
                       variant="secondary"
                       size="sm"
                       className="flex-1"
-                      onClick={handleRegenerateApiKey}
-                      loading={isRegeneratingKey}
+                      onClick={sendWelcomeEmail}
+                      loading={sendingEmail.welcome}
                     >
-                      Regenerate
+                      <svg
+                        className="w-4 h-4 mr-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                        />
+                      </svg>
+                      Welcome Email
                     </Button>
                   </div>
-                </>
-              )}
-            </div>
-          </CardBody>
-        </Card>
-
-        {/* Access Code for Customer Dashboard */}
-        <Card>
-          <CardHeader>
-            <h3 className="text-lg font-semibold">Customer Dashboard Access</h3>
-          </CardHeader>
-          <CardBody>
-            <div className="space-y-4">
-              {emailMessage && (
-                <div className={`p-3 rounded-lg text-sm ${
-                  emailMessage.type === 'success'
-                    ? 'bg-green-50 text-green-800 border border-green-200'
-                    : 'bg-red-50 text-red-800 border border-red-200'
-                }`}>
-                  <div className="flex justify-between items-start">
-                    <span>{emailMessage.text}</span>
-                    <button onClick={() => setEmailMessage(null)} className="text-gray-500 hover:text-gray-700">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
                 </div>
-              )}
-              <p className="text-sm text-gray-600">
-                Share this code with your client for customer dashboard login
-              </p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-lg font-mono font-bold text-center tracking-widest">
-                  {showAccessCode ? client.access_code || 'Not generated' : '•••-•••'}
-                </code>
-                <button
-                  onClick={() => setShowAccessCode(!showAccessCode)}
-                  className="p-2 rounded-lg hover:bg-gray-100"
-                  title={showAccessCode ? 'Hide' : 'Show'}
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    {showAccessCode ? (
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    ) : (
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    )}
-                  </svg>
-                </button>
-                <button
-                  onClick={() => copyToClipboard(client.access_code)}
-                  className="p-2 rounded-lg hover:bg-gray-100"
-                  title="Copy to clipboard"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={sendAccessCodeEmail}
-                  disabled={sendingEmail.accessCode}
-                  className="p-2 rounded-lg hover:bg-blue-50 text-blue-600 disabled:opacity-50"
-                  title="Send access code via email"
-                >
-                  {sendingEmail.accessCode ? (
-                    <div className="w-5 h-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="flex-1"
-                  onClick={handleRegenerateAccessCode}
-                  loading={isRegeneratingAccessCode}
-                >
-                  Regenerate Code
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="flex-1"
-                  onClick={sendWelcomeEmail}
-                  loading={sendingEmail.welcome}
-                >
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  Welcome Email
-                </Button>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-      </div>
+              </CardBody>
+            </Card>
+          </div>
 
-      {/* Widget Customization */}
-      <WidgetConfig
-        client={client}
-        widgetConfig={widgetConfig}
-        setWidgetConfig={setWidgetConfig}
-        onSave={handleSaveWidgetConfig}
-        showPreview={showWidgetPreview}
-        onTogglePreview={() => setShowWidgetPreview(!showWidgetPreview)}
-      />
+          {/* Widget Customization */}
+          <WidgetConfig
+            client={client}
+            widgetConfig={widgetConfig}
+            setWidgetConfig={setWidgetConfig}
+            onSave={handleSaveWidgetConfig}
+            showPreview={showWidgetPreview}
+            onTogglePreview={() => setShowWidgetPreview(!showWidgetPreview)}
+          />
 
-      {/* Enabled Tools */}
-      <ClientTools
-        clientId={id}
-        clientTools={clientTools}
-        allTools={allTools}
-        clientIntegrations={clientIntegrations}
-        onRefresh={fetchClientData}
-        setError={setError}
-      />
+          {/* Enabled Tools */}
+          <ClientTools
+            clientId={id}
+            clientTools={clientTools}
+            allTools={allTools}
+            clientIntegrations={clientIntegrations}
+            onRefresh={fetchClientData}
+            setError={setError}
+          />
         </>
       )}
 
@@ -839,29 +975,30 @@ export default function ClientDetail() {
             error={errors.name?.message}
           />
 
-          <Input
-            label="Email"
-            type="email"
-            {...register('email')}
-          />
+          <Input label="Email" type="email" {...register('email')} />
 
           <Input label="Domain" {...register('domain')} />
 
           <Select
             label="Plan Type"
             {...register('plan_type')}
-            options={availablePlans.length > 0 
-              ? availablePlans.map(plan => ({
-                  value: plan.name,
-                  label: plan.display_name || (plan.name ? plan.name.charAt(0).toUpperCase() + plan.name.slice(1) : 'Unknown'),
-                }))
-              : [
-                  { value: 'unlimited', label: 'Unlimited' },
-                  { value: 'free', label: 'Free' },
-                  { value: 'starter', label: 'Starter' },
-                  { value: 'pro', label: 'Pro' },
-                  { value: 'enterprise', label: 'Enterprise' },
-                ]
+            options={
+              availablePlans.length > 0
+                ? availablePlans.map((plan) => ({
+                    value: plan.name,
+                    label:
+                      plan.display_name ||
+                      (plan.name
+                        ? plan.name.charAt(0).toUpperCase() + plan.name.slice(1)
+                        : 'Unknown'),
+                  }))
+                : [
+                    { value: 'unlimited', label: 'Unlimited' },
+                    { value: 'free', label: 'Free' },
+                    { value: 'starter', label: 'Starter' },
+                    { value: 'pro', label: 'Pro' },
+                    { value: 'enterprise', label: 'Enterprise' },
+                  ]
             }
           />
 
@@ -899,9 +1036,7 @@ export default function ClientDetail() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              System Prompt
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">System Prompt</label>
             <textarea
               {...register('system_prompt')}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -941,10 +1076,7 @@ export default function ClientDetail() {
 
       {/* Floating Widget Preview */}
       {showWidgetPreview && (
-        <WidgetPreview
-          widgetConfig={widgetConfig}
-          onClose={() => setShowWidgetPreview(false)}
-        />
+        <WidgetPreview widgetConfig={widgetConfig} onClose={() => setShowWidgetPreview(false)} />
       )}
     </div>
   );

@@ -61,13 +61,17 @@ export class ChatWindow {
         <div class="csai-header-subtitle">${subtitle}</div>
       </div>
       <div class="csai-header-actions">
-        ${this.onEndConversation ? `
+        ${
+          this.onEndConversation
+            ? `
         <button class="csai-header-button csai-end-conversation-button" aria-label="End Conversation" title="End Conversation">
           <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px;">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14H11v-4h2v4zm0-6H11V6h2v4z"/>
           </svg>
         </button>
-        ` : ''}
+        `
+            : ''
+        }
         <button class="csai-header-button csai-close-button" aria-label="Close">
           <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
@@ -84,7 +88,7 @@ export class ChatWindow {
     // Apply button text color to buttons (should match send button icon color)
     if (this.config.buttonTextColor) {
       const buttons = header.querySelectorAll('.csai-header-button svg');
-      buttons.forEach(button => {
+      buttons.forEach((button) => {
         button.style.fill = this.config.buttonTextColor;
       });
     }
@@ -94,7 +98,8 @@ export class ChatWindow {
       const endBtn = header.querySelector('.csai-end-conversation-button');
       if (endBtn) {
         endBtn.addEventListener('click', () => {
-          const confirmMsg = this.translations.endConversationConfirm ||
+          const confirmMsg =
+            this.translations.endConversationConfirm ||
             'Are you sure you want to end this conversation? You can start a new one anytime.';
           if (confirm(confirmMsg)) {
             if (this.onEndConversation) {

@@ -9,7 +9,13 @@ export class Escalation {
    * @param {number} triggerMessageId - Optional message that triggered escalation
    * @param {object} additionalData - Additional escalation data
    */
-  static async create(conversationId, clientId, reason, triggerMessageId = null, additionalData = {}) {
+  static async create(
+    conversationId,
+    clientId,
+    reason,
+    triggerMessageId = null,
+    additionalData = {}
+  ) {
     const query = `
       INSERT INTO escalations (
         conversation_id,
@@ -28,7 +34,7 @@ export class Escalation {
       reason,
       triggerMessageId,
       additionalData.assigned_to || null,
-      additionalData.notes || null
+      additionalData.notes || null,
     ]);
 
     return result.rows[0];
@@ -38,10 +44,7 @@ export class Escalation {
    * Find escalation by ID
    */
   static async findById(id) {
-    const result = await db.query(
-      'SELECT * FROM escalations WHERE id = $1',
-      [id]
-    );
+    const result = await db.query('SELECT * FROM escalations WHERE id = $1', [id]);
     return result.rows[0] || null;
   }
 
@@ -199,10 +202,7 @@ export class Escalation {
    * Delete escalation
    */
   static async delete(id) {
-    const result = await db.query(
-      'DELETE FROM escalations WHERE id = $1 RETURNING *',
-      [id]
-    );
+    const result = await db.query('DELETE FROM escalations WHERE id = $1 RETURNING *', [id]);
     return result.rows[0];
   }
 

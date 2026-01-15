@@ -119,9 +119,7 @@ export default function Clients() {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-          {error}
-        </div>
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{error}</div>
       )}
 
       {/* Filters */}
@@ -162,32 +160,26 @@ export default function Clients() {
                 filteredClients.map((client) => (
                   <TableRow
                     key={client.id}
-                    onClick={() => window.location.href = `/clients/${client.id}`}
+                    onClick={() => (window.location.href = `/clients/${client.id}`)}
                     className="cursor-pointer hover:bg-gray-50 transition-colors"
                   >
-                    <TableCell className="font-medium text-gray-900">
-                      {client.name}
-                    </TableCell>
-                    <TableCell className="text-gray-500">
-                      {client.domain || '-'}
-                    </TableCell>
+                    <TableCell className="font-medium text-gray-900">{client.name}</TableCell>
+                    <TableCell className="text-gray-500">{client.domain || '-'}</TableCell>
                     <TableCell>
                       <Badge
                         variant={
                           client.plan_type === 'pro'
                             ? 'primary'
                             : client.plan_type === 'starter'
-                            ? 'info'
-                            : 'default'
+                              ? 'info'
+                              : 'default'
                         }
                       >
                         {client.plan_type}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={client.status === 'active' ? 'success' : 'danger'}
-                      >
+                      <Badge variant={client.status === 'active' ? 'success' : 'danger'}>
                         {client.status}
                       </Badge>
                     </TableCell>
@@ -232,27 +224,28 @@ export default function Clients() {
             placeholder="e.g., contact@bobspizza.com"
           />
 
-          <Input
-            label="Domain"
-            {...register('domain')}
-            placeholder="e.g., bobspizza.com"
-          />
+          <Input label="Domain" {...register('domain')} placeholder="e.g., bobspizza.com" />
 
           <Select
             label="Plan Type"
             {...register('planType')}
-            options={availablePlans.length > 0 
-              ? availablePlans.map(plan => ({
-                  value: plan.name,
-                  label: plan.display_name || (plan.name ? plan.name.charAt(0).toUpperCase() + plan.name.slice(1) : 'Unknown'),
-                }))
-              : [
-                  { value: 'unlimited', label: 'Unlimited' },
-                  { value: 'free', label: 'Free' },
-                  { value: 'starter', label: 'Starter' },
-                  { value: 'pro', label: 'Pro' },
-                  { value: 'enterprise', label: 'Enterprise' },
-                ]
+            options={
+              availablePlans.length > 0
+                ? availablePlans.map((plan) => ({
+                    value: plan.name,
+                    label:
+                      plan.display_name ||
+                      (plan.name
+                        ? plan.name.charAt(0).toUpperCase() + plan.name.slice(1)
+                        : 'Unknown'),
+                  }))
+                : [
+                    { value: 'unlimited', label: 'Unlimited' },
+                    { value: 'free', label: 'Free' },
+                    { value: 'starter', label: 'Starter' },
+                    { value: 'pro', label: 'Pro' },
+                    { value: 'enterprise', label: 'Enterprise' },
+                  ]
             }
           />
 
@@ -341,9 +334,7 @@ export default function Clients() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              API Key
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">API Key</label>
             <div className="flex items-center gap-2">
               <code className="flex-1 px-3 py-3 bg-gray-100 rounded-lg text-sm font-mono overflow-x-auto">
                 {newClientApiKey}
@@ -356,7 +347,12 @@ export default function Clients() {
                 }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
                 </svg>
               </Button>
             </div>
@@ -365,7 +361,8 @@ export default function Clients() {
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <p className="text-yellow-800 text-sm font-medium mb-1">⚠️ Important:</p>
             <p className="text-yellow-700 text-sm">
-              Store this API key securely. You'll need it to embed the chat widget on the client's website.
+              Store this API key securely. You'll need it to embed the chat widget on the client's
+              website.
             </p>
           </div>
 

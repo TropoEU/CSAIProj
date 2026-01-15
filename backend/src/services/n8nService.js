@@ -68,7 +68,7 @@ function validateToolParameters(parameters) {
   checkValue(parameters, '');
 
   if (invalidParams.length > 0) {
-    const fields = invalidParams.map(p => p.path || 'value').join(', ');
+    const fields = invalidParams.map((p) => p.path || 'value').join(', ');
     return `Missing required information: ${fields}. Please provide the actual values.`;
   }
 
@@ -95,8 +95,11 @@ class N8nService {
    * @returns {Object} { success, data, executionTimeMs, error }
    */
   async executeTool(webhookUrl, parameters = {}, options = {}) {
-    const { timeout = TIMEOUTS.N8N_WEBHOOK, integrations = null, integration = null } =
-      typeof options === 'number' ? { timeout: options } : options;
+    const {
+      timeout = TIMEOUTS.N8N_WEBHOOK,
+      integrations = null,
+      integration = null,
+    } = typeof options === 'number' ? { timeout: options } : options;
     const startTime = Date.now();
 
     // Validate parameters for placeholder/made-up values
@@ -132,7 +135,7 @@ class N8nService {
             type: int.type,
             apiUrl: int.apiUrl,
             hasApiKey: !!int.apiKey,
-            authMethod: int.authMethod
+            authMethod: int.authMethod,
           });
         });
       } else {
@@ -155,11 +158,11 @@ class N8nService {
                 authMethod: int.authMethod,
                 method: int.method || 'GET',
                 headers: int.headers,
-                config: int.config
-              }
+                config: int.config,
+              },
             ])
-          )
-        })
+          ),
+        }),
       };
 
       console.log('[n8n] Request body keys:', Object.keys(requestBody).join(', '));
@@ -174,10 +177,10 @@ class N8nService {
         const response = await fetch(fullUrl, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify(requestBody),
-          signal: controller.signal
+          signal: controller.signal,
         });
 
         clearTimeout(timeoutId);
@@ -193,7 +196,7 @@ class N8nService {
             success: false,
             data: null,
             executionTimeMs,
-            error: `n8n webhook returned ${response.status}: ${errorText}`
+            error: `n8n webhook returned ${response.status}: ${errorText}`,
           };
         }
 
@@ -221,9 +224,8 @@ class N8nService {
           success: true,
           data,
           executionTimeMs,
-          error: null
+          error: null,
         };
-
       } catch (fetchError) {
         clearTimeout(timeoutId);
 
@@ -236,13 +238,12 @@ class N8nService {
             success: false,
             data: null,
             executionTimeMs,
-            error: `Tool execution timed out after ${timeout}ms`
+            error: `Tool execution timed out after ${timeout}ms`,
           };
         }
 
         throw fetchError;
       }
-
     } catch (error) {
       const executionTimeMs = Date.now() - startTime;
       console.error('[n8n] Tool execution error:', error);
@@ -251,7 +252,7 @@ class N8nService {
         success: false,
         data: null,
         executionTimeMs,
-        error: error.message || 'Unknown error during tool execution'
+        error: error.message || 'Unknown error during tool execution',
       };
     }
   }
@@ -291,7 +292,7 @@ class N8nService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ test: true }),
-        signal: controller.signal
+        signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
@@ -301,9 +302,8 @@ class N8nService {
         reachable: true,
         responseTime,
         statusCode: response.status,
-        error: null
+        error: null,
       };
-
     } catch (error) {
       const responseTime = Date.now() - startTime;
 
@@ -311,14 +311,14 @@ class N8nService {
         return {
           reachable: false,
           responseTime,
-          error: 'Webhook timeout (>5s)'
+          error: 'Webhook timeout (>5s)',
         };
       }
 
       return {
         reachable: false,
         responseTime,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -367,23 +367,24 @@ class N8nService {
 
       // 1. Check for error patterns first
       if (this.isErrorResponse(n8nResponse)) {
-        const errorMsg = n8nResponse.error 
-          || n8nResponse.errorMessage 
-          || n8nResponse.err 
-          || n8nResponse.message 
-          || 'Unknown error';
+        const errorMsg =
+          n8nResponse.error ||
+          n8nResponse.errorMessage ||
+          n8nResponse.err ||
+          n8nResponse.message ||
+          'Unknown error';
         return `Error: ${errorMsg}`;
       }
 
       // 2. Try to extract a human-readable message if present
       const message = this.extractMessage(n8nResponse);
-      
+
       // 3. Try to extract the actual data payload
       const data = this.extractData(n8nResponse);
 
       // 4. Build the response
       let formatted = '';
-      
+
       if (message) {
         formatted = message;
         // Only include data if it's small and adds value (don't dump huge JSON)
@@ -424,20 +425,20 @@ class N8nService {
   isErrorResponse(response) {
     // Explicit error fields
     if (response.error || response.err || response.errorMessage) return true;
-    
+
     // Success flags set to false
     if (response.success === false) return true;
     if (response.ok === false) return true;
     if (response.succeeded === false) return true;
-    
+
     // Status fields indicating error
     const status = (response.status || '').toString().toLowerCase();
     if (['error', 'failed', 'failure', 'fail'].includes(status)) return true;
-    
+
     // HTTP status codes in response
     if (response.statusCode >= 400) return true;
     if (response.code >= 400) return true;
-    
+
     return false;
   }
 
@@ -447,17 +448,24 @@ class N8nService {
   extractMessage(response) {
     // Try common message field names
     const messageFields = [
-      'message', 'msg', 'description', 'text', 
-      'statusMessage', 'status_message', 'responseMessage',
-      'display_message', 'displayMessage', 'userMessage'
+      'message',
+      'msg',
+      'description',
+      'text',
+      'statusMessage',
+      'status_message',
+      'responseMessage',
+      'display_message',
+      'displayMessage',
+      'userMessage',
     ];
-    
+
     for (const field of messageFields) {
       if (response[field] && typeof response[field] === 'string') {
         return response[field];
       }
     }
-    
+
     return null;
   }
 
@@ -467,16 +475,24 @@ class N8nService {
   extractData(response) {
     // Try common data wrapper field names
     const dataFields = [
-      'data', 'result', 'results', 'payload', 'body',
-      'response', 'content', 'items', 'records', 'output'
+      'data',
+      'result',
+      'results',
+      'payload',
+      'body',
+      'response',
+      'content',
+      'items',
+      'records',
+      'output',
     ];
-    
+
     for (const field of dataFields) {
       if (response[field] !== undefined) {
         return response[field];
       }
     }
-    
+
     // If no wrapper found, return the response itself
     // But remove internal/meta fields
     const cleaned = { ...response };
@@ -486,12 +502,12 @@ class N8nService {
     delete cleaned.statusCode;
     delete cleaned.timestamp;
     delete cleaned._integration; // Remove our internal field
-    
+
     // If after cleaning there's nothing left, return original
     if (Object.keys(cleaned).length === 0) {
       return response;
     }
-    
+
     return cleaned;
   }
 
@@ -507,28 +523,66 @@ class N8nService {
     // Priority fields to extract (in order of importance)
     const priorityFields = [
       // IDs and identifiers
-      'id', 'orderId', 'orderNumber', 'order_id', 'order_number',
-      'bookingId', 'booking_id', 'confirmationNumber', 'confirmation_number',
-      'transactionId', 'transaction_id', 'reference', 'ref',
+      'id',
+      'orderId',
+      'orderNumber',
+      'order_id',
+      'order_number',
+      'bookingId',
+      'booking_id',
+      'confirmationNumber',
+      'confirmation_number',
+      'transactionId',
+      'transaction_id',
+      'reference',
+      'ref',
 
       // Status and state
-      'status', 'statusText', 'status_text', 'state', 'orderStatus', 'order_status',
+      'status',
+      'statusText',
+      'status_text',
+      'state',
+      'orderStatus',
+      'order_status',
 
       // Time and scheduling
-      'estimatedDelivery', 'estimated_delivery', 'deliveryTime', 'delivery_time',
-      'eta', 'arrivalTime', 'arrival_time', 'date', 'time', 'datetime',
+      'estimatedDelivery',
+      'estimated_delivery',
+      'deliveryTime',
+      'delivery_time',
+      'eta',
+      'arrivalTime',
+      'arrival_time',
+      'date',
+      'time',
+      'datetime',
 
       // Names and descriptions
-      'name', 'customerName', 'customer_name', 'title', 'description',
+      'name',
+      'customerName',
+      'customer_name',
+      'title',
+      'description',
 
       // Amounts and quantities
-      'total', 'amount', 'price', 'cost', 'subtotal', 'quantity', 'count',
+      'total',
+      'amount',
+      'price',
+      'cost',
+      'subtotal',
+      'quantity',
+      'count',
 
       // Contact info
-      'phone', 'email', 'address',
+      'phone',
+      'email',
+      'address',
 
       // Driver/delivery info (for order tracking)
-      'driver', 'courier', 'deliveryPerson', 'delivery_person'
+      'driver',
+      'courier',
+      'deliveryPerson',
+      'delivery_person',
     ];
 
     const extracted = {};
@@ -580,7 +634,7 @@ class N8nService {
     if (text.length <= maxLength) {
       return text;
     }
-    
+
     const truncated = text.substring(0, maxLength);
     return truncated + '\n\n... (response truncated due to length)';
   }
@@ -614,7 +668,7 @@ class N8nService {
       const timeoutId = setTimeout(() => controller.abort(), TIMEOUTS.N8N_HEALTH_CHECK);
 
       const response = await fetch(healthUrl, {
-        signal: controller.signal
+        signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
@@ -622,7 +676,7 @@ class N8nService {
       if (!response.ok) {
         return {
           available: false,
-          error: `n8n returned status ${response.status}`
+          error: `n8n returned status ${response.status}`,
         };
       }
 
@@ -631,13 +685,12 @@ class N8nService {
       return {
         available: true,
         version: data.version || 'unknown',
-        error: null
+        error: null,
       };
-
     } catch (error) {
       return {
         available: false,
-        error: error.message || 'n8n service unreachable'
+        error: error.message || 'n8n service unreachable',
       };
     }
   }
@@ -650,7 +703,12 @@ class N8nService {
    * @param {Number} timeout - Timeout per attempt
    * @returns {Object} Execution result
    */
-  async executeToolWithRetry(webhookUrl, parameters, maxRetries = RETRY.MAX_ATTEMPTS - 1, timeout = TIMEOUTS.N8N_WEBHOOK) {
+  async executeToolWithRetry(
+    webhookUrl,
+    parameters,
+    maxRetries = RETRY.MAX_ATTEMPTS - 1,
+    timeout = TIMEOUTS.N8N_WEBHOOK
+  ) {
     let lastError;
 
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
@@ -672,7 +730,7 @@ class N8nService {
       // Exponential backoff: initial delay * 2^(attempt-1)
       const delay = Math.pow(RETRY.BACKOFF_MULTIPLIER, attempt - 1) * RETRY.INITIAL_DELAY;
       log.info('Retrying tool execution', { delay, attempt, maxRetries });
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
 
     // All retries failed
@@ -680,7 +738,7 @@ class N8nService {
       success: false,
       data: null,
       executionTimeMs: 0,
-      error: lastError
+      error: lastError,
     };
   }
 }
