@@ -24,7 +24,9 @@ class ConfirmationService {
      * @returns {Promise<Object|null>} Result if confirmation matched, null otherwise
      */
     async handleConfirmation(conversationId, userMessage, client, _conversation) {
-        const pending = await RedisCache.getPendingIntent(conversationId);
+        // Atomically get and clear pending intent to prevent race conditions
+        // This ensures only one request can process the same pending intent
+        const pending = await RedisCache.getAndClearPendingIntent(conversationId);
 
         if (!pending) {
             console.log('[Confirmation] No pending intent found');
@@ -62,8 +64,7 @@ class ConfirmationService {
             { client, formattedHistory }
         );
 
-        // Clear pending intent
-        await RedisCache.clearPendingIntent(conversationId);
+        // Note: pending intent already cleared atomically above
 
         // Generate response message - use LLM for errors to respect language
         let responseMessage;

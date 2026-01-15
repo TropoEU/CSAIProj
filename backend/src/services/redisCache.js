@@ -399,6 +399,29 @@ export class RedisCache {
     }
 
     /**
+     * Atomically get and clear pending intent (prevents race conditions)
+     * Uses GETDEL command for atomic get-and-delete operation.
+     * @param {string} conversationId - Conversation identifier
+     * @returns {Promise<Object|null>} Intent data or null if not found/expired
+     */
+    static async getAndClearPendingIntent(conversationId) {
+        try {
+            const key = `${this.PENDING_INTENT_PREFIX}${conversationId}`;
+            // GETDEL atomically gets the value and deletes the key
+            const value = await redisClient.getdel(key);
+
+            if (!value) {
+                return null;
+            }
+
+            return JSON.parse(value);
+        } catch (error) {
+            console.error('Get and clear pending intent failed:', error);
+            return null;
+        }
+    }
+
+    /**
      * Verify if pending intent matches current intent
      * @param {string} conversationId - Conversation identifier
      * @param {string} currentHash - Hash of current intent (tool + params)

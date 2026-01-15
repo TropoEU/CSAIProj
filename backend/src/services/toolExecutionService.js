@@ -10,7 +10,7 @@ import n8nService from './n8nService.js';
 import integrationService from './integrationService.js';
 import { ToolExecution } from '../models/ToolExecution.js';
 import { Message } from '../models/Message.js';
-import { ADAPTIVE_REASONING } from '../config/constants.js';
+import { ADAPTIVE_REASONING, ENV } from '../config/constants.js';
 import { REASON_CODES } from '../constants/reasonCodes.js';
 
 class ToolExecutionService {
@@ -24,6 +24,28 @@ class ToolExecutionService {
      * @returns {Promise<Object>} Execution result
      */
     async executeTool(assessment, conversationId, clientId, tools, options = {}) {
+        // Input validation at service boundary
+        if (!assessment || typeof assessment !== 'object') {
+            console.error('[Tool Execution] Invalid assessment: must be an object');
+            return { executed: false, error: 'Invalid assessment parameter' };
+        }
+        if (!assessment.tool_call || typeof assessment.tool_call !== 'string') {
+            console.error('[Tool Execution] Invalid assessment: missing or invalid tool_call');
+            return { executed: false, error: 'Missing tool_call in assessment' };
+        }
+        if (conversationId === undefined || conversationId === null) {
+            console.error('[Tool Execution] Invalid conversationId');
+            return { executed: false, error: 'Invalid conversationId' };
+        }
+        if (clientId === undefined || clientId === null) {
+            console.error('[Tool Execution] Invalid clientId');
+            return { executed: false, error: 'Invalid clientId' };
+        }
+        if (!Array.isArray(tools)) {
+            console.error('[Tool Execution] Invalid tools: must be an array');
+            return { executed: false, error: 'Invalid tools parameter' };
+        }
+
         const toolName = assessment.tool_call;
         const toolParams = assessment.tool_params || {};
         const { client, formattedHistory } = options;
@@ -72,9 +94,11 @@ class ToolExecutionService {
             const requiredIntegrations = tool.required_integrations || [];
             const integrationMapping = tool.integration_mapping || {};
 
-            console.log(`[Tool Execution] Tool ${toolName} requires ${requiredIntegrations.length} integrations`);
-            console.log('[Tool Execution] Required integrations:', requiredIntegrations.map(i => i.key).join(', ') || 'none');
-            console.log('[Tool Execution] Integration mapping:', JSON.stringify(integrationMapping));
+            if (ENV.isDevelopment) {
+                console.log(`[Tool Execution] Tool ${toolName} requires ${requiredIntegrations.length} integrations`);
+                console.log('[Tool Execution] Required integrations:', requiredIntegrations.map(i => i.key).join(', ') || 'none');
+                console.log('[Tool Execution] Integration mapping:', JSON.stringify(integrationMapping));
+            }
 
             if (requiredIntegrations.length > 0) {
                 try {
@@ -83,10 +107,13 @@ class ToolExecutionService {
                         integrationMapping,
                         requiredIntegrations
                     );
-                    console.log(`[Tool Execution] Loaded ${Object.keys(integrations).length} integrations:`, Object.keys(integrations).join(', '));
-                    Object.entries(integrations).forEach(([key, int]) => {
-                        console.log(`[Tool Execution] - ${key}: apiUrl=${int.apiUrl ? 'set' : 'MISSING'}, apiKey=${int.apiKey ? 'set' : 'MISSING'}`);
-                    });
+                    if (ENV.isDevelopment) {
+                        console.log(`[Tool Execution] Loaded ${Object.keys(integrations).length} integrations:`, Object.keys(integrations).join(', '));
+                        // Only log integration status in development (values are already redacted)
+                        Object.entries(integrations).forEach(([key, int]) => {
+                            console.log(`[Tool Execution] - ${key}: apiUrl=${int.apiUrl ? 'set' : 'MISSING'}, apiKey=${int.apiKey ? 'set' : 'MISSING'}`);
+                        });
+                    }
                 } catch (error) {
                     console.error('[Tool Execution] Failed to load integrations:', error.message);
                     return {
@@ -94,7 +121,7 @@ class ToolExecutionService {
                         error: `Integration error: ${error.message}`
                     };
                 }
-            } else {
+            } else if (ENV.isDevelopment) {
                 console.log(`[Tool Execution] Tool ${toolName} has no required integrations`);
             }
 
