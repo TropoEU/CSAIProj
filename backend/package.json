@@ -21,6 +21,7 @@
     "test:all": "node tests/integration/all-models.test.js",
     "test:unit": "node --experimental-vm-modules node_modules/vitest/vitest.mjs run",
     "test:unit:watch": "node --experimental-vm-modules node_modules/vitest/vitest.mjs",
+    "test:coverage": "node --experimental-vm-modules node_modules/vitest/vitest.mjs run --coverage",
     "check:ollama": "node tests/check-ollama.js",
     "check:connections": "node tests/check-connections.js",
     "lint": "eslint src/",

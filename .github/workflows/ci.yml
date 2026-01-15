@@ -91,7 +91,7 @@ jobs:
         continue-on-error: true  # Formatting is a soft requirement
 
   # ===================================
-  # Unit Tests (Backend)
+  # Unit Tests (Backend) with Coverage
   # ===================================
   unit-tests:
     name: Unit Tests
@@ -112,9 +112,107 @@ jobs:
         working-directory: backend
         run: npm ci
 
-      - name: Run unit tests
+      - name: Run unit tests with coverage
         working-directory: backend
-        run: npm run test:unit
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: backend/coverage
+          retention-days: 7
+
+      - name: Report coverage summary
+        working-directory: backend
+        run: |
+          echo "## 📊 Code Coverage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f coverage/coverage-summary.json ]; then
+            # Extract coverage percentages from JSON
+            LINES=$(cat coverage/coverage-summary.json | jq -r '.total.lines.pct')
+            STATEMENTS=$(cat coverage/coverage-summary.json | jq -r '.total.statements.pct')
+            FUNCTIONS=$(cat coverage/coverage-summary.json | jq -r '.total.functions.pct')
+            BRANCHES=$(cat coverage/coverage-summary.json | jq -r '.total.branches.pct')
+
+            echo "| Metric | Coverage |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|----------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Lines | ${LINES}% |" >> $GITHUB_STEP_SUMMARY
+            echo "| Statements | ${STATEMENTS}% |" >> $GITHUB_STEP_SUMMARY
+            echo "| Functions | ${FUNCTIONS}% |" >> $GITHUB_STEP_SUMMARY
+            echo "| Branches | ${BRANCHES}% |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Coverage summary not found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'backend/coverage/coverage-summary.json';
+
+            if (!fs.existsSync(path)) {
+              console.log('Coverage summary not found');
+              return;
+            }
+
+            const coverage = JSON.parse(fs.readFileSync(path, 'utf8'));
+            const total = coverage.total;
+
+            const getEmoji = (pct) => {
+              if (pct >= 80) return '🟢';
+              if (pct >= 60) return '🟡';
+              return '🔴';
+            };
+
+            const body = `## 📊 Code Coverage Report
+
+            | Metric | Coverage |
+            |--------|----------|
+            | ${getEmoji(total.lines.pct)} Lines | ${total.lines.pct}% |
+            | ${getEmoji(total.statements.pct)} Statements | ${total.statements.pct}% |
+            | ${getEmoji(total.functions.pct)} Functions | ${total.functions.pct}% |
+            | ${getEmoji(total.branches.pct)} Branches | ${total.branches.pct}% |
+
+            <details>
+            <summary>Coverage thresholds</summary>
+
+            - 🟢 >= 80%
+            - 🟡 >= 60%
+            - 🔴 < 60%
+            </details>
+
+            📁 [Download full report](../actions/runs/${{ github.run_id }}/artifacts)`;
+
+            // Find and update existing comment or create new one
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('📊 Code Coverage Report')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
 
   # ===================================
   # Build All Frontend Apps
