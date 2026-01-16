@@ -146,3 +146,7 @@ vite.config.ts.timestamp-*
 
 # Windows device files (accidentally created)
 nul
+
+# Test output files
+test_output.txt
+test_results.txt

@@ -8,10 +8,11 @@
  * where PostgreSQL is not available.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import app from '../../../src/app.js';
 import { db } from '../../../src/db.js';
+import n8nService from '../../../src/services/n8nService.js';
 
 // Check if database is available before running tests
 async function isDatabaseAvailable() {
@@ -226,7 +227,15 @@ describe.skipIf(skipTests)('Admin Tools API', () => {
   });
 
   describe('POST /admin/tools/:id/test', () => {
-    it('should test tool webhook (requires n8n)', async () => {
+    it('should test tool webhook with mocked n8n service', async () => {
+      // Mock n8nService.executeTool to avoid actual network calls
+      const mockExecuteTool = vi.spyOn(n8nService, 'executeTool').mockResolvedValue({
+        success: true,
+        data: { message: 'Test successful' },
+        executionTimeMs: 100,
+        error: null,
+      });
+
       const res = await request(app)
         .post(`/admin/tools/${testToolId}/test`)
         .set('Authorization', `Bearer ${authToken}`)
@@ -235,9 +244,38 @@ describe.skipIf(skipTests)('Admin Tools API', () => {
           params: { testParam: 'value' }
         });
 
-      // This will fail if n8n isn't running, which is expected
-      // We just verify the endpoint handles the request properly
-      expect([200, 500]).toContain(res.status);
+      expect(res.status).toBe(200);
+      expect(mockExecuteTool).toHaveBeenCalledWith(
+        'http://localhost:5678/webhook/test',
+        { testParam: 'value' }
+      );
+
+      mockExecuteTool.mockRestore();
+    });
+
+    it('should handle webhook failure gracefully', async () => {
+      // Mock n8nService.executeTool to simulate failure
+      const mockExecuteTool = vi.spyOn(n8nService, 'executeTool').mockResolvedValue({
+        success: false,
+        data: null,
+        executionTimeMs: 50,
+        error: 'Connection refused',
+      });
+
+      const res = await request(app)
+        .post(`/admin/tools/${testToolId}/test`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          webhookUrl: 'http://localhost:5678/webhook/test',
+          params: { testParam: 'value' }
+        });
+
+      // The endpoint returns the result even on failure
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toBe('Connection refused');
+
+      mockExecuteTool.mockRestore();
     });
 
     it('should reject test without webhook URL', async () => {
