@@ -1,11 +1,11 @@
 /**
  * Check all service connections
- * Run with: node tests/check-connections.js
+ * Run with: npm run check:connections
  */
 
-import { POSTGRES_CONFIG, REDIS_CONFIG, OLLAMA_CONFIG, N8N_CONFIG } from '../src/config.js';
-import { db } from '../src/db.js';
-import { redisClient as redis } from '../src/redis.js';
+import { POSTGRES_CONFIG, REDIS_CONFIG, OLLAMA_CONFIG, N8N_CONFIG } from '../config.js';
+import { db } from '../db.js';
+import { redisClient as redis } from '../redis.js';
 
 console.log('🔍 Checking all service connections...\n');
 

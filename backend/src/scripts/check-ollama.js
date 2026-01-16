@@ -1,9 +1,9 @@
 /**
  * Quick Ollama connectivity test
- * Run with: node tests/check-ollama.js
+ * Run with: npm run check:ollama
  */
 
-import { OLLAMA_CONFIG } from '../src/config.js';
+import { OLLAMA_CONFIG } from '../config.js';
 
 console.log('🔍 Checking Ollama connectivity...\n');
 console.log(`Ollama URL: ${OLLAMA_CONFIG.url}`);
