@@ -275,10 +275,10 @@ jobs:
           retention-days: 7
 
   # ===================================
-  # Database & Model Tests
+  # Integration Tests (with DB & Redis)
   # ===================================
-  test-models:
-    name: Database & Model Tests
+  integration-tests:
+    name: Integration Tests
     runs-on: ubuntu-latest
 
     services:
@@ -340,164 +340,9 @@ jobs:
       - name: Run database migrations
         run: npm run migrate
 
-      - name: Run all model integration tests
-        run: npm run test:all
-
-  # ===================================
-  # Redis Cache Service Tests
-  # ===================================
-  test-redis:
-    name: Redis Cache Tests
-    runs-on: ubuntu-latest
-
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
-
-      - name: Install backend dependencies
+      - name: Run integration tests
         working-directory: backend
-        run: npm ci
-
-      - name: Create .env file
-        working-directory: backend
-        run: |
-          cat > .env << EOF
-          REDIS_HOST=localhost
-          REDIS_PORT=6379
-          NODE_ENV=test
-          EOF
-
-      - name: Run Redis cache tests
-        run: npm run test:redis
-
-  # ===================================
-  # LLM Service Tests (Groq)
-  # ===================================
-  test-llm:
-    name: LLM Service Tests (Groq)
-    runs-on: ubuntu-latest
-    # Only run on push to main repo (secrets not available for forks)
-    if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
-
-      - name: Install backend dependencies
-        working-directory: backend
-        run: npm ci
-
-      - name: Create .env file
-        working-directory: backend
-        run: |
-          cat > .env << EOF
-          GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
-          LLM_PROVIDER=groq
-          GROQ_MODEL=llama-3.3-70b-versatile
-          NODE_ENV=test
-          EOF
-
-      - name: Run LLM service tests
-        run: npm run test:llm:ci
-        env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-
-  # ===================================
-  # Billing & Usage Tests (Phase 6)
-  # ===================================
-  test-billing:
-    name: Billing & Usage Tests
-    runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: csai
-          POSTGRES_PASSWORD: csai_dev_password
-          POSTGRES_DB: csai_dev
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
-
-      - name: Install backend dependencies
-        working-directory: backend
-        run: npm ci
-
-      - name: Create .env file
-        working-directory: backend
-        run: |
-          cat > .env << EOF
-          POSTGRES_HOST=localhost
-          POSTGRES_PORT=5432
-          POSTGRES_USER=csai
-          POSTGRES_PASSWORD=csai_dev_password
-          POSTGRES_DB=csai_dev
-          REDIS_HOST=localhost
-          REDIS_PORT=6379
-          JWT_SECRET=test-jwt-secret-for-ci
-          PORT=3000
-          NODE_ENV=test
-          EOF
-
-      - name: Run database migrations
-        run: npm run migrate
-
-      - name: Generate mock data for billing tests
-        run: npm run mockdata
-
-      - name: Run billing & usage tests (Phase 6)
-        run: npm run test:phase6
+        run: npm run test:integration
 
   # ===================================
   # API Health Check
@@ -607,9 +452,7 @@ jobs:
         lint,
         unit-tests,
         build-frontend,
-        test-models,
-        test-redis,
-        test-billing,
+        integration-tests,
         test-api-health,
       ]
     runs-on: ubuntu-latest
@@ -622,17 +465,13 @@ jobs:
           echo "Lint: ${{ needs.lint.result }}"
           echo "Unit Tests: ${{ needs.unit-tests.result }}"
           echo "Build Frontend: ${{ needs.build-frontend.result }}"
-          echo "Test Models: ${{ needs.test-models.result }}"
-          echo "Test Redis: ${{ needs.test-redis.result }}"
-          echo "Test Billing: ${{ needs.test-billing.result }}"
+          echo "Integration Tests: ${{ needs.integration-tests.result }}"
           echo "Test API Health: ${{ needs.test-api-health.result }}"
 
           # Required jobs (must pass)
           if [[ "${{ needs.unit-tests.result }}" != "success" ]] || \
              [[ "${{ needs.build-frontend.result }}" != "success" ]] || \
-             [[ "${{ needs.test-models.result }}" != "success" ]] || \
-             [[ "${{ needs.test-redis.result }}" != "success" ]] || \
-             [[ "${{ needs.test-billing.result }}" != "success" ]] || \
+             [[ "${{ needs.integration-tests.result }}" != "success" ]] || \
              [[ "${{ needs.test-api-health.result }}" != "success" ]] || \
              [[ "${{ needs.lint.result }}" != "success" ]]; then
             echo "❌ One or more required jobs failed"
@@ -645,8 +484,3 @@ jobs:
           fi
 
           echo "✅ All required CI checks passed!"
-
-      - name: Report LLM test status
-        if: always()
-        run: |
-          echo "Note: LLM tests run only on push to main repo (requires secrets)"
