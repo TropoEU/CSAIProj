@@ -28,7 +28,11 @@ async function testPostgres() {
     const result = await db.query('SELECT NOW() as time, version()');
     console.log('✅ PostgreSQL connected');
     console.log('   Server time:', result.rows[0].time);
-    console.log('   Version:', result.rows[0].version.split(' ')[0], result.rows[0].version.split(' ')[1]);
+    console.log(
+      '   Version:',
+      result.rows[0].version.split(' ')[0],
+      result.rows[0].version.split(' ')[1]
+    );
     return true;
   } catch (error) {
     console.error('❌ PostgreSQL connection failed:', error.message);

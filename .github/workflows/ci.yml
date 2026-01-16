@@ -88,7 +88,7 @@ jobs:
       - name: Check Prettier formatting
         working-directory: ${{ matrix.path }}
         run: npm run format:check
-        continue-on-error: true  # Formatting is a soft requirement
+        continue-on-error: true # Formatting is a soft requirement
 
   # ===================================
   # Unit Tests (Backend) with Coverage
@@ -141,9 +141,9 @@ jobs:
             # Function to get emoji based on coverage percentage
             get_emoji() {
               local pct=$1
-              if (( $(echo "$pct >= 60" | bc -l) )); then
+              if (( $(echo "$pct >= 75" | bc -l) )); then
                 echo "🟢"
-              elif (( $(echo "$pct >= 25" | bc -l) )); then
+              elif (( $(echo "$pct >= 40" | bc -l) )); then
                 echo "🟡"
               else
                 echo "🔴"
@@ -161,9 +161,9 @@ jobs:
             echo "<details>" >> $GITHUB_STEP_SUMMARY
             echo "<summary>Coverage thresholds</summary>" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "- 🟢 >= 60%" >> $GITHUB_STEP_SUMMARY
-            echo "- 🟡 >= 25%" >> $GITHUB_STEP_SUMMARY
-            echo "- 🔴 < 25%" >> $GITHUB_STEP_SUMMARY
+            echo "- 🟢 >= 75%" >> $GITHUB_STEP_SUMMARY
+            echo "- 🟡 >= 40%" >> $GITHUB_STEP_SUMMARY
+            echo "- 🔴 < 40%" >> $GITHUB_STEP_SUMMARY
             echo "</details>" >> $GITHUB_STEP_SUMMARY
           else
             echo "Coverage summary not found" >> $GITHUB_STEP_SUMMARY
@@ -186,8 +186,8 @@ jobs:
             const total = coverage.total;
 
             const getEmoji = (pct) => {
-              if (pct >= 60) return '🟢';
-              if (pct >= 25) return '🟡';
+              if (pct >= 75) return '🟢';
+              if (pct >= 40) return '🟡';
               return '🔴';
             };
 
@@ -203,9 +203,9 @@ jobs:
             <details>
             <summary>Coverage thresholds</summary>
 
-            - 🟢 >= 60%
-            - 🟡 >= 25%
-            - 🔴 < 25%
+            - 🟢 >= 75%
+            - 🟡 >= 40%
+            - 🔴 < 40%
             </details>`;
 
             // Find and update existing comment or create new one
@@ -446,15 +446,7 @@ jobs:
   # ===================================
   ci-success:
     name: CI Success
-    needs:
-      [
-        security-audit,
-        lint,
-        unit-tests,
-        build-frontend,
-        integration-tests,
-        test-api-health,
-      ]
+    needs: [security-audit, lint, unit-tests, build-frontend, integration-tests, test-api-health]
     runs-on: ubuntu-latest
     if: always()
 

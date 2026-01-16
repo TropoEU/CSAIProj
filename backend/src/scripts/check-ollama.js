@@ -22,12 +22,12 @@ async function checkOllama() {
     const data = await response.json();
     console.log('✅ Ollama is running!\n');
     console.log('Available models:');
-    data.models.forEach(model => {
+    data.models.forEach((model) => {
       console.log(`  - ${model.name} (${(model.size / 1024 / 1024 / 1024).toFixed(2)} GB)`);
     });
 
     // Check if configured model exists
-    const hasModel = data.models.some(m => m.name.includes(OLLAMA_CONFIG.model));
+    const hasModel = data.models.some((m) => m.name.includes(OLLAMA_CONFIG.model));
     if (hasModel) {
       console.log(`\n✅ Configured model "${OLLAMA_CONFIG.model}" is available`);
     } else {
