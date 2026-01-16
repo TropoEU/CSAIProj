@@ -181,7 +181,12 @@ export async function getHistory(req, res) {
 /**
  * GET /chat/config
  * Get widget configuration for the authenticated client
- * Returns language preference and widget customization settings
+ * Returns complete widget configuration for auto-configuration
+ *
+ * The widget can now be embedded with just the API key:
+ * <script src="..." data-api-key="YOUR_KEY"></script>
+ *
+ * All styling/text configuration is fetched from the server.
  */
 export async function getWidgetConfig(req, res) {
   try {
@@ -191,10 +196,55 @@ export async function getWidgetConfig(req, res) {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: 'Invalid API key' });
     }
 
-    // Return widget configuration including language
+    // Get widget config from client record, with sensible defaults
+    const widgetConfig = client.widget_config || {};
+
+    // Default widget configuration values
+    const defaults = {
+      position: 'bottom-right',
+      primaryColor: '#667eea',
+      backgroundColor: '#ffffff',
+      headerBgColor: '#667eea',
+      bodyBgColor: '#ffffff',
+      footerBgColor: '#ffffff',
+      aiBubbleColor: '#f3f4f6',
+      userBubbleColor: '#667eea',
+      headerTextColor: '#ffffff',
+      aiTextColor: '#111827',
+      userTextColor: '#ffffff',
+      inputBgColor: '#f9fafb',
+      inputTextColor: '#111827',
+      buttonTextColor: '#ffffff',
+      greeting: 'Hi! How can I help you today?',
+      title: 'Chat Support',
+      subtitle: 'We typically reply instantly',
+    };
+
+    // Merge defaults with client-specific config
+    const config = {
+      position: widgetConfig.position || defaults.position,
+      primaryColor: widgetConfig.primaryColor || defaults.primaryColor,
+      backgroundColor: widgetConfig.backgroundColor || defaults.backgroundColor,
+      headerBgColor: widgetConfig.headerBgColor || widgetConfig.primaryColor || defaults.headerBgColor,
+      bodyBgColor: widgetConfig.bodyBgColor || widgetConfig.backgroundColor || defaults.bodyBgColor,
+      footerBgColor: widgetConfig.footerBgColor || widgetConfig.backgroundColor || defaults.footerBgColor,
+      aiBubbleColor: widgetConfig.aiBubbleColor || defaults.aiBubbleColor,
+      userBubbleColor: widgetConfig.userBubbleColor || widgetConfig.primaryColor || defaults.userBubbleColor,
+      headerTextColor: widgetConfig.headerTextColor || defaults.headerTextColor,
+      aiTextColor: widgetConfig.aiTextColor || defaults.aiTextColor,
+      userTextColor: widgetConfig.userTextColor || defaults.userTextColor,
+      inputBgColor: widgetConfig.inputBgColor || defaults.inputBgColor,
+      inputTextColor: widgetConfig.inputTextColor || defaults.inputTextColor,
+      buttonTextColor: widgetConfig.buttonTextColor || defaults.buttonTextColor,
+      greeting: widgetConfig.greeting || defaults.greeting,
+      title: widgetConfig.title || defaults.title,
+      subtitle: widgetConfig.subtitle || defaults.subtitle,
+    };
+
+    // Return complete widget configuration
     return res.json({
       language: client.language || 'en',
-      widgetConfig: client.widget_config || {},
+      config,
       clientName: client.name,
     });
   } catch (error) {

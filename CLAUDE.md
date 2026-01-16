@@ -287,13 +287,30 @@ The tool execution system is fully operational and enables the AI to perform rea
 - `get_order_status` - Check order status by order number
 - `book_appointment` - Book appointments with validation
 - `check_inventory` - Check product availability and stock levels
+- `get_menu` - Get restaurant menu with categories and prices
+- `get_specials` - Get daily deals and promotions
+- `check_delivery_area` - Check if address is in delivery zone
+- `place_order` - Place a new order for delivery or pickup
 
 **Mock API for Testing** (`backend/src/routes/mockApi.js`):
 
 - Simulates Bob's Pizza Shop backend for demo/testing purposes
-- Endpoints: inventory check, order status, table booking
+- **Core Endpoints**: inventory check, order status, table booking
+- **Extended Endpoints** (January 2026):
+  - `GET /bobs-pizza/menu` - Full menu with categories and prices
+  - `GET /bobs-pizza/specials` - Daily deals and promotions
+  - `GET /bobs-pizza/delivery-areas` - Delivery zone checker
+  - `POST /bobs-pizza/orders` - Place new orders with totals
 - Date normalization: converts "today", "tomorrow", "yesterday" to `YYYY-MM-DD`
 - Auto-corrects dates more than 1 year in the past to today's date
+
+**Demo Page** (`frontend/widget/public/demo.html`):
+
+- Realistic Bob's Pizza restaurant website (CSS-only, no external images)
+- Pizza-themed colors: red (#D32F2F), gold (#FFC107), cream (#FFF8E1)
+- Full page layout: header, hero, menu grid, about section, info cards, footer
+- Widget themed to match restaurant branding (minimal embed code)
+- Dev controls for testing: open/close/clear history buttons
 
 **Tool Execution Flow** (with Integration Support):
 
@@ -355,14 +372,31 @@ The embeddable chat widget is fully implemented and operational:
 - `public/widget.js*` is in `.gitignore` to prevent build artifacts from being committed
 - Run `npm run dev` in `frontend/widget/` for hot reloading during development
 
-**Integration Code**:
+**Minimal Embed Code** (Recommended):
+
+```html
+<script src="http://localhost:3001/widget.js" data-api-key="YOUR_API_KEY"></script>
+```
+
+The widget now auto-configures from the server. All styling is fetched via `/chat/config` endpoint.
+
+**Widget Auto-Configuration** (January 2026):
+
+- Widget fetches configuration from server via `/chat/config` endpoint
+- Server returns: colors, text, position, and all widget settings
+- Only `data-api-key` is required in embed code
+- Optional data attributes override server config when explicitly provided
+- Admin dashboard generates minimal embed code by default
+- Toggle "Show full configuration" to see all override options
+
+**Override Example** (Optional):
 
 ```html
 <script
   src="http://localhost:3001/widget.js"
   data-api-key="YOUR_API_KEY"
-  data-position="bottom-right"
-  data-primary-color="#667eea"
+  data-position="bottom-left"
+  data-primary-color="#D32F2F"
 ></script>
 ```
 

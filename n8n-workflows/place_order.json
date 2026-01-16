@@ -1,0 +1,154 @@
+{
+  "name": "Place Order",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "place_order",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "place_order"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n webhook may put POST body in $json.body or at root level\nconst data = $json.body || $json;\n\n// Get integration from _integrations object\nconst integrations = data._integrations || {};\nconst integration = integrations.order_api;\n\n// Validate required fields\nif (!data.items || !Array.isArray(data.items) || data.items.length === 0) {\n  return {\n    _error: true,\n    success: false,\n    message: 'At least one item is required to place an order.'\n  };\n}\n\nif (!data.customerPhone) {\n  return {\n    _error: true,\n    success: false,\n    message: 'Customer phone number is required for order confirmation.'\n  };\n}\n\nif (!integration || !integration.apiUrl) {\n  return {\n    _error: true,\n    success: false,\n    message: 'No API integration configured for this client. Please set up an order_api integration in the admin panel.',\n    debug: { hasIntegrations: !!data._integrations, keys: Object.keys(integrations) }\n  };\n}\n\n// Prepare order data to send to the API\nconst orderData = {\n  items: data.items,\n  customerPhone: data.customerPhone,\n  deliveryAddress: data.deliveryAddress,\n  orderType: data.orderType || 'delivery',\n  notes: data.notes\n};\n\nreturn {\n  orderData: orderData,\n  _apiConfig: {\n    url: integration.apiUrl,\n    key: integration.apiKey,\n    method: 'POST',\n    authMethod: integration.authMethod || 'none'\n  }\n};"
+      },
+      "id": "prepare-request",
+      "name": "Prepare API Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json._error }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-error",
+      "name": "Has Error?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json._apiConfig.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": []
+        },
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.orderData) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "http-api-call",
+      "name": "Call Client API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "respond-error",
+      "name": "Return Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "respond-success",
+      "name": "Return Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1100, 400]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare API Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare API Request": {
+      "main": [
+        [
+          {
+            "node": "Has Error?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Error?": {
+      "main": [
+        [
+          {
+            "node": "Return Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call Client API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Client API": {
+      "main": [
+        [
+          {
+            "node": "Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1",
+  "id": "place_order"
+}

@@ -14,12 +14,32 @@ export default function WidgetConfig({
   onTogglePreview,
 }) {
   const [copiedEmbed, setCopiedEmbed] = useState(false);
+  const [showFullEmbed, setShowFullEmbed] = useState(false);
 
-  const getWidgetEmbedCode = () => {
+  /**
+   * Get minimal embed code (recommended)
+   * Widget fetches configuration from server automatically
+   */
+  const getMinimalEmbedCode = () => {
     const widgetUrl = import.meta.env.VITE_WIDGET_URL || 'http://localhost:3001/widget.js';
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+    // Only include api-url if it's not the default production URL
+    const includeApiUrl = apiUrl !== 'http://localhost:3000';
+
     return `<!-- AI Chat Widget -->
+<script src="${widgetUrl}" data-api-key="${client?.api_key || 'YOUR_API_KEY'}"${includeApiUrl ? ` data-api-url="${apiUrl}"` : ''}></script>`;
+  };
+
+  /**
+   * Get full embed code with all configuration options
+   * Use this if you need to override server configuration
+   */
+  const getFullEmbedCode = () => {
+    const widgetUrl = import.meta.env.VITE_WIDGET_URL || 'http://localhost:3001/widget.js';
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+    return `<!-- AI Chat Widget (Full Configuration) -->
 <script
   src="${widgetUrl}"
   data-api-key="${client?.api_key || 'YOUR_API_KEY'}"
@@ -42,6 +62,10 @@ export default function WidgetConfig({
   data-title="${widgetConfig.title}"
   data-subtitle="${widgetConfig.subtitle}"
 ></script>`;
+  };
+
+  const getWidgetEmbedCode = () => {
+    return showFullEmbed ? getFullEmbedCode() : getMinimalEmbedCode();
   };
 
   const handleCopyEmbedCode = () => {
@@ -232,7 +256,18 @@ export default function WidgetConfig({
           {/* Embed Code */}
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Embed Code</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-gray-700">Embed Code</label>
+                <label className="flex items-center text-xs text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showFullEmbed}
+                    onChange={(e) => setShowFullEmbed(e.target.checked)}
+                    className="mr-1.5 h-3 w-3 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  Show full configuration
+                </label>
+              </div>
               <div className="relative">
                 <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg text-xs overflow-x-auto font-mono">
                   {getWidgetEmbedCode()}
@@ -275,13 +310,21 @@ export default function WidgetConfig({
               </div>
             </div>
 
+            {!showFullEmbed && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-xs text-green-800">
+                  <strong>Minimal embed code:</strong> Widget styling is configured from the server. Just save your settings above and use this simple embed code.
+                </p>
+              </div>
+            )}
+
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h4 className="font-semibold text-blue-900 mb-2">How to Install</h4>
               <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                <li>Copy the embed code above</li>
+                <li>Save your widget configuration using the button above</li>
+                <li>Copy the embed code</li>
                 <li>Paste it before the closing &lt;/body&gt; tag in your website</li>
-                <li>The chat widget will appear automatically on your site</li>
-                <li>Customize appearance and behavior using the form on the left</li>
+                <li>The chat widget will appear automatically with your saved styling</li>
               </ol>
             </div>
 

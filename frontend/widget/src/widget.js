@@ -8,10 +8,18 @@ import styles from './styles.css?inline';
 /**
  * Main Chat Widget Class
  * Manages the entire widget lifecycle and state
+ *
+ * MINIMAL EMBED: Widget can be embedded with just an API key.
+ * Configuration is fetched from server, with optional data attribute overrides.
  */
 export class ChatWidget {
   constructor(config) {
-    this.config = this.parseConfig(config);
+    // Store initial config with explicit overrides marked
+    this.initialConfig = config;
+    this.explicitOverrides = config._explicitOverrides || new Set();
+
+    // Parse minimal config (just apiKey and apiUrl for now)
+    this.config = this.parseMinimalConfig(config);
     this.api = new ChatAPI(this.config.apiKey, this.config.apiUrl);
     this.storage = new WidgetStorage();
     this.sessionId = this.storage.getSessionId();
@@ -28,38 +36,62 @@ export class ChatWidget {
   }
 
   /**
-   * Parse and validate configuration
-   * @param {Object} config - Widget configuration
-   * @returns {Object} Parsed configuration
+   * Parse minimal configuration (just essential fields)
+   * Full config is loaded from server in init()
+   * @param {Object} config - Widget configuration from script tag
+   * @returns {Object} Minimal configuration for API access
    */
-  parseConfig(config) {
+  parseMinimalConfig(config) {
     if (!config.apiKey) {
       throw new Error('ChatWidget: apiKey is required');
     }
 
     return {
       apiKey: config.apiKey,
-      // API URL priority: config.apiUrl (from data attribute) > VITE_API_URL (build time) > localhost (dev)
       apiUrl: config.apiUrl || import.meta.env.VITE_API_URL || 'http://localhost:3000',
-      position: config.position || 'bottom-right',
-      primaryColor: config.primaryColor || '#667eea',
-      backgroundColor: config.backgroundColor || '#ffffff',
-      headerBgColor: config.headerBgColor || config.primaryColor || '#667eea',
-      bodyBgColor: config.bodyBgColor || config.backgroundColor || '#ffffff',
-      footerBgColor: config.footerBgColor || config.backgroundColor || '#ffffff',
-      aiBubbleColor: config.aiBubbleColor || '#f3f4f6',
-      userBubbleColor: config.userBubbleColor || '#667eea',
-      headerTextColor: config.headerTextColor || '#111827',
-      aiTextColor: config.aiTextColor || '#111827',
-      userTextColor: config.userTextColor || '#ffffff',
-      inputBgColor: config.inputBgColor || '#f9fafb',
-      inputTextColor: config.inputTextColor || '#111827',
-      buttonTextColor: config.buttonTextColor || '#ffffff',
-      greeting: config.greeting || 'Hi! How can I help you today?',
-      title: config.title || 'Chat Support',
-      subtitle: config.subtitle || 'We typically reply instantly',
-      ...config,
+      // Store any explicit overrides for later merging with server config
+      _explicitOverrides: config._explicitOverrides || new Set(),
     };
+  }
+
+  /**
+   * Merge server config with explicit data attribute overrides
+   * Server config is the base, explicit overrides take precedence
+   * @param {Object} serverConfig - Configuration from server
+   * @returns {Object} Merged configuration
+   */
+  mergeConfig(serverConfig) {
+    const base = {
+      apiKey: this.config.apiKey,
+      apiUrl: this.config.apiUrl,
+      // Use server config as defaults
+      position: serverConfig.position || 'bottom-right',
+      primaryColor: serverConfig.primaryColor || '#667eea',
+      backgroundColor: serverConfig.backgroundColor || '#ffffff',
+      headerBgColor: serverConfig.headerBgColor || '#667eea',
+      bodyBgColor: serverConfig.bodyBgColor || '#ffffff',
+      footerBgColor: serverConfig.footerBgColor || '#ffffff',
+      aiBubbleColor: serverConfig.aiBubbleColor || '#f3f4f6',
+      userBubbleColor: serverConfig.userBubbleColor || '#667eea',
+      headerTextColor: serverConfig.headerTextColor || '#ffffff',
+      aiTextColor: serverConfig.aiTextColor || '#111827',
+      userTextColor: serverConfig.userTextColor || '#ffffff',
+      inputBgColor: serverConfig.inputBgColor || '#f9fafb',
+      inputTextColor: serverConfig.inputTextColor || '#111827',
+      buttonTextColor: serverConfig.buttonTextColor || '#ffffff',
+      greeting: serverConfig.greeting || 'Hi! How can I help you today?',
+      title: serverConfig.title || 'Chat Support',
+      subtitle: serverConfig.subtitle || 'We typically reply instantly',
+    };
+
+    // Apply explicit overrides from data attributes
+    for (const key of this.explicitOverrides) {
+      if (this.initialConfig[key] !== undefined) {
+        base[key] = this.initialConfig[key];
+      }
+    }
+
+    return base;
   }
 
   /**
@@ -84,32 +116,43 @@ export class ChatWidget {
   }
 
   /**
-   * Load configuration from server (including language preference)
+   * Load configuration from server
+   * Server config is the primary source, with explicit data attribute overrides applied on top
    */
   async loadServerConfig() {
     try {
-      const serverConfig = await this.api.getConfig();
+      const serverResponse = await this.api.getConfig();
 
       // Set language from server
-      if (serverConfig.language) {
-        this.language = serverConfig.language;
+      if (serverResponse.language) {
+        this.language = serverResponse.language;
         this.translations = getTranslations(this.language);
-
-        // Update config with translated defaults if not already set
-        if (!this.config.title || this.config.title === 'Chat Support') {
-          this.config.title = this.translations.title;
-        }
-        if (!this.config.subtitle || this.config.subtitle === 'We typically reply instantly') {
-          this.config.subtitle = this.translations.subtitle;
-        }
-        if (!this.config.greeting || this.config.greeting === 'Hi! How can I help you today?') {
-          this.config.greeting = this.translations.greeting;
-        }
       }
 
-      console.log('ChatWidget: Loaded server config', { language: this.language });
+      // Merge server config with explicit overrides
+      // Server provides: config object with all widget settings
+      const serverConfig = serverResponse.config || {};
+      this.config = this.mergeConfig(serverConfig);
+
+      // Apply translated defaults for title/subtitle/greeting if not explicitly overridden
+      if (!this.explicitOverrides.has('title') && this.translations.title) {
+        this.config.title = this.translations.title;
+      }
+      if (!this.explicitOverrides.has('subtitle') && this.translations.subtitle) {
+        this.config.subtitle = this.translations.subtitle;
+      }
+      if (!this.explicitOverrides.has('greeting') && this.translations.greeting) {
+        this.config.greeting = this.translations.greeting;
+      }
+
+      console.log('ChatWidget: Loaded server config', {
+        language: this.language,
+        explicitOverrides: [...this.explicitOverrides],
+      });
     } catch (error) {
-      console.warn('ChatWidget: Could not load server config, using defaults', error);
+      console.warn('ChatWidget: Could not load server config, using fallback defaults', error);
+      // Use fallback defaults if server is unreachable
+      this.config = this.mergeConfig({});
     }
   }
 

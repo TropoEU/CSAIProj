@@ -219,28 +219,49 @@ See `backend/src/routes/` for complete API documentation.
 
 ## 🎨 Widget Integration
 
-### Using Admin Dashboard (Recommended)
+### Minimal Embed Code (Recommended)
+
+The widget now auto-configures from the server. Just add this to any HTML page:
+
+```html
+<script src="http://localhost:3001/widget.js" data-api-key="YOUR_API_KEY"></script>
+```
+
+That's it! The widget fetches all styling configuration (colors, text, position) from the server based on your admin dashboard settings.
+
+### Using Admin Dashboard
 
 1. Go to **Admin Dashboard** → **Clients** → Select client
 2. Configure widget appearance in **Widget Customization** section
-3. Copy generated embed code
-4. Paste into your website
+3. **Save Configuration** (styling is stored on server)
+4. Copy the minimal embed code
+5. Paste into your website
 
-### Manual Integration
+### Override Options
 
-Add this script tag to any HTML page:
+Need to override specific settings? Add data attributes:
 
 ```html
 <script
   src="http://localhost:3001/widget.js"
-  data-api-key="your_client_api_key"
-  data-api-url="http://localhost:3000"
-  data-position="bottom-right"
-  data-primary-color="#667eea"
+  data-api-key="YOUR_API_KEY"
+  data-position="bottom-left"
+  data-primary-color="#FF5722"
 ></script>
 ```
 
-See Admin Dashboard for all configuration options.
+Toggle "Show full configuration" in the admin dashboard to see all available options.
+
+### Demo Page
+
+Visit the demo page to see the widget in action:
+
+```bash
+cd frontend/widget && npm run dev
+# Open http://localhost:3001/demo.html
+```
+
+The demo shows a realistic Bob's Pizza restaurant website with a fully themed widget.
 
 ---
 

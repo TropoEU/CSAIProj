@@ -90,6 +90,27 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
   - `/chat/config` returns language setting for widget
   - `/api/customer/settings` GET/PUT for language preference
 
+### Demo Page & Widget Upgrade (January 2026)
+- **Widget Auto-Configuration**: Minimal embed code with just API key
+  - Widget fetches all styling from server via `/chat/config`
+  - Server returns full configuration: colors, text, position
+  - Data attributes override server config when explicitly set
+  - Admin dashboard generates minimal embed code by default
+- **Demo Page Redesign**: Realistic Bob's Pizza restaurant website
+  - CSS-only design (no external images/dependencies)
+  - Pizza-themed colors: red (#D32F2F), gold (#FFC107), cream (#FFF8E1)
+  - Full page layout: header, hero, menu, about, info, footer
+  - Widget themed to match the restaurant branding
+- **Expanded Mock API**: 4 new endpoints for realistic demo
+  - `GET /menu` - Full menu with categories and prices
+  - `GET /specials` - Daily deals and promotions
+  - `GET /delivery-areas` - Delivery zone checker
+  - `POST /orders` - Place new orders
+- **New Demo Tools**: 4 new tools enabled for Bob's Pizza
+  - `get_menu`, `get_specials`, `check_delivery_area`, `place_order`
+  - Complete n8n workflows for all tools
+  - Integration mappings and client tools configured
+
 **See `CLAUDE.md` for detailed technical documentation**
 
 ---
@@ -188,6 +209,8 @@ Multi-tenant AI agent platform that businesses can embed as a chat widget to han
 - ✅ **Hebrew/RTL Support**: Full widget and customer dashboard translation with RTL layout
 - ✅ **Business Information Management**: Teach AI about each business with comprehensive admin UI
 - ✅ **Escalation to Human**: Auto-detection and admin management for human handoff
+- ✅ **Widget Auto-Config**: Minimal embed code with just API key, server-side styling
+- ✅ **Demo Upgrade**: Realistic Bob's Pizza website with themed widget and 7 demo tools
 
 **Platform can accept production clients now. All MVP features complete and production-ready.**
 

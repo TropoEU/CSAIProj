@@ -3,11 +3,18 @@ import { ChatWidget } from './widget.js';
 /**
  * CSAI Chat Widget Entry Point
  * Auto-initializes the widget based on script tag data attributes
+ *
+ * MINIMAL EMBED CODE (Recommended):
+ * <script src="..." data-api-key="YOUR_KEY"></script>
+ *
+ * All styling configuration is fetched from the server.
+ * You can optionally override specific settings with data attributes.
  */
 
 /**
  * Get configuration from the script tag's data attributes
- * @returns {Object} Configuration object
+ * Tracks which attributes were explicitly provided vs not set
+ * @returns {Object} Configuration object with explicit overrides marked
  */
 function getConfigFromScript() {
   const scripts = document.querySelectorAll('script[data-api-key]');
@@ -18,34 +25,46 @@ function getConfigFromScript() {
     return null;
   }
 
-  const config = {
-    apiKey: script.getAttribute('data-api-key'),
-    apiUrl: script.getAttribute('data-api-url'),
-    position: script.getAttribute('data-position'),
-    primaryColor: script.getAttribute('data-primary-color'),
-    backgroundColor: script.getAttribute('data-background-color'),
-    headerBgColor: script.getAttribute('data-header-bg-color'),
-    bodyBgColor: script.getAttribute('data-body-bg-color'),
-    footerBgColor: script.getAttribute('data-footer-bg-color'),
-    aiBubbleColor: script.getAttribute('data-ai-bubble-color'),
-    userBubbleColor: script.getAttribute('data-user-bubble-color'),
-    headerTextColor: script.getAttribute('data-header-text-color'),
-    aiTextColor: script.getAttribute('data-ai-text-color'),
-    userTextColor: script.getAttribute('data-user-text-color'),
-    inputBgColor: script.getAttribute('data-input-bg-color'),
-    inputTextColor: script.getAttribute('data-input-text-color'),
-    buttonTextColor: script.getAttribute('data-button-text-color'),
-    greeting: script.getAttribute('data-greeting'),
-    title: script.getAttribute('data-title'),
-    subtitle: script.getAttribute('data-subtitle'),
+  // Map of attribute names to config keys
+  const attributeMap = {
+    'data-api-key': 'apiKey',
+    'data-api-url': 'apiUrl',
+    'data-position': 'position',
+    'data-primary-color': 'primaryColor',
+    'data-background-color': 'backgroundColor',
+    'data-header-bg-color': 'headerBgColor',
+    'data-body-bg-color': 'bodyBgColor',
+    'data-footer-bg-color': 'footerBgColor',
+    'data-ai-bubble-color': 'aiBubbleColor',
+    'data-user-bubble-color': 'userBubbleColor',
+    'data-header-text-color': 'headerTextColor',
+    'data-ai-text-color': 'aiTextColor',
+    'data-user-text-color': 'userTextColor',
+    'data-input-bg-color': 'inputBgColor',
+    'data-input-text-color': 'inputTextColor',
+    'data-button-text-color': 'buttonTextColor',
+    'data-greeting': 'greeting',
+    'data-title': 'title',
+    'data-subtitle': 'subtitle',
   };
 
-  // Remove null/undefined values
-  Object.keys(config).forEach((key) => {
-    if (config[key] === null || config[key] === undefined) {
-      delete config[key];
+  const config = {};
+  const explicitOverrides = new Set();
+
+  // Read all data attributes
+  for (const [attr, key] of Object.entries(attributeMap)) {
+    const value = script.getAttribute(attr);
+    if (value !== null && value !== undefined) {
+      config[key] = value;
+      // Mark as explicit override (except apiKey and apiUrl which are always needed)
+      if (key !== 'apiKey' && key !== 'apiUrl') {
+        explicitOverrides.add(key);
+      }
     }
-  });
+  }
+
+  // Store which overrides were explicitly provided
+  config._explicitOverrides = explicitOverrides;
 
   return config;
 }

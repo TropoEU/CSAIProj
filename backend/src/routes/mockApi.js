@@ -601,6 +601,462 @@ router.get('/bobs-pizza/availability', (req, res) => {
 });
 
 // =====================================================
+// MENU API
+// =====================================================
+
+// Full menu database
+const menu = {
+  pizzas: [
+    {
+      id: 'PIZZA-001',
+      name: 'Large Pepperoni Pizza',
+      description: 'Classic pepperoni with our signature tomato sauce and mozzarella',
+      price: 18.99,
+      category: 'pizzas',
+      popular: true,
+    },
+    {
+      id: 'PIZZA-002',
+      name: 'Margherita Pizza',
+      description: 'Fresh mozzarella, basil, and our homemade tomato sauce',
+      price: 15.0,
+      category: 'pizzas',
+      popular: true,
+    },
+    {
+      id: 'PIZZA-003',
+      name: 'Hawaiian Pizza',
+      description: 'Ham, pineapple, and mozzarella on our classic crust',
+      price: 17.99,
+      category: 'pizzas',
+      popular: false,
+    },
+    {
+      id: 'PIZZA-004',
+      name: 'Veggie Supreme',
+      description: 'Bell peppers, mushrooms, onions, olives, and tomatoes',
+      price: 16.99,
+      category: 'pizzas',
+      popular: false,
+    },
+    {
+      id: 'PIZZA-005',
+      name: 'Meat Lovers',
+      description: 'Pepperoni, sausage, bacon, and ham',
+      price: 21.99,
+      category: 'pizzas',
+      popular: true,
+    },
+    {
+      id: 'PIZZA-SPECIAL-001',
+      name: 'Truffle Mushroom Pizza',
+      description: 'Wild mushrooms, truffle oil, and parmesan',
+      price: 28.0,
+      category: 'pizzas',
+      popular: false,
+      limited: true,
+    },
+  ],
+  sides: [
+    {
+      id: 'SIDE-001',
+      name: 'Garlic Bread',
+      description: 'Freshly baked with garlic butter and herbs',
+      price: 4.99,
+      category: 'sides',
+    },
+    {
+      id: 'SIDE-002',
+      name: 'Mozzarella Sticks',
+      description: 'Golden fried mozzarella with marinara sauce',
+      price: 6.99,
+      category: 'sides',
+    },
+    {
+      id: 'SIDE-003',
+      name: 'Caesar Salad',
+      description: 'Romaine lettuce, parmesan, croutons, and Caesar dressing',
+      price: 7.99,
+      category: 'sides',
+    },
+    {
+      id: 'SIDE-004',
+      name: 'Buffalo Wings (8pc)',
+      description: 'Crispy wings with your choice of sauce',
+      price: 9.99,
+      category: 'sides',
+    },
+  ],
+  drinks: [
+    {
+      id: 'DRINK-001',
+      name: 'Cola (2L)',
+      description: 'Ice-cold refreshment',
+      price: 3.49,
+      category: 'drinks',
+    },
+    {
+      id: 'DRINK-002',
+      name: 'Lemonade (2L)',
+      description: 'Fresh-squeezed lemonade',
+      price: 4.49,
+      category: 'drinks',
+    },
+    {
+      id: 'DRINK-003',
+      name: 'Sparkling Water',
+      description: 'Italian sparkling water',
+      price: 2.99,
+      category: 'drinks',
+    },
+  ],
+  specials: [
+    {
+      id: 'COMBO-001',
+      name: 'Family Combo',
+      description: '2 Large Pizzas + Garlic Bread + 2L Drink',
+      price: 42.0,
+      originalPrice: 52.46,
+      category: 'specials',
+      savings: 10.46,
+    },
+    {
+      id: 'COMBO-002',
+      name: 'Date Night Deal',
+      description: 'Medium Pizza + Caesar Salad + 2 Drinks',
+      price: 24.99,
+      originalPrice: 31.96,
+      category: 'specials',
+      savings: 6.97,
+    },
+  ],
+};
+
+/**
+ * GET /mock-api/bobs-pizza/menu
+ * Get full menu or filter by category
+ */
+router.get('/bobs-pizza/menu', (req, res) => {
+  console.log("[Mock API] Bob's Pizza - Menu Request:", req.query);
+
+  const { category } = req.query;
+
+  if (category && category !== 'all') {
+    const categoryMenu = menu[category];
+    if (!categoryMenu) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({
+        success: false,
+        error: `Category "${category}" not found. Available categories: pizzas, sides, drinks, specials`,
+      });
+    }
+    return res.json({
+      success: true,
+      category,
+      items: categoryMenu,
+      message: `Found ${categoryMenu.length} items in ${category}`,
+    });
+  }
+
+  // Return all categories
+  const allItems = [...menu.pizzas, ...menu.sides, ...menu.drinks, ...menu.specials];
+  res.json({
+    success: true,
+    categories: Object.keys(menu),
+    menu,
+    totalItems: allItems.length,
+    message: `Full menu with ${allItems.length} items across ${Object.keys(menu).length} categories`,
+  });
+});
+
+// =====================================================
+// SPECIALS API
+// =====================================================
+
+// Daily specials database
+const dailySpecials = {
+  monday: {
+    name: 'Meatless Monday',
+    description: '20% off all vegetarian pizzas',
+    discount: '20%',
+    validItems: ['Margherita Pizza', 'Veggie Supreme'],
+  },
+  tuesday: {
+    name: 'Two-for-Tuesday',
+    description: 'Buy any large pizza, get a medium FREE',
+    discount: 'Buy 1 Get 1',
+    validItems: ['All large pizzas'],
+    popular: true,
+  },
+  wednesday: {
+    name: 'Wing Wednesday',
+    description: 'Half price wings with any pizza order',
+    discount: '50% off wings',
+    validItems: ['Buffalo Wings'],
+  },
+  thursday: {
+    name: 'Thirsty Thursday',
+    description: 'Free 2L drink with any order over $20',
+    discount: 'Free drink',
+    minOrder: 20,
+  },
+  friday: {
+    name: 'Family Friday',
+    description: '$5 off any combo deal',
+    discount: '$5 off',
+    validItems: ['Family Combo', 'Date Night Deal'],
+  },
+  saturday: {
+    name: 'Super Saturday',
+    description: '15% off orders over $40',
+    discount: '15%',
+    minOrder: 40,
+  },
+  sunday: {
+    name: 'Sunday Funday',
+    description: 'Kids eat free with adult meal purchase',
+    discount: 'Free kids meal',
+    validItems: ['Kids meals'],
+  },
+};
+
+/**
+ * GET /mock-api/bobs-pizza/specials
+ * Get current daily deals and promotions
+ */
+router.get('/bobs-pizza/specials', (req, res) => {
+  console.log("[Mock API] Bob's Pizza - Specials Request");
+
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const today = days[new Date().getDay()];
+  const todaySpecial = dailySpecials[today];
+
+  // Get permanent combo deals from menu
+  const comboDeals = menu.specials;
+
+  res.json({
+    success: true,
+    todaySpecial: {
+      day: today.charAt(0).toUpperCase() + today.slice(1),
+      ...todaySpecial,
+    },
+    weeklySpecials: dailySpecials,
+    comboDeals,
+    message: `Today's special: ${todaySpecial.name} - ${todaySpecial.description}`,
+  });
+});
+
+// =====================================================
+// DELIVERY AREA API
+// =====================================================
+
+// Delivery zones database
+const deliveryZones = {
+  downtown: {
+    name: 'Downtown',
+    fee: 0,
+    freeDeliveryMin: 25,
+    estimatedTime: '20-30 min',
+    available: true,
+  },
+  midtown: {
+    name: 'Midtown',
+    fee: 2.99,
+    freeDeliveryMin: 35,
+    estimatedTime: '25-35 min',
+    available: true,
+  },
+  uptown: {
+    name: 'Uptown',
+    fee: 3.99,
+    freeDeliveryMin: 40,
+    estimatedTime: '30-40 min',
+    available: true,
+  },
+  suburbs: {
+    name: 'Suburbs',
+    fee: 4.99,
+    freeDeliveryMin: 50,
+    estimatedTime: '40-50 min',
+    available: true,
+  },
+  outside: {
+    name: 'Outside Delivery Area',
+    available: false,
+    message: 'Sorry, this address is outside our 5-mile delivery radius. Pickup is available!',
+  },
+};
+
+/**
+ * GET /mock-api/bobs-pizza/delivery-areas
+ * Check delivery availability for an address
+ */
+router.get('/bobs-pizza/delivery-areas', (req, res) => {
+  console.log("[Mock API] Bob's Pizza - Delivery Area Check:", req.query);
+
+  const { address } = req.query;
+
+  if (!address) {
+    // Return all delivery zones
+    return res.json({
+      success: true,
+      zones: deliveryZones,
+      radius: '5 miles',
+      message: 'Delivery available within 5 miles of downtown. Free delivery on orders over $25 in downtown area.',
+    });
+  }
+
+  // Simulate address lookup based on keywords
+  const addressLower = address.toLowerCase();
+  let zone;
+
+  if (addressLower.includes('main st') || addressLower.includes('downtown') || addressLower.includes('center')) {
+    zone = deliveryZones.downtown;
+  } else if (addressLower.includes('oak') || addressLower.includes('elm') || addressLower.includes('midtown')) {
+    zone = deliveryZones.midtown;
+  } else if (addressLower.includes('park') || addressLower.includes('hill') || addressLower.includes('uptown')) {
+    zone = deliveryZones.uptown;
+  } else if (addressLower.includes('lake') || addressLower.includes('forest') || addressLower.includes('suburb')) {
+    zone = deliveryZones.suburbs;
+  } else {
+    // Default to midtown for unrecognized addresses (for demo purposes)
+    zone = deliveryZones.midtown;
+  }
+
+  if (!zone.available) {
+    return res.json({
+      success: false,
+      address,
+      deliveryAvailable: false,
+      message: zone.message,
+      pickupAvailable: true,
+      pickupAddress: '123 Main Street, Downtown',
+    });
+  }
+
+  res.json({
+    success: true,
+    address,
+    deliveryAvailable: true,
+    zone: zone.name,
+    deliveryFee: zone.fee,
+    freeDeliveryMinimum: zone.freeDeliveryMin,
+    estimatedTime: zone.estimatedTime,
+    message: zone.fee === 0
+      ? `Great news! You're in our ${zone.name} zone. Free delivery on orders over $${zone.freeDeliveryMin}!`
+      : `Delivery to ${zone.name}: $${zone.fee} fee (free on orders over $${zone.freeDeliveryMin}). Estimated: ${zone.estimatedTime}`,
+  });
+});
+
+// =====================================================
+// PLACE ORDER API
+// =====================================================
+
+// Order counter for generating order numbers
+let orderCounter = 12350;
+
+/**
+ * POST /mock-api/bobs-pizza/orders
+ * Place a new order for delivery or pickup
+ */
+router.post('/bobs-pizza/orders', (req, res) => {
+  console.log("[Mock API] Bob's Pizza - Place Order:", req.body);
+
+  const { items, customerPhone, deliveryAddress, orderType = 'delivery', notes } = req.body;
+
+  // Validation
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return res.status(HTTP_STATUS.BAD_REQUEST).json({
+      success: false,
+      error: 'At least one item is required to place an order',
+    });
+  }
+
+  if (!customerPhone) {
+    return res.status(HTTP_STATUS.BAD_REQUEST).json({
+      success: false,
+      error: 'Customer phone number is required for order confirmation',
+    });
+  }
+
+  if (orderType === 'delivery' && !deliveryAddress) {
+    return res.status(HTTP_STATUS.BAD_REQUEST).json({
+      success: false,
+      error: 'Delivery address is required for delivery orders',
+    });
+  }
+
+  // Calculate order total (simplified - lookup items from menu)
+  const allMenuItems = [...menu.pizzas, ...menu.sides, ...menu.drinks, ...menu.specials];
+  let subtotal = 0;
+  const orderItems = [];
+
+  for (const item of items) {
+    const menuItem = allMenuItems.find(
+      (m) => m.name.toLowerCase().includes(item.name.toLowerCase()) || m.id === item.name
+    );
+
+    if (menuItem) {
+      const quantity = item.quantity || 1;
+      const itemTotal = menuItem.price * quantity;
+      subtotal += itemTotal;
+      orderItems.push({
+        name: menuItem.name,
+        quantity,
+        unitPrice: menuItem.price,
+        total: itemTotal,
+      });
+    } else {
+      // Try to estimate price for unknown items
+      const estimatedPrice = 15.0;
+      const quantity = item.quantity || 1;
+      subtotal += estimatedPrice * quantity;
+      orderItems.push({
+        name: item.name,
+        quantity,
+        unitPrice: estimatedPrice,
+        total: estimatedPrice * quantity,
+        estimated: true,
+      });
+    }
+  }
+
+  // Calculate fees and tax
+  const tax = Math.round(subtotal * 0.08 * 100) / 100; // 8% tax
+  const deliveryFee = orderType === 'delivery' ? (subtotal >= 25 ? 0 : 2.99) : 0;
+  const total = Math.round((subtotal + tax + deliveryFee) * 100) / 100;
+
+  // Generate order
+  const orderNumber = String(++orderCounter);
+  const estimatedTime = orderType === 'delivery' ? '30-45 minutes' : '15-20 minutes';
+
+  const order = {
+    orderNumber,
+    status: 'confirmed',
+    statusText: 'Order Confirmed',
+    orderType,
+    items: orderItems,
+    subtotal,
+    tax,
+    deliveryFee,
+    total,
+    customerPhone,
+    deliveryAddress: orderType === 'delivery' ? deliveryAddress : null,
+    notes,
+    estimatedTime,
+    placedAt: new Date().toISOString(),
+  };
+
+  // Store order for later status checks
+  orders[orderNumber] = order;
+
+  res.status(HTTP_STATUS.CREATED).json({
+    success: true,
+    message: `Order #${orderNumber} confirmed! ${orderType === 'delivery' ? `Delivery to ${deliveryAddress}` : 'Pickup'} in ${estimatedTime}. Total: $${total.toFixed(2)}`,
+    data: order,
+  });
+});
+
+// =====================================================
 // HEALTH CHECK
 // =====================================================
 
@@ -610,6 +1066,10 @@ router.get('/bobs-pizza/health', (req, res) => {
     service: "Bob's Pizza API",
     timestamp: new Date().toISOString(),
     endpoints: [
+      'GET /menu',
+      'GET /specials',
+      'GET /delivery-areas',
+      'POST /orders',
       'POST /inventory/check',
       'GET /orders/:orderNumber/status',
       'POST /bookings',
