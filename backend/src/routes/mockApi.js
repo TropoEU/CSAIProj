@@ -181,7 +181,7 @@ router.post('/bobs-pizza/inventory/check', (req, res) => {
   const { productName, productSku, quantity = 1 } = req.body;
 
   if (!productName && !productSku) {
-    return res.status(HTTP_STATUS.BAD_REQUEST).json({
+    return res.json({
       success: false,
       error: 'Please provide either productName or productSku',
     });
@@ -246,7 +246,7 @@ router.post('/bobs-pizza/inventory/check', (req, res) => {
   }
 
   if (!product) {
-    return res.status(HTTP_STATUS.NOT_FOUND).json({
+    return res.json({
       success: false,
       error: `Product "${productName || productSku}" not found in our catalog`,
     });
@@ -370,7 +370,7 @@ router.get('/bobs-pizza/orders/:orderNumber/status', (req, res) => {
   const order = orders[orderNumber];
 
   if (!order) {
-    return res.status(HTTP_STATUS.NOT_FOUND).json({
+    return res.json({
       success: false,
       error: `Order #${orderNumber} not found. Please check the order number and try again.`,
     });
@@ -438,7 +438,7 @@ router.post('/bobs-pizza/bookings', (req, res) => {
 
   // Validation
   if (!date || !time) {
-    return res.status(HTTP_STATUS.BAD_REQUEST).json({
+    return res.json({
       success: false,
       error: 'Date and time are required for booking',
     });
@@ -463,9 +463,12 @@ router.post('/bobs-pizza/bookings', (req, res) => {
     if (isNaN(actualDate.getTime())) {
       actualDate = new Date(date + 'T12:00:00');
     }
-    // If still invalid, default to today
+    // If still invalid, return error
     if (isNaN(actualDate.getTime())) {
-      actualDate = new Date();
+      return res.json({
+        success: false,
+        error: `Invalid date format: "${date}". Please use YYYY-MM-DD format or words like "today", "tomorrow".`,
+      });
     }
   }
 
@@ -494,7 +497,7 @@ router.post('/bobs-pizza/bookings', (req, res) => {
       (t) => !bookedSlots.some((slot) => slot.date === dateStr && slot.time === t)
     );
 
-    return res.status(HTTP_STATUS.CONFLICT).json({
+    return res.json({
       success: false,
       error: `Sorry, ${time} on ${formattedDate} is fully booked.`,
       availableTimes,
@@ -550,7 +553,7 @@ router.get('/bobs-pizza/bookings/:reservationId', (req, res) => {
   const reservation = reservations[reservationId];
 
   if (!reservation) {
-    return res.status(HTTP_STATUS.NOT_FOUND).json({
+    return res.json({
       success: false,
       error: `Reservation ${reservationId} not found`,
     });
@@ -570,7 +573,7 @@ router.get('/bobs-pizza/availability', (req, res) => {
   const { date } = req.query;
 
   if (!date) {
-    return res.status(HTTP_STATUS.BAD_REQUEST).json({
+    return res.json({
       success: false,
       error: 'Date parameter is required',
     });
@@ -744,7 +747,7 @@ router.get('/bobs-pizza/menu', (req, res) => {
   if (category && category !== 'all') {
     const categoryMenu = menu[category];
     if (!categoryMenu) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({
+      return res.json({
         success: false,
         error: `Category "${category}" not found. Available categories: pizzas, sides, drinks, specials`,
       });
@@ -917,17 +920,24 @@ router.get('/bobs-pizza/delivery-areas', (req, res) => {
     zone = deliveryZones.uptown;
   } else if (addressLower.includes('lake') || addressLower.includes('forest') || addressLower.includes('suburb')) {
     zone = deliveryZones.suburbs;
+  } else if (addressLower.includes('outside') || addressLower.includes('far') || addressLower.includes('rural')) {
+    zone = deliveryZones.outside;
   } else {
-    // Default to midtown for unrecognized addresses (for demo purposes)
-    zone = deliveryZones.midtown;
+    // Return error for unrecognized addresses
+    return res.json({
+      success: false,
+      error: `Unable to determine delivery zone for address: "${address}". Please provide a more specific address including street name.`,
+      hint: 'Try including neighborhood keywords like: downtown, main st, oak, elm, park, hill, lake, forest',
+      availableZones: Object.keys(deliveryZones).filter(z => z !== 'outside'),
+    });
   }
 
   if (!zone.available) {
     return res.json({
       success: false,
+      error: zone.message,
       address,
       deliveryAvailable: false,
-      message: zone.message,
       pickupAvailable: true,
       pickupAddress: '123 Main Street, Downtown',
     });
@@ -965,21 +975,21 @@ router.post('/bobs-pizza/orders', (req, res) => {
 
   // Validation
   if (!items || !Array.isArray(items) || items.length === 0) {
-    return res.status(HTTP_STATUS.BAD_REQUEST).json({
+    return res.json({
       success: false,
       error: 'At least one item is required to place an order',
     });
   }
 
   if (!customerPhone) {
-    return res.status(HTTP_STATUS.BAD_REQUEST).json({
+    return res.json({
       success: false,
       error: 'Customer phone number is required for order confirmation',
     });
   }
 
   if (orderType === 'delivery' && !deliveryAddress) {
-    return res.status(HTTP_STATUS.BAD_REQUEST).json({
+    return res.json({
       success: false,
       error: 'Delivery address is required for delivery orders',
     });
@@ -1006,16 +1016,12 @@ router.post('/bobs-pizza/orders', (req, res) => {
         total: itemTotal,
       });
     } else {
-      // Try to estimate price for unknown items
-      const estimatedPrice = 15.0;
-      const quantity = item.quantity || 1;
-      subtotal += estimatedPrice * quantity;
-      orderItems.push({
-        name: item.name,
-        quantity,
-        unitPrice: estimatedPrice,
-        total: estimatedPrice * quantity,
-        estimated: true,
+      // Return error for unknown menu items
+      return res.json({
+        success: false,
+        error: `Item "${item.name}" not found on our menu.`,
+        hint: 'Please check our menu for available items. Use GET /menu to see all options.',
+        availableCategories: ['pizzas', 'sides', 'drinks', 'specials'],
       });
     }
   }

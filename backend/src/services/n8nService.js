@@ -218,7 +218,31 @@ class N8nService {
           data = responseText || '';
         }
 
-        console.log(`[n8n] Webhook success (${executionTimeMs}ms)`);
+        console.log(`[n8n] Webhook HTTP success (${executionTimeMs}ms)`);
+
+        // Check if the response data indicates an error (even with HTTP 200)
+        // n8n workflows may return 200 with error data or wrapped error objects
+        if (this.isErrorResponse(data)) {
+          const errorMsg = this.extractErrorMessage(data) || 'API returned an error';
+          console.log(`[n8n] Response data indicates error: ${errorMsg}`);
+          return {
+            success: false,
+            data: null,
+            executionTimeMs,
+            error: errorMsg,
+          };
+        }
+
+        // Check for empty response which usually means something went wrong
+        if (data && typeof data === 'object' && Object.keys(data).length === 0) {
+          console.log('[n8n] Response data is empty object - treating as error');
+          return {
+            success: false,
+            data: null,
+            executionTimeMs,
+            error: 'Tool returned empty response - the operation may have failed',
+          };
+        }
 
         return {
           success: true,
@@ -420,9 +444,11 @@ class N8nService {
 
   /**
    * Check if response indicates an error
-   * Handles various API error patterns
+   * Handles various API error patterns including n8n error wrappers
    */
   isErrorResponse(response) {
+    if (!response || typeof response !== 'object') return false;
+
     // Explicit error fields
     if (response.error || response.err || response.errorMessage) return true;
 
@@ -439,7 +465,40 @@ class N8nService {
     if (response.statusCode >= 400) return true;
     if (response.code >= 400) return true;
 
+    // n8n error wrapper patterns (when n8n catches HTTP errors)
+    if (response.body?.success === false) return true;
+    if (response.body?.error) return true;
+    if (response.data?.success === false) return true;
+    if (response.data?.error) return true;
+
     return false;
+  }
+
+  /**
+   * Extract error message from various response formats
+   * Handles nested structures from n8n error handling
+   */
+  extractErrorMessage(response) {
+    if (!response || typeof response !== 'object') return null;
+
+    // Direct error fields
+    if (response.error && typeof response.error === 'string') return response.error;
+    if (response.errorMessage) return response.errorMessage;
+    if (response.err) return response.err;
+    if (response.message && response.success === false) return response.message;
+
+    // Nested in body (n8n error wrapper)
+    if (response.body?.error) return response.body.error;
+    if (response.body?.message) return response.body.message;
+
+    // Nested in data
+    if (response.data?.error) return response.data.error;
+    if (response.data?.message) return response.data.message;
+
+    // Error object with message
+    if (response.error?.message) return response.error.message;
+
+    return null;
   }
 
   /**

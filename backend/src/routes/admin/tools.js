@@ -327,7 +327,10 @@ router.post('/clients/:clientId/tools/:id/test', async (req, res) => {
       }
     }
 
-    const result = await n8nService.executeTool(clientTool.n8n_webhook_url, parameters || {}, {
+    // Convert webhook URL to test URL (webhook -> webhook-test) for n8n test mode
+    const testWebhookUrl = clientTool.n8n_webhook_url.replace('/webhook/', '/webhook-test/');
+
+    const result = await n8nService.executeTool(testWebhookUrl, parameters || {}, {
       integrations,
     });
 
@@ -336,6 +339,7 @@ router.post('/clients/:clientId/tools/:id/test', async (req, res) => {
       message: 'Tool test successful',
       tool: clientTool.tool_name,
       webhook: clientTool.n8n_webhook_url,
+      testWebhook: testWebhookUrl,
       integrationsLoaded: Object.keys(integrations),
       result: result,
     });
